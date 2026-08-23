@@ -1,0 +1,157 @@
+#!/usr/bin/env fish
+#
+# Fish smoke tests. Run with --no-config so nothing here can accidentally
+# depend on a personal config.fish:
+#
+#     fish --no-config tests/fish/smoke.fish
+#
+# The discovery tests go further and build a throwaway Fisher-shaped install
+# under $XDG_CONFIG_HOME, so "the package works" means "the files land where
+# Fisher puts them and Fish autoloads them from there".
+#
+
+set -g ROOT (path resolve (status dirname)/../..)
+set -g FISH (status fish-path)
+set -g PASS 0
+set -g FAIL 0
+
+function ok
+    set -g PASS (math $PASS + 1)
+    echo "  ok    $argv[1]"
+end
+
+function bad
+    set -g FAIL (math $FAIL + 1)
+    echo "  FAIL  $argv[1]" >&2
+    set -q argv[2]; and echo "        $argv[2]" >&2
+    # Succeed, like ok does. The inverted checks below are written
+    # `cond; and bad ...` / `or ok ...`, and a failing bad would let the
+    # trailing `or` fire too — printing FAIL and then a contradictory ok, and
+    # counting the case as passed.
+    return 0
+end
+
+function eq -a desc expected actual
+    test "$expected" = "$actual"; and ok $desc; or bad $desc "expected [$expected], got [$actual]"
+end
+
+function has -a desc needle haystack
+    string match --quiet "*$needle*" -- "$haystack"; and ok $desc
+    or bad $desc "[$haystack] does not contain [$needle]"
+end
+
+function group
+    echo
+    echo $argv[1]
+end
+
+#
+# 1. Package layout — what Fisher will actually copy.
+#
+group "Fisher package layout"
+for d in functions conf.d completions
+    test -d $ROOT/$d; and ok "$d/ exists at the repository root"
+    or bad "$d/ is missing from the repository root"
+end
+test -d $ROOT/fish; and bad "there is a fish/ directory — the package must live at the root"
+or ok "there is no fish/ directory to confuse Fisher"
+
+# conf.d runs on every interactive start, so the default is that it is empty.
+set -l confd $ROOT/conf.d/*.fish
+eq "conf.d/ contains no startup files" "" "$confd"
+
+# One public function per file, named after the file.
+for file in $ROOT/functions/*.fish
+    set -l name (path basename $file | string replace -r '\.fish$' '')
+    if string match --quiet --regex "(?m)^function\s+$name(\s|\$)" -- (cat $file | string collect)
+        ok "functions/$name.fish defines $name"
+    else
+        bad "functions/$name.fish does not define a function called $name"
+    end
+end
+
+#
+# 2. Discovery through a throwaway Fisher-shaped install.
+#
+group "autoloading from a Fisher-shaped install"
+set -l sandbox (mktemp -d)
+mkdir -p $sandbox/config/fish $sandbox/data $sandbox/home
+cp -R $ROOT/functions $ROOT/conf.d $ROOT/completions $sandbox/config/fish/
+test -f $sandbox/config/fish/config.fish; and bad "the sandbox has a config.fish"
+or ok "the sandbox has no config.fish at all"
+
+# Deliberately *not* --no-config: that empties $fish_function_path, and
+# autoloading from the installed layout is exactly what is under test. The
+# sandbox has no config.fish, but the machine's own fish prefix may still ship
+# vendor conf.d snippets, so these captures read stdout only and the stderr
+# assertions below match on a substring.
+set -l isolated env XDG_CONFIG_HOME=$sandbox/config XDG_DATA_HOME=$sandbox/data HOME=$sandbox/home $FISH
+
+set -l out ($isolated --command '
+    for f in fish_prompt dns_records gwip gunwip gunwipall et _shell_terminal_reset
+        functions --query $f; or echo "not discoverable: $f"
+    end' 2>/dev/null | string collect)
+eq "every packaged function is discoverable without sourcing anything" "" "$out"
+
+set out ($isolated --command 'functions fish_prompt' 2>/dev/null | string collect)
+has "the installed fish_prompt is ours, not Fish's default" "Pure-like" "$out"
+
+#
+# 3. The prompt.
+#
+group "prompt"
+set out ($isolated --command 'cd $HOME; true; fish_prompt' 2>/dev/null | cat -v | string collect)
+has "success prompt is magenta" '^[[35m' "$out"
+has "success prompt shows the directory in blue" '^[[34m~' "$out"
+has "success prompt ends in a chevron" 'M-bM-^]M-/' "$out"
+
+set out ($isolated --command 'cd $HOME; false; fish_prompt' 2>/dev/null | cat -v | string collect)
+has "failure prompt is red" '^[[31m' "$out"
+
+set out ($isolated --command 'cd /; true; fish_prompt' 2>/dev/null | cat -v | string collect)
+has "the prompt renders at the filesystem root" '^[[34m/' "$out"
+
+# Two lines of prompt plus the leading blank separator line.
+set out ($isolated --command 'cd $HOME; true; fish_prompt' 2>/dev/null | string collect --no-trim-newlines | string split \n)
+eq "the prompt starts with a blank line" "" "$out[1]"
+eq "the prompt is three lines: blank, directory, chevron" "3" (count $out)
+
+#
+# 4. Behaviour of the packaged functions.
+#
+group "command behaviour"
+$isolated --command 'dns_records' >/dev/null 2>&1
+eq "dns_records without an argument exits 2" "2" "$status"
+
+set -l nopath (mktemp -d)
+env XDG_CONFIG_HOME=$sandbox/config XDG_DATA_HOME=$sandbox/data HOME=$sandbox/home PATH=$nopath \
+    $FISH --command 'dns_records example.com' >/dev/null 2>&1
+eq "dns_records without dig exits 127" "127" "$status"
+rm -rf $nopath
+
+set -l fakebin (mktemp -d)
+printf '#!/bin/sh\nexit 42\n' > $fakebin/et
+chmod +x $fakebin/et
+env XDG_CONFIG_HOME=$sandbox/config XDG_DATA_HOME=$sandbox/data HOME=$sandbox/home PATH=$fakebin:$PATH \
+    $FISH --command 'et --whatever' >/dev/null 2>&1
+eq "et forwards the exit status of the real et" "42" "$status"
+
+set out (env XDG_CONFIG_HOME=$sandbox/config XDG_DATA_HOME=$sandbox/data HOME=$sandbox/home PATH=$fakebin:$PATH \
+    $FISH --command 'et --whatever' 2>/dev/null | cat -v | string collect)
+eq "et resets the terminal before and after" \
+   '^[[?1049l^[[?1047l^[[?47l^[[?1l^[[?1000l^[[?1002l^[[?1003l^[[?1006l^[[?1007l^[[?1049l^[[?1047l^[[?47l^[[?1l^[[?1000l^[[?1002l^[[?1003l^[[?1006l^[[?1007l' \
+   "$out"
+rm -rf $fakebin
+
+set -l norepo (mktemp -d)
+$isolated --command "cd $norepo; gunwipall" >/dev/null 2>&1
+eq "gunwipall outside a repository exits 1" "1" "$status"
+set out ($isolated --command "cd $norepo; gunwipall" 2>&1 >/dev/null | string collect)
+has "gunwipall says why" "not inside a git repository" "$out"
+rm -rf $norepo
+
+rm -rf $sandbox
+
+echo
+echo "fish: $PASS passed, $FAIL failed"
+test $FAIL -eq 0

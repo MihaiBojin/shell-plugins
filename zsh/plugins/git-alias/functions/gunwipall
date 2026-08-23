@@ -1,0 +1,31 @@
+# Undo every recent `--wip--` commit, not just the last one.
+#
+# `gunwip` resets exactly one commit. This resets to the newest commit whose
+# subject is *not* a `--wip--`, dropping the whole run of them at once. The
+# changes stay in the working tree — this is a mixed reset, like gunwip's.
+emulate -L zsh
+
+# Walked by hand rather than with --grep --invert-grep, which matches the
+# whole commit message: a real commit whose body mentions --wip-- would be
+# taken for a wip and reset past, losing it.
+#
+# --first-parent because a wip commit can itself be a merge — gwip parking a
+# conflicted one — and a plain walk crosses into the merged-in branch and
+# resets this branch onto a commit that was never on it.
+local commit='' head line
+head=$(git rev-parse HEAD 2>/dev/null) || return 1
+while IFS= read -r line; do
+  [[ ${line#* } == *'--wip--'* ]] && continue
+  commit=${line%% *}
+  break
+done < <(git log --first-parent --format='%H %s' 2>/dev/null)
+
+# No non-wip commit anywhere in the history: resetting to an empty revision
+# would silently turn into a bare `git reset`, which unstages everything.
+[[ -n $commit ]] || {
+  print -ru2 -- "gunwipall: every commit is a --wip-- — nothing to reset onto"
+  return 1
+}
+
+[[ $commit == $head ]] && return 0
+git reset "$commit"

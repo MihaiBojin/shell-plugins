@@ -1,0 +1,17 @@
+# Commits on branch $1 that its upstream has not got, in the repository at $2
+# (default: $PWD). Prints the count and returns 0.
+#
+# Returns 1 and prints nothing when the branch has no upstream: the answer is
+# then unknown, not zero. gwa creates branches with --no-track, so "no
+# upstream" is the normal state for the branches this plugin makes, and
+# reporting zero would quietly disarm the guard for exactly those.
+#
+# A branch with unpushed work is not finished, whatever a merged pull request
+# says about the part of it that was pushed.
+emulate -L zsh
+
+local branch=$1 repo=${2:-$PWD} upstream count
+upstream=$(git -C "$repo" rev-parse --abbrev-ref --symbolic-full-name "${branch}@{upstream}" 2>/dev/null) || upstream=''
+[[ -n $upstream ]] || return 1
+count=$(git -C "$repo" rev-list --count "${upstream}..refs/heads/${branch}" 2>/dev/null) || return 1
+print -r -- "${count:-0}"

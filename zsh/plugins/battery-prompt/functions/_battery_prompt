@@ -1,0 +1,91 @@
+# Print the battery segment, or nothing at all when there is no battery, none
+# of the thresholds are met, or the cached answer is still fresh.
+#
+# Autoloaded by battery-prompt.plugin.zsh. Safe to call by hand — that is how
+# you use it with `zstyle ':battery-prompt:' show no` and a custom RPROMPT.
+
+emulate -L zsh
+
+# $EPOCHSECONDS drives the cache. Loaded on first render rather than at plugin
+# load: pulling in a dynamic module costs a few milliseconds, and a shell that
+# never shows the segment should never pay them. Do not assume another plugin
+# loaded it — this has to work when sourced alone.
+(( $+EPOCHSECONDS )) || zmodload -F zsh/datetime p:EPOCHSECONDS 2>/dev/null
+
+local now=${EPOCHSECONDS:-0}
+
+# Fast path: the cached answer is still fresh. Most prompts end here.
+if (( _battery_prompt_cache_seconds > 0 &&
+      now - _battery_prompt_cache_time < _battery_prompt_cache_seconds )); then
+  [[ -n "$_battery_prompt_cache_output" ]] && print -r -- "$_battery_prompt_cache_output"
+  return 0
+fi
+
+local bat_pct bat_time bat_charging icon color output
+local threshold_low threshold_high color_low color_high color_charging
+
+if [[ "$OSTYPE" == darwin* ]]; then
+  local pmset_out
+  pmset_out=$(pmset -g batt 2>/dev/null)
+  # Zsh's own regex matching, so parsing costs no extra grep/tr/cut.
+  [[ $pmset_out =~ ([0-9]+)% ]] && bat_pct=$match[1]
+  [[ $pmset_out =~ ([0-9]+:[0-9]+)' remaining' ]] && bat_time=$match[1]
+  [[ $pmset_out == *"; charging;"* ]] && bat_charging=1
+elif [[ -f /sys/class/power_supply/BAT0/capacity ]]; then
+  # read(1)-free: the builtin reads sysfs directly, so no process per prompt.
+  # Not `status`: zsh ties that name to $?, and it is read-only, so `local
+  # status` does not detach it and `read -r status` aborts the function — with
+  # 2>/dev/null, silently, before the cache below is ever stamped.
+  local energy_now power_now hours mins bat_status
+  read -r bat_pct < /sys/class/power_supply/BAT0/capacity 2>/dev/null
+  read -r bat_status < /sys/class/power_supply/BAT0/status 2>/dev/null
+  [[ $bat_status == "Charging" ]] && bat_charging=1
+  read -r energy_now < /sys/class/power_supply/BAT0/energy_now 2>/dev/null
+  read -r power_now < /sys/class/power_supply/BAT0/power_now 2>/dev/null
+  if [[ -n "$power_now" && "$power_now" == <-> && "$power_now" -gt 0 ]]; then
+    hours=$(( energy_now / power_now ))
+    mins=$(( (energy_now % power_now) * 60 / power_now ))
+    # (l:2::0:) zero-pads the minutes; hours are printed as-is.
+    bat_time="${hours}:${(l:2::0:)mins}"
+  fi
+fi
+
+# Stamp the cache even when there is no battery: a desktop should ask once a
+# minute, not once a prompt.
+_battery_prompt_cache_time=$now
+
+[[ -z "$bat_pct" ]] && { _battery_prompt_cache_output=; return 0 }
+
+if [[ -n "$bat_charging" ]]; then
+  zstyle -s ':battery-prompt:' icon_charging icon || icon="󰂄"
+else
+  zstyle -s ':battery-prompt:' icon icon || icon="󰁻"
+fi
+zstyle -s ':battery-prompt:' threshold_low threshold_low   || threshold_low=25
+zstyle -s ':battery-prompt:' threshold_high threshold_high || threshold_high=50
+zstyle -s ':battery-prompt:' color_low color_low           || color_low="#ff5555"
+zstyle -s ':battery-prompt:' color_high color_high         || color_high="#f1fa8c"
+zstyle -s ':battery-prompt:' color_charging color_charging || color_charging="#50fa7b"
+
+if [[ -n "$bat_charging" ]]; then
+  # Charging is always worth showing: it says the cable is doing its job.
+  color=$color_charging
+elif (( bat_pct <= threshold_low )); then
+  color=$color_low
+elif (( bat_pct <= threshold_high )); then
+  color=$color_high
+else
+  # Plenty of charge — say nothing at all.
+  _battery_prompt_cache_output=
+  return 0
+fi
+
+# %% survives the prompt expansion that RPROMPT gets, and arrives as one '%'.
+output="${icon} ${bat_pct}%%"
+
+if zstyle -T ':battery-prompt:' show_remaining && [[ -n "$bat_time" ]]; then
+  output="${output} (${bat_time}h left)"
+fi
+
+_battery_prompt_cache_output="%F{${color}}${output}%f"
+print -r -- "$_battery_prompt_cache_output"

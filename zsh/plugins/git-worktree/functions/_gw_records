@@ -1,0 +1,44 @@
+# Every worktree of the repository containing $1 (default: $PWD), one per line,
+# as four tab-separated fields:
+#
+#     <path> \t <sha> \t <branch> \t <flags>
+#
+# <branch> is empty for a detached or bare checkout; <flags> is a
+# comma-separated subset of bare,detached,locked,prunable. The main checkout is
+# included, first — `git worktree list` always names it first, and _gw_dest
+# relies on that.
+#
+# This is the one place `git worktree list --porcelain` is parsed. Fails when
+# there is no repository, or nothing to list.
+emulate -L zsh
+
+# NB: `wt` rather than `path` — `path` is tied to $PATH, and a local one
+# empties it for the length of the call, so nothing external can be found.
+local out rec line wt sha branch flags key
+local -A seen
+
+out=$(git -C "${1:-$PWD}" worktree list --porcelain 2>/dev/null) || return 1
+
+for rec in ${(ps:\n\n:)out}; do
+  wt='' sha='' branch='' flags=''
+  for line in ${(f)rec}; do
+    case $line in
+      'worktree '*) wt=${line#worktree } ;;
+      'HEAD '*)     sha=${line#HEAD } ;;
+      'branch '*)   branch=${${line#branch }#refs/heads/} ;;
+      bare)         flags+='bare,' ;;
+      detached)     flags+='detached,' ;;
+      locked*)      flags+='locked,' ;;
+      prunable*)    flags+='prunable,' ;;
+    esac
+  done
+  [[ -n $wt ]] || continue
+  # A worktree listed twice under different spellings of the same directory is
+  # still one worktree.
+  key=${wt:A}
+  (( ${+seen[$key]} )) && continue
+  seen[$key]=1
+  print -r -- "$wt"$'\t'"$sha"$'\t'"$branch"$'\t'"${flags%,}"
+done
+
+(( $#seen ))

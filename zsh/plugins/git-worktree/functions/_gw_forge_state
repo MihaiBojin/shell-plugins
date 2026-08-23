@@ -1,0 +1,16 @@
+# The state of branch $1's pull/merge request, into $REPLY as
+# "<STATE>\t<number>". Returns non-zero when the branch has none.
+#
+# Newest entry wins: a branch reused after its first request merged is a branch
+# with two, and the forges list the newest first.
+emulate -L zsh
+
+local branch=$1 line
+REPLY=''
+
+for line in ${(f)_GW_FORGE_PRS}; do
+  [[ ${line%%$'\t'*} == "$branch" ]] || continue
+  REPLY=${line#*$'\t'}
+  return 0
+done
+return 1

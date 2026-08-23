@@ -1,0 +1,9 @@
+# The worktree that has branch $1 checked out, if any.
+local line wt=''
+while IFS= read -r line; do
+  case $line in
+    'worktree '*)           wt=${line#worktree } ;;
+    "branch refs/heads/$1") [[ -n $wt ]] && { print -r -- "$wt"; return 0 } ;;
+  esac
+done < <(git worktree list --porcelain 2>/dev/null)
+return 1

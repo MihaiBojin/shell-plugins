@@ -1,0 +1,33 @@
+# Clone $1 into $2, or bring it up to date if it is already there.
+#
+#   clone_repo MihaiBojin/shell-plugins ~/git/MihaiBojin
+#
+# Needs the GitHub CLI, which is what knows how to resolve OWNER/REPO and which
+# protocol to use.
+emulate -L zsh
+
+(( $# >= 2 )) || {
+  print -ru2 -- "usage: clone_repo REPO PARENT_DIR"
+  return 2
+}
+
+local repo=$1 parent=$2
+local dir=$parent/${repo:t}
+
+if [[ -d $dir ]]; then
+  print -ru2 -- "Repository '$repo' exists in '$dir'. Fetching updates."
+  git -C "$dir" fetch --all || return 1
+  git -C "$dir" status
+  git -C "$dir" pull --autostash
+  return $?
+fi
+
+(( $+commands[gh] )) || {
+  print -ru2 -- "clone_repo: gh is not installed — see https://cli.github.com"
+  return 127
+}
+
+print -ru2 -- "Cloning '$repo' to '$dir'."
+mkdir -p -- "$parent" || return 1
+# The destination is passed explicitly; without it gh clones into $PWD.
+gh repo clone "$repo" "$dir"

@@ -1,0 +1,9 @@
+#compdef gwa
+# Completion for `gwa NAME [BASE]`. NAME is a branch that does not exist yet,
+# so there is nothing to offer for it; BASE is an existing ref.
+_arguments -s \
+  '(-h --help)'{-h,--help}'[show usage]' \
+  '(--no-fetch)--fetch[check whether the remote already has NAME]' \
+  '(--fetch)--no-fetch[stay offline]' \
+  '1:new branch name:' \
+  '2:base branch:_gw_branches'

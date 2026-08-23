@@ -1,0 +1,25 @@
+# Is branch $1 finished with respect to $2, in the repository at $3 (default:
+# $PWD)? Sets $REPLY to why — `merged` or `squash-merged` — and returns 0;
+# returns 1 and leaves REPLY empty otherwise.
+emulate -L zsh
+
+# refs/heads/ explicitly: a branch name used as a revision is resolved by git
+# as a tag first, so a tag and a branch sharing a name make this answer about
+# the tag. The names come from `git worktree list --porcelain`, which reports
+# `branch refs/heads/...`, so they are always local heads.
+
+local branch=$1 head_ref=$2 repo=${3:-$PWD}
+REPLY=''
+
+# The plain case: every commit on the branch is already in the head branch.
+if git -C "$repo" merge-base --is-ancestor "refs/heads/$branch" "$head_ref" 2>/dev/null; then
+  REPLY=merged
+  return 0
+fi
+
+if _gw_squash_merged "$branch" "$head_ref" "$repo"; then
+  REPLY=squash-merged
+  return 0
+fi
+
+return 1

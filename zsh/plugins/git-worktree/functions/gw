@@ -1,0 +1,3 @@
+# gw / gwh — what this plugin provides. Prints on stdout, so it can be piped.
+emulate -L zsh
+_gw_usage 1

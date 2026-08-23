@@ -1,0 +1,2 @@
+# Print a note. Every message goes to stderr: stdout carries selected paths.
+print -ru2 -- "${_GW_DIM}gw: $*${_GW_RESET}"

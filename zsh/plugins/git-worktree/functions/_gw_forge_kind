@@ -1,0 +1,25 @@
+# `github`, `gitlab`, or nothing and a non-zero status, for remote $1 in the
+# repository at $2 (default: $PWD).
+#
+# Derived from the remote URL, which is right for the hosted services and wrong
+# for anything self-hosted under its own domain — so a style overrides it:
+#
+#     zstyle ':git-worktree:' forge github     # or gitlab, or no
+emulate -L zsh
+
+local remote=$1 repo=${2:-$PWD} stated url
+
+if zstyle -s ':git-worktree:' forge stated; then
+  case $stated in
+    github|gitlab) print -r -- $stated; return 0 ;;
+    *)             return 1 ;;
+  esac
+fi
+
+[[ -n $remote ]] || return 1
+url=$(git -C "$repo" remote get-url "$remote" 2>/dev/null) || return 1
+case $url in
+  *github.com[:/]*) print -r -- github ;;
+  *gitlab.com[:/]*) print -r -- gitlab ;;
+  *)                return 1 ;;
+esac

@@ -1,0 +1,47 @@
+# Prompt for a worktree; prints the selected path. $1 is the picker label,
+# $2 an optional starting query.
+emulate -L zsh
+
+# NB: no local named `prompt` here — that one is a synonym for $PS1.
+local label=${1:-worktree>} query=${2:-}
+local -a lines
+
+_gw_in_repo || { _gw_err "not inside a git repository"; return 1 }
+
+lines=( ${(f)"$(_gw_list)"} )
+# Inside a repository this is never empty: its own checkout is always listed.
+if (( ! $#lines )); then
+  _gw_err "no worktrees found"
+  return 1
+fi
+
+local sel
+if (( $+commands[fzf] )); then
+  local -a opts
+  # Show the path but keep it out of the search: fuzzy-matching a long
+  # absolute path makes every entry match nearly every query.
+  opts=(
+    --ansi --height=50% --layout=reverse --border --tabstop=1
+    --prompt="$label " --delimiter=$'\t' --with-nth=1,2 --nth=1
+    --color='hl:#ffcc00,info:#00ffcc,prompt:#ff00ff,pointer:#ff3300'
+    --preview='git -C {3} -c color.ui=always status --short --branch; echo; git -C {3} -c color.ui=always log --oneline --decorate -15'
+    --preview-window='down:12:wrap'
+  )
+  [[ -n $query ]] && opts+=( --query="$query" --select-1 --exit-0 )
+  sel=$(print -rl -- "${lines[@]}" | fzf "${opts[@]}") || return 1
+else
+  local i
+  for (( i = 1; i <= $#lines; i++ )); do
+    print -ru2 -- "${(l:3:)i}) ${${lines[i]%$'\t'*}//$'\t'/ }"
+  done
+  # Not read's ?prompt: it only appears in an interactive shell, and this
+  # runs inside $( ). Same shape as _gw_choose.
+  local ans
+  print -ru2 -n -- "Selection (1-$#lines): "
+  read ans || { print -ru2 -- ""; return 1 }
+  [[ $ans == <-> ]] && (( ans >= 1 && ans <= $#lines )) || { _gw_err "invalid selection"; return 1 }
+  sel=${lines[ans]}
+fi
+
+[[ -n $sel ]] || return 1
+print -r -- "${sel##*$'\t'}"

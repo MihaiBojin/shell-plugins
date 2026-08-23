@@ -1,0 +1,40 @@
+# Is the *change* branch $1 makes already in $2, in the repository at $3
+# (default: $PWD)?
+#
+# `git branch --merged` answers for the merge git can see. Most branches now
+# end in a squash, which rewrites their commits into one, so git sees a branch
+# whose commits appear nowhere in the head branch — the same shape as a branch
+# nobody ever merged. Reaping on that reading loses work; refusing on it means
+# never reaping anything.
+#
+# So ask a different question. Replay the branch's tree as a single commit on
+# top of the merge base, and let `git cherry` say whether that patch is already
+# upstream. It compares content rather than history, which is what a squash
+# preserves.
+emulate -L zsh
+
+local branch=$1 head_ref=$2 repo=${3:-$PWD} base tree head_tree synth verdict
+
+base=$(git -C "$repo" merge-base "$head_ref" "refs/heads/$branch" 2>/dev/null) || return 1
+[[ -n $base ]] || return 1
+tree=$(git -C "$repo" rev-parse "refs/heads/${branch}^{tree}" 2>/dev/null) || return 1
+[[ -n $tree ]] || return 1
+
+# A branch that leaves the head branch's tree exactly as it found it has
+# nothing left to contribute, whatever its history says.
+head_tree=$(git -C "$repo" rev-parse "${head_ref}^{tree}" 2>/dev/null) || head_tree=''
+[[ -n $head_tree && $tree == $head_tree ]] && return 0
+
+# The identity has to be pinned: commit-tree fails outright when user.email is
+# unset, and a fixed one also keeps the synthetic commit reproducible. Nothing
+# references it, so the next gc collects it.
+synth=$(
+  GIT_AUTHOR_NAME=gw GIT_AUTHOR_EMAIL=gw@localhost GIT_AUTHOR_DATE='@0 +0000' \
+  GIT_COMMITTER_NAME=gw GIT_COMMITTER_EMAIL=gw@localhost GIT_COMMITTER_DATE='@0 +0000' \
+  git -C "$repo" commit-tree "$tree" -p "$base" -m _ 2>/dev/null
+) || return 1
+[[ -n $synth ]] || return 1
+
+# A leading '-' means the patch is already upstream; '+' means it is not.
+verdict=$(git -C "$repo" cherry "$head_ref" "$synth" 2>/dev/null) || return 1
+[[ $verdict == '-'* ]]

@@ -1,0 +1,5 @@
+# Remove every pinned app from the Dock, leaving the running ones and the
+# right-hand side alone. Takes effect on `killall Dock`.
+emulate -L zsh
+print -r -- "Delete persistent apps"
+defaults delete com.apple.dock persistent-apps

@@ -1,0 +1,15 @@
+# Move $1 aside, named after the moment it happened, if it is there at all.
+#
+#   backup_if_exists ~/.zshrc   ->  ~/.zshrc.backup.20260823141530
+emulate -L zsh
+
+[[ -n ${1-} ]] || {
+  print -ru2 -- "usage: backup_if_exists PATH"
+  return 2
+}
+# -e is false for a broken symlink, which is exactly the thing worth keeping.
+[[ -e $1 || -L $1 ]] || return 0
+
+local backup=$1.backup.$(date +%Y%m%d%H%M%S)
+print -r -- "Moving old config to: $backup"
+mv -- "$1" "$backup"

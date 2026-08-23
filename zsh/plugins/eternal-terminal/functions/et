@@ -1,0 +1,25 @@
+# Eternal Terminal, with the local terminal's state reset around it.
+#
+# Chain: WezTerm/Ghostty -> et -> remote tmux. tmux runs in the alternate
+# screen buffer (?1049h) with application cursor keys (?1h). On a clean
+# disconnect tmux DECRSTs them; on an abrupt et death (network drop / crash)
+# it can't, so the outer terminal stays stuck in the alt screen. While in the
+# alt screen WezTerm translates the mouse wheel into arrow keys -> zsh walks
+# history instead of scrolling the pane. (Confirmed: DECRST-ing the mouse
+# modes alone does nothing; leaving the alt screen is what fixes it.)
+#
+# We reset the alt-screen buffer (?1049/?1047/?47), application cursor keys
+# (?1), and the mouse-tracking modes (?1000-?1007, harmless belt-and-suspenders
+# so a stuck tracking mode doesn't spew on click) both BEFORE connecting (so
+# reconnecting into a surviving tmux session starts from a clean baseline —
+# fixes the "still broken after reconnect" case) and AFTER et returns (fixes
+# the local prompt — this runs on a crash too, since the function resumes when
+# et's process dies).
+emulate -L zsh
+
+local reset=$'\e[?1049l\e[?1047l\e[?47l\e[?1l\e[?1000l\e[?1002l\e[?1003l\e[?1006l\e[?1007l'
+printf '%s' "$reset"
+command et "$@"
+local rc=$?
+printf '%s' "$reset"
+return $rc

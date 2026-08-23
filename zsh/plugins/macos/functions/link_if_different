@@ -1,0 +1,21 @@
+# Point $2 at $1, backing up whatever was there first. Does nothing if the
+# symlink already points where it should.
+#
+#   link_if_different ~/dotfiles/vimrc ~/.vimrc
+emulate -L zsh
+
+(( $# >= 2 )) || {
+  print -ru2 -- "usage: link_if_different ACTUAL LINK"
+  return 2
+}
+
+local actual=$1 link=$2
+if [[ -L $link && $(readlink -- "$link") == "$actual" ]]; then
+  print -r -- "Nothing to do."
+  return 0
+fi
+
+print -r -- "Linking $actual ..."
+backup_if_exists "$link" || return 1
+ln -sf -- "$actual" "$link" || return 1
+print -r -- "Done."

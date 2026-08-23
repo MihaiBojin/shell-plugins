@@ -1,0 +1,17 @@
+# Where a worktree for branch $1 would live for the current repository.
+#
+# The directory is the branch name as written, slashes and all, so `fix/login`
+# nests at <root>/fix/login/<REPO>. Directory name equals branch name is the
+# invariant every tool writing into this root keeps; whether to put a slash in
+# a branch name is the user's decision, not ours to flatten away.
+#
+# That does mean one branch's worktree can be another branch's parent
+# directory — branch `fix` in a repository called `login` wants <root>/fix/login
+# and so does branch `fix/login` — which gwa checks for and names.
+#
+# <root> comes from _gw_wt_dir: `.worktrees` beside the main checkout, derived
+# rather than configured, so this is stable from inside a worktree too.
+local main root
+main=$(_gw_main_worktree) || return 1
+root=$(_gw_wt_dir "$main") || return 1
+print -r -- "$root/$1/${${main:t}%.git}"

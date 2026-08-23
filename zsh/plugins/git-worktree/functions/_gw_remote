@@ -1,0 +1,56 @@
+# The remote to derive ORG/REPO and the default branch from.
+#
+# Asked of the repository at $1 after any -i (default: $PWD).
+#
+# `origin` is a convention, not a fact: a repository may have one remote called
+# something else entirely, or several with no obvious winner. So ask the
+# repository what it thinks first, in decreasing order of specificity, and only
+# fall back to a name. With -i, a genuine tie asks rather than guesses, and
+# remembers the answer in the repo's own config.
+emulate -L zsh
+local interactive=0
+[[ ${1:-} == -i ]] && { interactive=1; shift }
+local repo=${1:-$PWD}
+
+local -a remotes
+remotes=( ${(f)"$(git -C "$repo" remote 2>/dev/null)"} )
+(( $#remotes )) || return 1
+(( $#remotes == 1 )) && { print -r -- ${remotes[1]}; return 0 }
+
+# Deliberate settings first. branch.<name>.remote comes last because every
+# clone sets it automatically — it says where the current branch came from,
+# not which remote the repository belongs to — but it still beats a guess.
+local cand branch
+local -a stated
+# git-worktree-plugin.remote is the shared key: the companion `origin` plugin
+# reads the same one, so a repository answers this question once for both.
+# This plugin used to write gw.remote; migrate with
+#   git config --rename-section gw git-worktree-plugin
+zstyle -s ':git-worktree:' remote cand && stated+=( "$cand" )
+cand=$(git -C "$repo" config --get git-worktree-plugin.remote 2>/dev/null) && stated+=( "$cand" )
+cand=$(git -C "$repo" config --get checkout.defaultRemote 2>/dev/null) && stated+=( "$cand" )
+cand=$(git -C "$repo" config --get remote.pushDefault 2>/dev/null)     && stated+=( "$cand" )
+branch=$(git -C "$repo" symbolic-ref --quiet --short HEAD 2>/dev/null) &&
+  cand=$(git -C "$repo" config --get "branch.$branch.remote" 2>/dev/null) && stated+=( "$cand" )
+
+for cand in $stated; do
+  [[ -n $cand && $cand != . ]] || continue
+  (( ${remotes[(Ie)$cand]} )) && { print -r -- "$cand"; return 0 }
+done
+
+if (( interactive )); then
+  local -a items
+  # origin first when it exists — likeliest intent, still an explicit choice
+  for cand in ${remotes[(r)origin]} ${remotes:#origin}; do
+    items+=( "$cand"$'\t'"$(git -C "$repo" remote get-url $cand 2>/dev/null)" )
+  done
+  local chosen
+  chosen=$(_gw_choose "$#remotes remotes and nothing says which one — pick:" "${items[@]}") || return 1
+  git -C "$repo" config git-worktree-plugin.remote "$chosen" 2>/dev/null &&
+    _gw_info "remembered: git -C "$repo" config git-worktree-plugin.remote $chosen  (undo: git -C "$repo" config --unset git-worktree-plugin.remote)"
+  print -r -- "$chosen"
+  return 0
+fi
+
+(( ${remotes[(Ie)origin]} )) && { print -r -- origin; return 0 }
+print -r -- ${remotes[1]}

@@ -1,0 +1,26 @@
+# Mount the disk image at $1 and copy the application $3 out of volume $2 into
+# /Applications, then unmount.
+#
+#   install_dmg https://example.com/thing.dmg Thing Thing
+emulate -L zsh
+
+(( $# >= 3 )) || {
+  print -ru2 -- "usage: install_dmg URL VOLUME_NAME APP_NAME"
+  return 2
+}
+
+local url=$1 volume=$2 app=$3 dir tmp
+local mount=/Volumes/$volume
+# The download goes inside a directory mktemp created, not next to it:
+# `$(mktemp -t x).pkg` leaves the file mktemp actually made lying around and
+# writes to a path nothing created safely — which then goes to `sudo` as root,
+# on a /tmp anyone can write to.
+dir=$(mktemp -d -t install_dmg) || return 1
+tmp=$dir/download.dmg
+trap "hdiutil detach ${(q)mount} >/dev/null 2>&1; rm -rf ${(q)dir}" EXIT INT TERM
+
+print -r -- "Installing $app"
+curl -fLo "$tmp" "$url" || return 1
+hdiutil attach "$tmp" -nobrowse || return 1
+# -pPR keeps the bundle's symlinks and permissions, which an .app needs.
+cp -pPR "/Volumes/$volume/$app.app" /Applications/

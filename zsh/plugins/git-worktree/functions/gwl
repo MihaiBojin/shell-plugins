@@ -1,0 +1,19 @@
+# gwl [QUERY] — pick one of this repository's worktrees and cd into it.
+emulate -L zsh
+
+local -a pos
+while (( $# )); do
+  case $1 in
+    -h|--help) _gw_usage; return 0 ;;
+    --)        shift; pos+=( "$@" ); break ;;
+    -*)        _gw_err "unknown option: $1"; return 2 ;;
+    *)         pos+=( "$1" ); shift ;;
+  esac
+done
+
+(( $#pos <= 1 )) || { _gw_err "too many arguments — usage: gwl [QUERY]"; return 2 }
+
+local dest
+dest=$(_gw_pick 'worktree>' "$pos[1]") || return 1
+[[ -d $dest ]] || { _gw_err "no such directory: $dest"; return 1 }
+cd -- "$dest"

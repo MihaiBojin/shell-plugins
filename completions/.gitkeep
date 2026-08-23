@@ -1,0 +1,8 @@
+Intentionally empty for now — see docs/PLUGINS.md.
+
+Static Fish completions belong here as completions/<command>.fish, checked in
+rather than generated at startup. None of the current Fish functions take
+arguments worth completing.
+
+Fisher only copies *.fish out of this directory, so this file is never
+installed anywhere.

@@ -1,0 +1,23 @@
+# Download the installer package at $1 and install it.
+#
+#   install_pkg https://example.com/thing.pkg
+emulate -L zsh
+
+(( $# >= 1 )) || {
+  print -ru2 -- "usage: install_pkg URL"
+  return 2
+}
+
+local url=$1 dir tmp
+# The download goes inside a directory mktemp created, not next to it:
+# `$(mktemp -t x).pkg` leaves the file mktemp actually made lying around and
+# writes to a path nothing created safely — which then goes to `sudo` as root,
+# on a /tmp anyone can write to.
+dir=$(mktemp -d -t install_pkg) || return 1
+tmp=$dir/download.pkg
+# The temporary file goes whatever happens, including a ^C partway through.
+trap "rm -rf ${(q)dir}" EXIT INT TERM
+
+print -r -- "Downloading and installing $url"
+curl -fLo "$tmp" "$url" || return 1
+sudo installer -pkg "$tmp" -target /

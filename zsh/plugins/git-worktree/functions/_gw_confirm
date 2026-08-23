@@ -1,0 +1,13 @@
+# Ask $1 and succeed only on yes. `read -q` always reads the terminal, so fall
+# back to a plain line read when there isn't one (pipelines, tests).
+local ans rc
+print -ru2 -n -- "$1 [y/N] "
+if [[ -t 0 ]]; then
+  read -q ans
+  rc=$?
+  print -ru2 -- ""
+  return $rc
+fi
+read ans || { print -ru2 -- ""; return 1 }
+print -ru2 -- ""
+[[ ${ans:l} == (y|yes) ]]

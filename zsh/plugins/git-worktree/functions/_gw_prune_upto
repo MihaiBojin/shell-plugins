@@ -1,0 +1,18 @@
+# Remove the directories that removing worktree $1 left empty, in the
+# repository whose main checkout is $2.
+#
+# Branch names nest, so removing <root>/fix/login/<REPO> can leave both
+# <root>/fix/login and <root>/fix behind with nothing in them. It walks up
+# rather than removing one level, and each rmdir is non-recursive and stops at
+# the first directory that is not empty — so <root>/auth/{repoA,repoB}, which
+# is the normal shape when one branch name is used in sibling repositories,
+# keeps repoB when repoA goes.
+#
+# The root goes too when it empties: it is this plugin's own litter, nothing
+# beside the repository asked for it, and an empty `.worktrees` left lying
+# around is one more thing to explain.
+emulate -L zsh
+
+local wt=$1 main=$2 root
+root=$(_gw_wt_dir "$main") || return 0
+_gw_rmdir_up "${wt:h}" "${root:h}"

@@ -1,0 +1,10 @@
+# The main worktree of the repository containing $1 (default: $PWD).
+#
+# `git worktree list --porcelain` always names the main checkout first. Take
+# that line with a parameter expansion rather than piping into head(1): one
+# fewer process per call, and one fewer command this has to assume exists.
+local out line
+out=$(git -C "${1:-$PWD}" worktree list --porcelain 2>/dev/null) || return 1
+line=${out%%$'\n'*}
+[[ $line == 'worktree '* ]] || return 1
+print -r -- "${line#worktree }"

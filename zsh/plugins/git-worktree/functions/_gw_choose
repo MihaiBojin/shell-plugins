@@ -1,0 +1,52 @@
+# Offer a choice and print the picked value. Items are "value" or
+# "value<TAB>label"; the label is shown but never returned. One item answers
+# itself. The prompt is written by hand rather than via read's `?prompt`, which
+# only appears when the shell is interactive — and this runs inside $( ).
+emulate -L zsh
+local title=$1; shift
+local -a items=( "$@" )
+(( $#items )) || return 1
+(( $#items == 1 )) && { print -r -- "${items[1]%%$'\t'*}"; return 0 }
+
+local i v l ans
+if (( $#items > 9 )) && [[ -t 0 ]] && (( $+commands[fzf] )); then
+  ans=$(print -rl -- "${items[@]}" |
+    fzf --ansi --height=40% --layout=reverse --border --tabstop=1 \
+        --prompt="$title " --delimiter=$'\t' --with-nth=1,2 --nth=1 \
+        --color='hl:#ffcc00,info:#00ffcc,prompt:#ff00ff,pointer:#ff3300') || return 1
+  print -r -- "${ans%%$'\t'*}"
+  return 0
+fi
+
+# Pad to the widest value rather than a fixed width: (r:N:) truncates as well
+# as pads, and a chooser that hides half a branch name is useless.
+local w=0
+for i in {1..$#items}; do
+  v=${items[i]%%$'\t'*}
+  (( ${#v} > w )) && w=${#v}
+done
+
+print -ru2 -- "${_GW_YELLOW}gw:${_GW_RESET} $title"
+for (( i = 1; i <= $#items; i++ )); do
+  v=${items[i]%%$'\t'*}
+  l=${items[i]#*$'\t'}
+  [[ $l == ${items[i]} ]] && l=''
+  if [[ -n $l ]]; then
+    print -ru2 -- "  ${(l:2:)i}) ${(r:$w:)v}  ${_GW_DIM}${l}${_GW_RESET}"
+  else
+    print -ru2 -- "  ${(l:2:)i}) $v"
+  fi
+done
+print -ru2 -n -- "Choice [1]: "
+# No answer is not an answer. Callers write the choice into the repository's
+# git config, and a default nobody gave has no business being remembered.
+if ! read ans; then
+  print -ru2 -- ""
+  _gw_err "no answer, and nothing to fall back on"
+  return 1
+fi
+[[ -n $ans ]] || ans=1
+[[ $ans == <-> ]] && (( ans >= 1 && ans <= $#items )) || {
+  _gw_err "invalid choice: $ans"; return 1
+}
+print -r -- "${items[ans]%%$'\t'*}"

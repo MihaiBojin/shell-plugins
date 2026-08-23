@@ -1,0 +1,26 @@
+# Mount the disk image at $1, install the package $3 inside volume $2, unmount.
+#
+#   install_dmg_pkg https://example.com/thing.dmg "Thing Installer" Thing
+emulate -L zsh
+
+(( $# >= 3 )) || {
+  print -ru2 -- "usage: install_dmg_pkg URL VOLUME_NAME PKG_NAME"
+  return 2
+}
+
+local url=$1 volume=$2 pkg=$3 dir tmp
+local mount=/Volumes/$volume
+# The download goes inside a directory mktemp created, not next to it:
+# `$(mktemp -t x).pkg` leaves the file mktemp actually made lying around and
+# writes to a path nothing created safely — which then goes to `sudo` as root,
+# on a /tmp anyone can write to.
+dir=$(mktemp -d -t install_dmg_pkg) || return 1
+tmp=$dir/download.dmg
+# Unmount and clean up whatever happens: a failed install used to leave both
+# the image file and the mounted volume behind.
+trap "hdiutil detach ${(q)mount} >/dev/null 2>&1; rm -rf ${(q)dir}" EXIT INT TERM
+
+print -r -- "Installing $pkg"
+curl -fLo "$tmp" "$url" || return 1
+hdiutil attach "$tmp" -nobrowse || return 1
+sudo installer -pkg "/Volumes/$volume/$pkg.pkg" -target /

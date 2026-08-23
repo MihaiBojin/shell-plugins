@@ -1,0 +1,9 @@
+# Does <remote> $1 have branch $2? One ref-advertisement round trip; protocol
+# v2 filters server-side, so this stays cheap even on repos with many refs.
+local remote=$1 name=$2 line REPLY
+_gw_run "asking $remote about '$name'" \
+  git ls-remote --heads "$remote" "refs/heads/$name" || return 1
+for line in ${(f)REPLY}; do
+  [[ $line == *$'\t'"refs/heads/$name" ]] && return 0
+done
+return 1

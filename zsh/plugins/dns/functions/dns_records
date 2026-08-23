@@ -1,0 +1,21 @@
+# Print the common DNS record types for a domain, one labelled section each.
+#
+#   dns_records example.com
+emulate -L zsh
+
+local domain=$1
+[[ -n $domain ]] || {
+  print -ru2 -- "usage: dns_records DOMAIN"
+  return 2
+}
+(( $+commands[dig] )) || {
+  print -ru2 -- "dns_records: dig is not installed"
+  return 127
+}
+
+local rec
+for rec in A AAAA CNAME TXT NS MX CAA SRV; do
+  print -r -- "$domain $rec..."
+  dig "$domain" "$rec" +short 2>/dev/null
+  print
+done
