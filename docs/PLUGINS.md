@@ -9,7 +9,7 @@ install; the plugins are the feature boundaries inside it.
 | battery-prompt | `zsh/plugins/battery-prompt` | `functions/fish_right_prompt.fish` | Battery status on the right, off by default |
 | git-alias | `zsh/plugins/git-alias` | `conf.d/git-alias.fish`, `functions/{gwip,gunwip,gunwipall}.fish` | The short git and `gh` commands, and the three wip ones |
 | macos | `zsh/plugins/macos` | — | Provisioning helpers for setting a Mac up |
-| git-worktree | `zsh/plugins/git-worktree` | — | `gw`/`gwl`/`gwa`/`gwr` worktree helpers |
+| git-worktree | `zsh/plugins/git-worktree` | `functions/gw{,h,l,a,r}.fish` | `gw`/`gwl`/`gwa`/`gwr` worktree helpers |
 | dns | `zsh/plugins/dns` | `functions/dns_records.fish` | `dns_records` — dump a domain's common records |
 | eternal-terminal | `zsh/plugins/eternal-terminal` | `functions/et.fish` | `et` wrapper that unsticks the terminal after a drop |
 
@@ -17,11 +17,11 @@ install; the plugins are the feature boundaries inside it.
 
 | Command | Shells | Requires | What it does |
 |---|---|---|---|
-| `gw`, `gwh` | zsh | — | Print the git-worktree help |
-| `gwl [QUERY]` | zsh | `git`, `fzf` (optional) | Pick a worktree and `cd` into it |
-| `gwa NAME [BASE]` | zsh | `git` | Create a worktree on branch `NAME` and `cd` into it |
-| `gwr [PATH\|QUERY]` | zsh | `git`, `gh`/`glab` (optional) | Remove a worktree whose branch is finished, and the branch with it |
-| `gwr --all [--yes]` | zsh | `git`, `gh`/`glab` (optional) | The same, to every finished worktree at once |
+| `gw`, `gwh` | zsh, fish | — | Print the git-worktree help |
+| `gwl [QUERY]` | zsh, fish | `git`, `fzf` (optional) | Pick a worktree and `cd` into it |
+| `gwa NAME [BASE]` | zsh, fish | `git` | Create a worktree on branch `NAME` and `cd` into it |
+| `gwr [PATH\|QUERY]` | zsh, fish | `git`, `gh`/`glab` (optional) | Remove a worktree whose branch is finished, and the branch with it |
+| `gwr --all [--yes]` | zsh, fish | `git`, `gh`/`glab` (optional) | The same, to every finished worktree at once |
 | `ga` `gc` `gca` `gca!` `gcan!` `gco` `gcb` `gcm` `gst` `gd` `gdca` `gcp` `gcpc` `gcpa` `gp` `gpsup` `gmom` `gwip` `gunwip` `gpa!` `gcap` | zsh | `git` | The short git commands |
 | `gh-login` `gh-add-key` | zsh, fish | `gh` | Authenticate a new machine with GitHub over SSH |
 | `gwip` | zsh, fish | `git` | Commit everything as `--wip-- [skip ci]`, unsigned and unverified |
@@ -48,7 +48,7 @@ Same names, same behaviour, separate implementations. Nothing is shared between
 the two shells at the source level, on purpose: the syntax and the runtime
 models differ enough that a common layer costs more than it saves.
 
-Two features are **Zsh only**, and one is partly so:
+One feature is **Zsh only**, and one is partly so:
 
 - **git-alias** — both shells. `gwip`, `gunwip` and `gunwipall` are functions in
   both. The rest are Zsh aliases and Fish abbreviations, which is the closer
@@ -57,15 +57,16 @@ Two features are **Zsh only**, and one is partly so:
   start, and the only thing in the package that is not autoloaded.
 - **macos** — provisioning, run by hand on a new machine, and the Fish
   configuration has never had it.
-- **git-worktree** — around 1600 lines of Zsh with its own `zstyle`
-  configuration surface, an fzf picker and a spinner. A faithful Fish port is a
-  project in its own right, not a mechanical translation, and the current Fish
-  configuration has never had these commands. Adding them there would be new
-  functionality rather than a migration, so it is deliberately left out. If the
-  Fish side ever needs them, the honest options are a real port or a small
-  standalone binary that both shells wrap.
+- **git-worktree** — both shells have it. The Fish commands are a
+  reimplementation rather than a translation, and about a third smaller: 1063
+  lines against 1731. Same commands, same layout, same predicate for what counts
+  as finished, same refusals. What is left out is deliberate and listed in
+  [the plugin's README](../zsh/plugins/git-worktree/README.md#the-fish-commands):
+  no spinner, and nothing interactive beyond the picker and the one `gwr`
+  confirmation. Where Zsh stops to ask which remote or which head branch, Fish
+  says what it could not work out and names the command that records it.
 
-Both are noted in the tables above with `—` rather than silently omitted.
+macos is noted in the tables above with `—` rather than silently omitted.
 
 **battery-prompt** has both. The Zsh segment appends to `RPROMPT`; the Fish one
 *is* `fish_right_prompt`, which the package therefore owns — the same way it
