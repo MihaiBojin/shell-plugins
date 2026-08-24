@@ -9,6 +9,21 @@
 # Aliases, plus gwip and gunwipall, which are loops rather than lines.
 #
 fpath=( ${${(%):-%x}:A:h}/functions $fpath )
+
+# Claim the two names something else may already hold, so that loading this
+# after ohmyzsh's git plugin means what it looks like it means.
+#
+# Zsh resolves a command as alias, then function, then builtin, then binary. So
+# ohmyzsh's `alias gwip` hides our function no matter which loaded last, and
+# `autoload -Uz` is a no-op on a name that is already a defined function, which
+# leaves its `gunwipall` in place. Neither is a clash zsh reports; both are
+# silent, and both were live in a configuration that loaded the two plugins.
+#
+# 2>/dev/null because unalias and unfunction fail loudly on a name that was
+# never there, which is the normal case.
+unalias gwip 2>/dev/null
+unfunction gunwipall 2>/dev/null
+
 autoload -Uz gwip gunwipall _git_alias_current_branch _git_alias_main_branch
 
 # Add, commit, amend

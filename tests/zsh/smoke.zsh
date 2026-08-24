@@ -149,6 +149,34 @@ print -r -- \"gwa=\$_comps[gwa] gwl=\$_comps[gwl] gwr=\$_comps[gwr]\"")
 eq "compinit picks up the completions from fpath" "gwa=_gwa gwl=_gwl gwr=_gwr" "$out"
 
 #
+# 5b. git-alias takes the names it defines, whatever held them first.
+#
+# ohmyzsh's git plugin defines gwip as an alias and gunwipall as a function.
+# An alias outranks a function, and `autoload` does nothing to a name that is
+# already a function, so without the unalias/unfunction in the plugin both of
+# ours are unreachable and nothing says so.
+#
+group "git-alias claims its names"
+# gwip: theirs is an alias, and an alias outranks a function whichever loaded
+# last, so ours is unreachable until the alias goes.
+out=$(isolated "alias gwip='print -r -- THEIRS'
+source $PLUGINS/git-alias/git-alias.plugin.zsh
+whence -w gwip")
+eq "gwip is ours, not the alias that held the name" "gwip: function" "$out"
+
+# gunwipall: theirs is a function, and `autoload` does nothing to a name that
+# is already one. `whence -w` says "function" either way, so read the body --
+# ours is an autoload stub until first call, theirs is not.
+out=$(isolated "gunwipall() { print -r -- THEIRS }
+source $PLUGINS/git-alias/git-alias.plugin.zsh
+functions gunwipall")
+has "gunwipall is ours, not the function that held the name" "undefined" "$out"
+
+# The usual case: nothing held them, and clearing them says nothing.
+out=$(isolated "source $PLUGINS/git-alias/git-alias.plugin.zsh")
+eq "clearing names that were never taken prints nothing" "" "$out"
+
+#
 # 6. The prompt.
 #
 group "prompt"

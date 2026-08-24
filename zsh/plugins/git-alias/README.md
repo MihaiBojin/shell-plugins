@@ -63,8 +63,15 @@ These names are ohmyzsh's, and there are about three hundred more:
 **<https://github.com/ohmyzsh/ohmyzsh/tree/master/plugins/git>**
 
 That page is the reference for anything not listed above — `grbi`, `gsta`,
-`glog`, and the rest. Nothing here conflicts with it: the definitions
-are the same, so loading both changes nothing except which one wins.
+`glog`, and the rest. Loading both is safe, and this one wins the names it
+defines whichever loaded first.
+
+That takes two lines of work rather than none, so it is worth saying why. Zsh
+resolves a command as alias, then function, then builtin, then binary. ohmyzsh
+defines `gwip` as an *alias*, which would hide our function even if we loaded
+second; and `gunwipall` as a *function*, which `autoload` silently declines to
+replace. Neither is a clash zsh reports. So the plugin clears both names before
+claiming them, and `tests/zsh/smoke.zsh` holds a case for each.
 
 To have all of them instead, load ohmyzsh's plugin and drop this one:
 
