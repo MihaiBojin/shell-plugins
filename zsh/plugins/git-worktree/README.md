@@ -46,7 +46,8 @@ explicit path works on whichever repository that path belongs to, and asks
 every question — which remote, which head branch, is this branch finished — of
 *that* repository rather than of the shell's.
 
-Zsh only. There is no Fish counterpart — see [`docs/PLUGINS.md`](../../../docs/PLUGINS.md).
+Fish has the same four commands, in `functions/gw{,h,l,a,r}.fish` at the top of
+this repository — see [The Fish commands](#the-fish-commands) for what differs.
 
 ## Commands
 
@@ -472,6 +473,41 @@ Every deletion prints the command that puts the branch back:
 gw: deleted branch fix-login (was a1b2c3d)
     restore: git branch fix-login a1b2c3d
 ```
+
+## The Fish commands
+
+`gw`, `gwl`, `gwa` and `gwr` exist in Fish too, as autoloaded functions in this
+repository's top-level `functions/` directory, where Fisher installs them. Same
+layout, same commands, same three checks for what counts as finished, same
+refusals, and the same per-repository git config keys — so the two shells agree
+about a repository without either of them writing anything the other reads.
+
+It is a reimplementation, not a translation: 1063 lines against 1731, in 23
+files against 40. Four things account for most of the difference, and each is a
+deliberate omission rather than an oversight.
+
+| Zsh | Fish | Why |
+|---|---|---|
+| a spinner with a ten-second "still waiting" hint | one line per step, printed before it runs | the spinner is 120 lines of presentation, and Fish's commands are used the same way without it |
+| asks which remote when several are plausible, and remembers the answer | resolves the same ladder, falls back to `origin` and then to the first remote | a picker that stops to ask a second question is worse than a wrong default you can override with one config key |
+| asks which branch is the head branch, listing 25, and records the answer | says it could not work one out and prints `git remote set-head <remote> --auto` | the same reason |
+| `zstyle ':git-worktree:' …` | `set -g git_worktree_…` | Fish has no zstyle, and a global variable is what its own configuration looks like |
+
+Configuration, then, is three variables and the same two git config keys:
+
+```fish
+set -g git_worktree_fetch no       # never touch the network (default: yes)
+set -g git_worktree_fetch always   # always check NAME on the remote, as if --fetch
+set -g git_worktree_remote upstream
+set -g git_worktree_forge no       # decide from git alone, never ask GitHub/GitLab
+```
+
+The forge check needs `gh`, or `glab` **and** `jq` — `gh` embeds its own jq and
+`glab` does not, so the GitLab half is skipped rather than parsed by hand.
+
+`fish --no-config tests/fish/git-worktree.fish` exercises the lot against real
+repositories: the layout, both collision refusals, all three finished-checks,
+every refusal, `--force`, and both halves of `gwr --all`.
 
 ## Configuration
 
