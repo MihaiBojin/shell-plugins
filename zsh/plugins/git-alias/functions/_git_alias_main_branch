@@ -1,8 +1,9 @@
 # What this repository calls its default branch.
 #
-# Used by gmom. `main` and `master` are both common enough that guessing is
-# wrong often enough to notice, so ask the repository first: git records the
-# answer in <remote>/HEAD at clone time, from what the server advertised.
+# Used by gcm and gmom. `main` and `master` are both common enough that
+# guessing is wrong often enough to notice, so ask the repository first: git
+# records the answer in <remote>/HEAD at clone time, from what the server
+# advertised.
 #
 # Deliberately not shared with the git-worktree plugin's _gw_default_branch,
 # which does the same job more thoroughly and can go to the network. Each

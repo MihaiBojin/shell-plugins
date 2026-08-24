@@ -7,7 +7,7 @@ install; the plugins are the feature boundaries inside it.
 |---|---|---|---|
 | prompt | `zsh/plugins/prompt` | `functions/fish_prompt.fish` | Minimal two-line Pure-like prompt |
 | battery-prompt | `zsh/plugins/battery-prompt` | `functions/fish_right_prompt.fish` | Battery status on the right, off by default |
-| git-alias | `zsh/plugins/git-alias` | `functions/{gwip,gunwip,gunwipall}.fish` | The short git commands, and the three wip ones |
+| git-alias | `zsh/plugins/git-alias` | `functions/{gwip,gunwip,gunwipall}.fish` | The short git and `gh` commands, and the three wip ones |
 | macos | `zsh/plugins/macos` | — | Provisioning helpers for setting a Mac up |
 | git-worktree | `zsh/plugins/git-worktree` | — | `gw`/`gwl`/`gwa`/`gwr` worktree helpers |
 | dns | `zsh/plugins/dns` | `functions/dns_records.fish` | `dns_records` — dump a domain's common records |
@@ -22,7 +22,8 @@ install; the plugins are the feature boundaries inside it.
 | `gwa NAME [BASE]` | zsh | `git` | Create a worktree on branch `NAME` and `cd` into it |
 | `gwr [PATH\|QUERY]` | zsh | `git`, `gh`/`glab` (optional) | Remove a worktree whose branch is finished, and the branch with it |
 | `gwr --all [--yes]` | zsh | `git`, `gh`/`glab` (optional) | The same, to every finished worktree at once |
-| `ga` `gc` `gca` `gca!` `gcan!` `gco` `gst` `gd` `gdca` `gcp` `gcpc` `gcpa` `gp` `gpsup` `gmom` `gwip` `gunwip` `gpa!` | zsh | `git` | The short git commands |
+| `ga` `gc` `gca` `gca!` `gcan!` `gco` `gcb` `gcm` `gst` `gd` `gdca` `gcp` `gcpc` `gcpa` `gp` `gpsup` `gmom` `gwip` `gunwip` `gpa!` `gcap` | zsh | `git` | The short git commands |
+| `gh-login` `gh-add-key` | zsh | `gh` | Authenticate a new machine with GitHub over SSH |
 | `gwip` | zsh, fish | `git` | Commit everything as `--wip-- [skip ci]`, unsigned and unverified |
 | `gunwip` | zsh, fish | `git` | Undo the last commit if it is a `--wip--` |
 | `gunwipall` | zsh, fish | `git` | Reset onto the newest non-`--wip--` commit |
