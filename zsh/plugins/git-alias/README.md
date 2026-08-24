@@ -28,6 +28,22 @@ two `gh` ones.
 | `gh-login` | `gh auth login` over SSH, with the scopes a new machine needs |
 | `gh-add-key` | Register `~/.ssh/id_ed25519.pub` with GitHub as an auth key |
 
+Fish has the same set, as abbreviations in `conf.d/git-alias.fish` — the two
+`gh` ones included. An abbreviation expands on the command line, so what runs is
+what you can see before you press Return, and it lands in history spelled out;
+that is what makes `gca!` reasonable to have on two keys.
+
+It has to be `conf.d/`, not `functions/`: an abbreviation only exists once
+something has declared it, and a declaration inside an autoloaded function file
+runs only when something else has already loaded that file. So this is the one
+part of the package that runs at every Fish start — twenty-two builtin calls,
+0.19ms, no forks.
+
+`gcm`, `gmom` and `gpsup` expand to a command substitution
+(`git checkout (_git_alias_main_branch)`), so the repository is asked when the
+line runs rather than when the shell started. The two helpers behind them are
+autoloaded functions, same names as the Zsh ones.
+
 `gwip` and `gunwipall` are functions rather than aliases, being loops:
 
 | Command | What it does |

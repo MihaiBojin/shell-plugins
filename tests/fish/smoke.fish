@@ -68,9 +68,14 @@ end
 test -d $ROOT/fish; and bad "there is a fish/ directory — the package must live at the root"
 or ok "there is no fish/ directory to confuse Fisher"
 
-# conf.d runs on every interactive start, so the default is that it is empty.
-set -l confd $ROOT/conf.d/*.fish
-eq "conf.d/ contains no startup files" "" "$confd"
+# conf.d runs on every interactive start, so what lives there is deliberate:
+# only the abbreviations, which cannot exist any other way, and nothing in that
+# file may do anything but declare them.
+set -l confd (path basename $ROOT/conf.d/*.fish)
+eq "conf.d/ holds only the abbreviations" "git-alias.fish" (string join ' ' $confd)
+
+set -l offenders (string match --regex --invert '^\s*(#|$|if status is-interactive|end|abbr --add )' <$ROOT/conf.d/git-alias.fish)
+eq "conf.d/git-alias.fish only declares abbreviations" "" (string join ' ' $offenders)
 
 # One public function per file, named after the file.
 for file in $ROOT/functions/*.fish
