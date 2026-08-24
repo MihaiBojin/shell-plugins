@@ -28,6 +28,7 @@ autoload -Uz gwip gunwipall _git_alias_current_branch _git_alias_main_branch
 
 # Add, commit, amend
 alias ga='git add'
+alias gaa='git add --all'
 alias gc='git commit --verbose'
 alias gca='git commit --verbose --all'
 alias 'gca!'='git commit --verbose --all --amend'
