@@ -207,7 +207,17 @@ eq "battery-prompt stays out of RPROMPT by default" "[]" "$out"
 out=$(isolated "zstyle ':battery-prompt:' show yes
 source $AGG
 print -r -- \"\$RPROMPT\"")
-eq "battery-prompt joins RPROMPT when asked" '$(_battery_prompt)' "$out"
+eq "battery-prompt joins RPROMPT when asked" '${_battery_prompt_cache_output}' "$out"
+
+# A parameter expansion, not a command substitution: zsh expands ${...} itself,
+# where $(...) forks a subshell before every prompt. This is the assertion that
+# keeps that from quietly coming back.
+hasnt "battery-prompt does not fork per prompt" '$(' "$out"
+
+out=$(isolated "zstyle ':battery-prompt:' show yes
+source $AGG
+print -r -- \"\${precmd_functions[(r)_battery_prompt_precmd]}\"")
+eq "battery-prompt renders from precmd" "_battery_prompt_precmd" "$out"
 
 out=$(isolated "source $AGG; _battery_prompt >/dev/null; print -r -- \$?")
 eq "_battery_prompt succeeds when called by hand" "0" "$out"

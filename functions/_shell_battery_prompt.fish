@@ -4,25 +4,31 @@ function _shell_battery_prompt --description 'Print the battery segment, or noth
     # $shell_battery_prompt_show; called on its own it always renders, so you
     # can drop it into a prompt of your own. Mirrors the Zsh _battery_prompt.
 
-    set -l cache_seconds 60
-    set -q shell_battery_prompt_cache_seconds
-    and set cache_seconds $shell_battery_prompt_cache_seconds
+    # The cache counts prompts, not seconds. Fish has no fork-free clock -- no
+    # $EPOCHSECONDS, no printf %()T -- so asking the time costs a `date` fork on
+    # the very path that exists to avoid forks, about 2.5ms of every prompt. A
+    # countdown costs nothing and answers the question that matters: how many
+    # prompts ago did we last read the battery.
+    #
+    #   set -g shell_battery_prompt_cache_prompts 25   # default
+    #   set -g shell_battery_prompt_cache_prompts 0    # read on every prompt
+    #
+    # The Zsh segment caches in seconds instead, because zsh/datetime gives it a
+    # clock for free.
+    set -l cache_prompts 25
+    set -q shell_battery_prompt_cache_prompts
+    and set cache_prompts $shell_battery_prompt_cache_prompts
 
-    # Fast path: a still-fresh cached answer, where most prompts end. `date` is
-    # the only fork on this path and is an order of magnitude cheaper than the
-    # battery read it stands in for. Skipped when caching is off, so that mode
-    # forks nothing extra. Fish has no fork-free wall clock; between-prompt
-    # forks are exactly what this segment is allowed to do once switched on.
-    set -l now 0
-    if test "$cache_seconds" -gt 0 2>/dev/null
-        set now (date +%s)
-        set -q _shell_battery_prompt_cache_time
-        or set -g _shell_battery_prompt_cache_time 0
-        if test (math "$now - $_shell_battery_prompt_cache_time") -lt "$cache_seconds"
-            test -n "$_shell_battery_prompt_cache_output"
-            and printf '%s' "$_shell_battery_prompt_cache_output"
-            return 0
-        end
+    # Fast path: the countdown has not run out, so reuse the last rendering.
+    # Most prompts end here, forking nothing.
+    set -q _shell_battery_prompt_countdown
+    or set -g _shell_battery_prompt_countdown 0
+    if test "$cache_prompts" -gt 0 2>/dev/null
+        and test $_shell_battery_prompt_countdown -gt 0
+        set -g _shell_battery_prompt_countdown (math $_shell_battery_prompt_countdown - 1)
+        test -n "$_shell_battery_prompt_cache_output"
+        and printf '%s' "$_shell_battery_prompt_cache_output"
+        return 0
     end
 
     set -l bat_pct
@@ -57,10 +63,9 @@ function _shell_battery_prompt --description 'Print the battery segment, or noth
         end
     end
 
-    # Stamp the cache even with no battery, so a desktop asks once a minute
-    # rather than once a prompt.
-    test "$cache_seconds" -gt 0 2>/dev/null
-    and set -g _shell_battery_prompt_cache_time $now
+    # Restart the countdown even with no battery, so a desktop asks once every
+    # $cache_prompts prompts rather than on every one.
+    set -g _shell_battery_prompt_countdown $cache_prompts
 
     if test -z "$bat_pct"
         set -g _shell_battery_prompt_cache_output ''
