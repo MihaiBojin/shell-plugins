@@ -15,7 +15,7 @@ The answer is cached (`cache_seconds`, default 60) so holding down Return does
 not fork `pmset` once per prompt. Machines without a battery cache the empty
 answer too, and cost one `pmset` a minute at most.
 
-Zsh only. There is no Fish counterpart.
+Fish has the same segment, as `fish_right_prompt` — see [Fish](#fish) below.
 
 ## Load order
 
@@ -69,6 +69,56 @@ in the prompt:
 ```zsh
 setopt PROMPT_SUBST
 RPROMPT='$(_battery_prompt) %F{8}%*%f'
+```
+
+## Fish
+
+Same segment, same defaults, as `fish_right_prompt`. The Fish package
+(`MihaiBojin/shell-plugins`, installed with Fisher) ships it, so it owns the
+right prompt the way it already owns `fish_prompt`. Off until you ask:
+
+```fish
+set -g shell_battery_prompt_show yes   # or -U to persist across sessions
+```
+
+Autoloading the function reads no battery; the two checks in front of it return
+first unless `show` is set. The reading is cached like the Zsh side
+(`shell_battery_prompt_cache_seconds`, default 60), so holding Return does not
+fork `pmset` once a prompt.
+
+Configuration is Fish variables rather than `zstyle`, one per Zsh style, read
+when the segment renders (except nothing here is read-at-load — Fish has no
+load step for it):
+
+```fish
+# Display control
+set -g shell_battery_prompt_show yes           # enable the segment (default: off)
+set -g shell_battery_prompt_show_remaining no  # hide time remaining (default: shown)
+set -g shell_battery_prompt_cache_seconds 0    # cache for N seconds (default: 60, 0 disables)
+
+# Thresholds — the segment appears only at or below threshold_high
+set -g shell_battery_prompt_threshold_low 25   # red at or below this (default: 25)
+set -g shell_battery_prompt_threshold_high 50  # yellow at or below this (default: 50)
+
+# Appearance — colours are set_color hex, with or without a leading '#'
+set -g shell_battery_prompt_icon '🔋'
+set -g shell_battery_prompt_icon_charging '⚡'
+set -g shell_battery_prompt_color_low ff5555
+set -g shell_battery_prompt_color_high f1fa8c
+set -g shell_battery_prompt_color_charging 50fa7b
+```
+
+`show` accepts `1`, `yes`, `true` or `on`; anything else is off. `show_remaining`
+is on unless set to `0`, `no`, `false` or `off`.
+
+Want it somewhere other than the far right? Leave `show` off and call the
+renderer yourself from a `fish_right_prompt` — or any prompt — of your own:
+
+```fish
+function fish_right_prompt
+    _shell_battery_prompt
+    date '+%H:%M'
+end
 ```
 
 ## Requirements

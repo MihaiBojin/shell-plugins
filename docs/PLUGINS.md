@@ -6,7 +6,7 @@ install; the plugins are the feature boundaries inside it.
 | Feature | Zsh | Fish | Purpose |
 |---|---|---|---|
 | prompt | `zsh/plugins/prompt` | `functions/fish_prompt.fish` | Minimal two-line Pure-like prompt |
-| battery-prompt | `zsh/plugins/battery-prompt` | — | Battery status in `RPROMPT`, off by default |
+| battery-prompt | `zsh/plugins/battery-prompt` | `functions/fish_right_prompt.fish` | Battery status on the right, off by default |
 | git-alias | `zsh/plugins/git-alias` | `functions/{gwip,gunwip,gunwipall}.fish` | The short git commands, and the three wip ones |
 | macos | `zsh/plugins/macos` | — | Provisioning helpers for setting a Mac up |
 | git-worktree | `zsh/plugins/git-worktree` | — | `gw`/`gwl`/`gwa`/`gwr` worktree helpers |
@@ -33,6 +33,7 @@ install; the plugins are the feature boundaries inside it.
 | `dns_records DOMAIN` | zsh, fish | `dig` | Print A/AAAA/CNAME/TXT/NS/MX/CAA/SRV records |
 | `et [ARGS...]` | zsh, fish | `et` | Run Eternal Terminal with the terminal state reset around it |
 | `_battery_prompt` | zsh | `pmset` (macOS) or sysfs (Linux) | Render the battery segment (called by the prompt) |
+| `_shell_battery_prompt` | fish | `pmset` (macOS) or sysfs (Linux) | The same for Fish; `fish_right_prompt` calls it once enabled |
 
 Everything except the prompt is autoloaded — Zsh through `fpath` + `autoload
 -Uz`, Fish through its own function autoloading — so none of it is read, parsed
@@ -44,7 +45,7 @@ Same names, same behaviour, separate implementations. Nothing is shared between
 the two shells at the source level, on purpose: the syntax and the runtime
 models differ enough that a common layer costs more than it saves.
 
-Three features are **Zsh only**, and one is partly so:
+Two features are **Zsh only**, and one is partly so:
 
 - **git-alias** — partly. `gwip`, `gunwip` and `gunwipall` are functions, so
   Fish autoloads them and both shells have them. The rest are aliases, and the
@@ -52,7 +53,6 @@ Three features are **Zsh only**, and one is partly so:
   declared at startup — that means `conf.d/`, and it stays empty.
 - **macos** — provisioning, run by hand on a new machine, and the Fish
   configuration has never had it.
-
 - **git-worktree** — around 1600 lines of Zsh with its own `zstyle`
   configuration surface, an fzf picker and a spinner. A faithful Fish port is a
   project in its own right, not a mechanical translation, and the current Fish
@@ -60,10 +60,14 @@ Three features are **Zsh only**, and one is partly so:
   functionality rather than a migration, so it is deliberately left out. If the
   Fish side ever needs them, the honest options are a real port or a small
   standalone binary that both shells wrap.
-- **battery-prompt** — a Zsh `RPROMPT` segment. The Fish equivalent would be a
-  `fish_right_prompt`; the Fish prompt has never had one.
 
 Both are noted in the tables above with `—` rather than silently omitted.
+
+**battery-prompt** has both. The Zsh segment appends to `RPROMPT`; the Fish one
+*is* `fish_right_prompt`, which the package therefore owns — the same way it
+owns `fish_prompt`. Both are off until asked for (`zstyle … show yes` in Zsh,
+`set shell_battery_prompt_show yes` in Fish), and neither reads a battery until
+then.
 
 ## What is *not* here, and why
 
