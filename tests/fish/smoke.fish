@@ -10,6 +10,18 @@
 # Fisher puts them and Fish autoloads them from there".
 #
 
+# A UTF-8 locale, or the prompt's chevron comes back as two bytes of mojibake
+# and the assertions below compare mangled output. Everything else here is
+# deliberately at the mercy of the caller's environment — a package should
+# behave the way it does for a person — but text encoding is not something a
+# test should be guessing at.
+for candidate in C.UTF-8 en_US.UTF-8
+    if locale -a 2>/dev/null | string match --quiet --entire -- $candidate
+        set -gx LC_ALL $candidate
+        break
+    end
+end
+
 set -g ROOT (path resolve (status dirname)/../..)
 set -g FISH (status fish-path)
 set -g PASS 0
@@ -103,7 +115,13 @@ group "prompt"
 set out ($isolated --command 'cd $HOME; true; fish_prompt' 2>/dev/null | cat -v | string collect)
 has "success prompt is magenta" '^[[35m' "$out"
 has "success prompt shows the directory in blue" '^[[34m~' "$out"
-has "success prompt ends in a chevron" 'M-bM-^]M-/' "$out"
+
+# The chevron is compared without `cat -v`. What that renders a multi-byte
+# character as depends on the locale — in a UTF-8 one macOS passes ❯ through
+# and escapes only the byte in the middle that is not printable on its own,
+# so a byte-level expectation is wrong on exactly the machines it matters on.
+set -l raw ($isolated --command 'cd $HOME; true; fish_prompt' 2>/dev/null | string collect)
+has "success prompt ends in a chevron" '❯' "$raw"
 
 set out ($isolated --command 'cd $HOME; false; fish_prompt' 2>/dev/null | cat -v | string collect)
 has "failure prompt is red" '^[[31m' "$out"

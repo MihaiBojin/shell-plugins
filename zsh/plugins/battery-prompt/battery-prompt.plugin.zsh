@@ -35,8 +35,18 @@ if zmodload -e zsh/zutil; then
   # point: nothing here should start polling a battery because a plugin got
   # loaded.
   if zstyle -t ':battery-prompt:' show; then
-    # $( ) inside RPROMPT needs the prompt string re-expanded every time.
+    # A parameter expansion, not a command substitution. Both need
+    # PROMPT_SUBST, but zsh expands ${...} itself where $(...) forks a subshell
+    # before every prompt -- about 13ms on every command you run.
+    #
+    # _battery_prompt leaves its rendering in _battery_prompt_cache_output, so
+    # the hook only has to call it and the prompt only has to read the variable.
     setopt PROMPT_SUBST
-    RPROMPT="${RPROMPT:+${RPROMPT} }"'$(_battery_prompt)'
+
+    autoload -Uz add-zsh-hook
+    _battery_prompt_precmd() { _battery_prompt > /dev/null }
+    add-zsh-hook precmd _battery_prompt_precmd
+
+    RPROMPT="${RPROMPT:+${RPROMPT} }"'${_battery_prompt_cache_output}'
   fi
 fi

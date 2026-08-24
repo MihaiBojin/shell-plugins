@@ -83,7 +83,7 @@ set -g shell_battery_prompt_show yes   # or -U to persist across sessions
 
 Autoloading the function reads no battery; the two checks in front of it return
 first unless `show` is set. The reading is cached like the Zsh side
-(`shell_battery_prompt_cache_seconds`, default 60), so holding Return does not
+(`shell_battery_prompt_cache_prompts`, default 25 prompts), so holding Return does not
 fork `pmset` once a prompt.
 
 Configuration is Fish variables rather than `zstyle`, one per Zsh style, read
@@ -94,7 +94,7 @@ load step for it):
 # Display control
 set -g shell_battery_prompt_show yes           # enable the segment (default: off)
 set -g shell_battery_prompt_show_remaining no  # hide time remaining (default: shown)
-set -g shell_battery_prompt_cache_seconds 0    # cache for N seconds (default: 60, 0 disables)
+set -g shell_battery_prompt_cache_prompts 0    # re-read every N prompts (default: 25, 0 disables)
 
 # Thresholds — the segment appears only at or below threshold_high
 set -g shell_battery_prompt_threshold_low 25   # red at or below this (default: 25)
@@ -107,6 +107,12 @@ set -g shell_battery_prompt_color_low ff5555
 set -g shell_battery_prompt_color_high f1fa8c
 set -g shell_battery_prompt_color_charging 50fa7b
 ```
+Fish counts prompts where Zsh counts seconds. Zsh has `zsh/datetime` and reads
+`$EPOCHSECONDS` for nothing; Fish has no fork-free clock, so asking the time
+would cost a `date` fork on the very path that exists to avoid forks — about
+2.5ms of every prompt. A countdown costs nothing, at the price of a segment that
+ages in prompts rather than in minutes.
+
 
 `show` accepts `1`, `yes`, `true` or `on`; anything else is off. `show_remaining`
 is on unless set to `0`, `no`, `false` or `off`.
