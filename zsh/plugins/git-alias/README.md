@@ -6,6 +6,7 @@ two `gh` ones.
 | Alias | Runs |
 |---|---|
 | `ga` | `git add` |
+| `gaa` | `git add --all` |
 | `gc` | `git commit --verbose` |
 | `gca` | `git commit --verbose --all` |
 | `gca!` | `git commit --verbose --all --amend` |
