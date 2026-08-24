@@ -88,7 +88,7 @@ or ok "the sandbox has no config.fish at all"
 set -l isolated env XDG_CONFIG_HOME=$sandbox/config XDG_DATA_HOME=$sandbox/data HOME=$sandbox/home $FISH
 
 set -l out ($isolated --command '
-    for f in fish_prompt dns_records gwip gunwip gunwipall et _shell_terminal_reset
+    for f in fish_prompt fish_right_prompt dns_records gwip gunwip gunwipall et _shell_terminal_reset _shell_battery_prompt
         functions --query $f; or echo "not discoverable: $f"
     end' 2>/dev/null | string collect)
 eq "every packaged function is discoverable without sourcing anything" "" "$out"
@@ -149,6 +149,55 @@ eq "gunwipall outside a repository exits 1" "1" "$status"
 set out ($isolated --command "cd $norepo; gunwipall" 2>&1 >/dev/null | string collect)
 has "gunwipall says why" "not inside a git repository" "$out"
 rm -rf $norepo
+
+#
+# 5. The battery segment, driven by a stub pmset on $PATH — the same trick the
+#    et test uses, so it runs the pmset branch on any OS.
+#
+group "battery segment"
+set -l batbin (mktemp -d)
+# $PATH is a list; join it into one string, or `env PATH=$batbin:$PATH` fans
+# out into one assignment per element and env keeps only the last.
+set -l batpath (string join : $batbin $PATH)
+set -l batenv env XDG_CONFIG_HOME=$sandbox/config XDG_DATA_HOME=$sandbox/data HOME=$sandbox/home PATH=$batpath $FISH
+
+# Off by default: defining fish_right_prompt must not read a battery. The stub
+# leaves a marker if it is ever run, and prints a low reading so a wrong wiring
+# would show rather than hide.
+printf '#!/bin/sh\ntouch %s/ran\necho " 18%%; discharging; 1:23 remaining"\n' $batbin >$batbin/pmset
+chmod +x $batbin/pmset
+
+set out ($batenv --command 'fish_right_prompt' 2>/dev/null | string collect)
+eq "fish_right_prompt is empty until opted in" "" "$out"
+test -e $batbin/ran; and bad "fish_right_prompt read the battery while switched off"
+or ok "fish_right_prompt never forked pmset while switched off"
+
+# Opted in and low: percentage and time both show.
+set out ($batenv --command 'set -g shell_battery_prompt_show yes; fish_right_prompt' 2>/dev/null | string collect)
+has "an enabled low battery shows the percentage" "18%" "$out"
+has "an enabled low battery shows the time remaining" "1:23h left" "$out"
+
+# The renderer stands alone — no opt-in — which is the manual-placement path.
+set out ($batenv --command '_shell_battery_prompt' 2>/dev/null | string collect)
+has "_shell_battery_prompt renders when called directly" "18%" "$out"
+
+# show_remaining off drops the parenthetical, keeps the percentage.
+set out ($batenv --command 'set -g shell_battery_prompt_show_remaining no; _shell_battery_prompt' 2>/dev/null | string collect)
+has "show_remaining off keeps the percentage" "18%" "$out"
+string match --quiet "*left*" -- "$out"; and bad "show_remaining off still printed the time"
+or ok "show_remaining off drops the time remaining"
+
+# A healthy discharging battery says nothing at all.
+printf '#!/bin/sh\necho " 90%%; discharging; 3:00 remaining"\n' >$batbin/pmset
+set out ($batenv --command '_shell_battery_prompt' 2>/dev/null | string collect)
+eq "a healthy battery renders nothing" "" "$out"
+
+# Charging is always shown, even above the high threshold.
+printf '#!/bin/sh\necho " 90%%; charging; 0:30 remaining"\n' >$batbin/pmset
+set out ($batenv --command '_shell_battery_prompt' 2>/dev/null | string collect)
+has "a charging battery is shown above the threshold" "90%" "$out"
+
+rm -rf $batbin
 
 rm -rf $sandbox
 
