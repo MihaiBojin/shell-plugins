@@ -7,7 +7,7 @@ install; the plugins are the feature boundaries inside it.
 |---|---|---|---|
 | prompt | `zsh/plugins/prompt` | `functions/fish_prompt.fish` | Minimal two-line Pure-like prompt |
 | battery-prompt | `zsh/plugins/battery-prompt` | `functions/fish_right_prompt.fish` | Battery status on the right, off by default |
-| git-alias | `zsh/plugins/git-alias` | `functions/{gwip,gunwip,gunwipall}.fish` | The short git and `gh` commands, and the three wip ones |
+| git-alias | `zsh/plugins/git-alias` | `conf.d/git-alias.fish`, `functions/{gwip,gunwip,gunwipall}.fish` | The short git and `gh` commands, and the three wip ones |
 | macos | `zsh/plugins/macos` | — | Provisioning helpers for setting a Mac up |
 | git-worktree | `zsh/plugins/git-worktree` | — | `gw`/`gwl`/`gwa`/`gwr` worktree helpers |
 | dns | `zsh/plugins/dns` | `functions/dns_records.fish` | `dns_records` — dump a domain's common records |
@@ -23,7 +23,7 @@ install; the plugins are the feature boundaries inside it.
 | `gwr [PATH\|QUERY]` | zsh | `git`, `gh`/`glab` (optional) | Remove a worktree whose branch is finished, and the branch with it |
 | `gwr --all [--yes]` | zsh | `git`, `gh`/`glab` (optional) | The same, to every finished worktree at once |
 | `ga` `gc` `gca` `gca!` `gcan!` `gco` `gcb` `gcm` `gst` `gd` `gdca` `gcp` `gcpc` `gcpa` `gp` `gpsup` `gmom` `gwip` `gunwip` `gpa!` `gcap` | zsh | `git` | The short git commands |
-| `gh-login` `gh-add-key` | zsh | `gh` | Authenticate a new machine with GitHub over SSH |
+| `gh-login` `gh-add-key` | zsh, fish | `gh` | Authenticate a new machine with GitHub over SSH |
 | `gwip` | zsh, fish | `git` | Commit everything as `--wip-- [skip ci]`, unsigned and unverified |
 | `gunwip` | zsh, fish | `git` | Undo the last commit if it is a `--wip--` |
 | `gunwipall` | zsh, fish | `git` | Reset onto the newest non-`--wip--` commit |
@@ -36,9 +36,11 @@ install; the plugins are the feature boundaries inside it.
 | `_battery_prompt` | zsh | `pmset` (macOS) or sysfs (Linux) | Render the battery segment (called by the prompt) |
 | `_shell_battery_prompt` | fish | `pmset` (macOS) or sysfs (Linux) | The same for Fish; `fish_right_prompt` calls it once enabled |
 
-Everything except the prompt is autoloaded — Zsh through `fpath` + `autoload
--Uz`, Fish through its own function autoloading — so none of it is read, parsed
-or executed until you type the command.
+Everything except the prompt and Fish's abbreviations is autoloaded — Zsh
+through `fpath` + `autoload -Uz`, Fish through its own function autoloading — so
+none of it is read, parsed or executed until you type the command. The
+abbreviations are the exception because they cannot be: one has to exist before
+you type the word it expands.
 
 ## Parity between the shells
 
@@ -48,10 +50,11 @@ models differ enough that a common layer costs more than it saves.
 
 Two features are **Zsh only**, and one is partly so:
 
-- **git-alias** — partly. `gwip`, `gunwip` and `gunwipall` are functions, so
-  Fish autoloads them and both shells have them. The rest are aliases, and the
-  Fish equivalent of an alias worth having is an abbreviation, which has to be
-  declared at startup — that means `conf.d/`, and it stays empty.
+- **git-alias** — both shells. `gwip`, `gunwip` and `gunwipall` are functions in
+  both. The rest are Zsh aliases and Fish abbreviations, which is the closer
+  equivalent anyway: an abbreviation expands where you can see it. Declaring one
+  means `conf.d/`, so that directory is no longer empty — 0.19ms at every Fish
+  start, and the only thing in the package that is not autoloaded.
 - **macos** — provisioning, run by hand on a new machine, and the Fish
   configuration has never had it.
 - **git-worktree** — around 1600 lines of Zsh with its own `zstyle`

@@ -10,6 +10,18 @@
 # Fisher puts them and Fish autoloads them from there".
 #
 
+# A UTF-8 locale, or the prompt's chevron comes back as two bytes of mojibake
+# and the assertions below compare mangled output. Everything else here is
+# deliberately at the mercy of the caller's environment — a package should
+# behave the way it does for a person — but text encoding is not something a
+# test should be guessing at.
+for candidate in C.UTF-8 en_US.UTF-8
+    if locale -a 2>/dev/null | string match --quiet --entire -- $candidate
+        set -gx LC_ALL $candidate
+        break
+    end
+end
+
 set -g ROOT (path resolve (status dirname)/../..)
 set -g FISH (status fish-path)
 set -g PASS 0
@@ -56,9 +68,14 @@ end
 test -d $ROOT/fish; and bad "there is a fish/ directory — the package must live at the root"
 or ok "there is no fish/ directory to confuse Fisher"
 
-# conf.d runs on every interactive start, so the default is that it is empty.
-set -l confd $ROOT/conf.d/*.fish
-eq "conf.d/ contains no startup files" "" "$confd"
+# conf.d runs on every interactive start, so what lives there is deliberate:
+# only the abbreviations, which cannot exist any other way, and nothing in that
+# file may do anything but declare them.
+set -l confd (path basename $ROOT/conf.d/*.fish)
+eq "conf.d/ holds only the abbreviations" "git-alias.fish" (string join ' ' $confd)
+
+set -l offenders (string match --regex --invert '^\s*(#|$|if status is-interactive|end|abbr --add )' <$ROOT/conf.d/git-alias.fish)
+eq "conf.d/git-alias.fish only declares abbreviations" "" (string join ' ' $offenders)
 
 # One public function per file, named after the file.
 for file in $ROOT/functions/*.fish
@@ -103,7 +120,13 @@ group "prompt"
 set out ($isolated --command 'cd $HOME; true; fish_prompt' 2>/dev/null | cat -v | string collect)
 has "success prompt is magenta" '^[[35m' "$out"
 has "success prompt shows the directory in blue" '^[[34m~' "$out"
-has "success prompt ends in a chevron" 'M-bM-^]M-/' "$out"
+
+# The chevron is compared without `cat -v`. What that renders a multi-byte
+# character as depends on the locale — in a UTF-8 one macOS passes ❯ through
+# and escapes only the byte in the middle that is not printable on its own,
+# so a byte-level expectation is wrong on exactly the machines it matters on.
+set -l raw ($isolated --command 'cd $HOME; true; fish_prompt' 2>/dev/null | string collect)
+has "success prompt ends in a chevron" '❯' "$raw"
 
 set out ($isolated --command 'cd $HOME; false; fish_prompt' 2>/dev/null | cat -v | string collect)
 has "failure prompt is red" '^[[31m' "$out"

@@ -65,6 +65,13 @@ else
     skip "zsh or git is not installed"
 fi
 
+step "git-alias behaviour, fish (abbreviations need an interactive shell)"
+if command -v fish >/dev/null 2>&1 && command -v git >/dev/null 2>&1; then
+    fish --no-config -i tests/fish/git-alias.fish || RC=1
+else
+    skip "fish or git is not installed"
+fi
+
 # ---------------------------------------------------------------- fish smoke
 step "fish smoke tests (fish --no-config)"
 if command -v fish >/dev/null 2>&1; then
@@ -82,7 +89,10 @@ step "repository checks"
 SHIPPED=$(find shell-plugins.plugin.zsh zsh functions conf.d completions docs \
                tests README.md LICENSE -type f 2>/dev/null | sort)
 
-if [ -d .git ]; then
+# `.git` is a directory in a clone and a *file* in a worktree, so ask git
+# rather than looking for a directory — otherwise every check below silently
+# skips whenever the work happens in a worktree.
+if git rev-parse --is-inside-work-tree > /dev/null 2>&1; then
     if git diff --check >/dev/null 2>&1; then
         pass "git diff --check"
     else

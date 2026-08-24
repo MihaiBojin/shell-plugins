@@ -1,8 +1,0 @@
-Intentionally empty — see docs/PLUGINS.md.
-
-Everything in conf.d/ runs during Fish startup, so nothing goes here unless it
-genuinely must execute for every interactive shell. Functions do not qualify
-(Fish autoloads them on first use), and neither does the prompt.
-
-Fisher only copies *.fish out of this directory, so this file is never
-installed anywhere.
