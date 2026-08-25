@@ -1,0 +1,86 @@
+# Delete branches, having said first what each one would cost.
+emulate -L zsh
+
+local force='' query='' branch reason current head question answer sha
+local -a chosen doomed
+integer risky=0 safe failed=0
+
+while (( $# )); do
+  case $1 in
+    -h|--help)
+      print -ru2 -- 'gbd [QUERY]       pick branches to delete — Tab marks more than one'
+      print -ru2 -- 'gbd --force       delete without the confirmation prompt'
+      print -ru2 -- ''
+      print -ru2 -- 'Every branch is reported before anything is deleted: merged, squash-'
+      print -ru2 -- 'merged, or held by another ref means the commits survive the deletion.'
+      print -ru2 -- 'Anything else is called out, and the prompt says how many. The current'
+      print -ru2 -- 'branch and the default branch are always skipped. Each deletion prints'
+      print -ru2 -- 'the command that puts the branch back.'
+      return 0
+      ;;
+    -f|--force) force=1; shift ;;
+    *) break ;;
+  esac
+done
+
+if (( $# > 1 )); then
+  _git_alias_say err "too many arguments — usage: gbd [QUERY]"
+  return 2
+fi
+query=${1:-}
+
+chosen=( ${(f)"$(_git_alias_branch_pick 'delete>' "$query" multi)"} ) || return 1
+(( $#chosen )) || return 1
+
+current=$(_git_alias_current_branch)
+head=$(_git_alias_main_branch)
+
+for branch in "${chosen[@]}"; do
+  if [[ $branch == $current ]]; then
+    _git_alias_say warn "$branch is checked out here — skipping"
+    continue
+  fi
+  if [[ $branch == $head ]]; then
+    _git_alias_say warn "$branch is this repository's default branch — skipping"
+    continue
+  fi
+  reason=$(_git_alias_branch_state "$branch")
+  safe=$?
+  doomed+=( "$branch" )
+  if (( safe == 0 )); then
+    printf '  %-34s %s\n' "$branch" "$reason"
+  else
+    (( risky++ ))
+    printf '  %-34s \e[33m%s\e[0m\n' "$branch" "$reason"
+  fi
+done
+
+if (( ! $#doomed )); then
+  _git_alias_say err "nothing left to delete"
+  return 1
+fi
+
+if [[ -z $force ]]; then
+  question="Delete $#doomed branches?"
+  (( risky )) && question="Delete $#doomed branches, $risky of them not in $head?"
+  print -ru2 -n -- "$question [y/N] "
+  read answer || { print -ru2 -- ""; return 1 }
+  if [[ $answer != [Yy]* ]]; then
+    _git_alias_say warn "nothing deleted"
+    return 1
+  fi
+fi
+
+# -D rather than -d: the checks above already answered the question -d asks, and
+# -d refuses a squash-merged branch that is provably redundant. The sha goes out
+# with every deletion so the branch can be put back.
+for branch in "${doomed[@]}"; do
+  sha=$(git rev-parse --verify --quiet "refs/heads/$branch")
+  if git branch -D "$branch" >/dev/null 2>&1; then
+    printf '  %-34s deleted — restore with: git branch %s %s\n' "$branch" "$branch" "${sha[1,12]}"
+  else
+    _git_alias_say err "could not delete $branch"
+    failed=1
+  fi
+done
+return $failed

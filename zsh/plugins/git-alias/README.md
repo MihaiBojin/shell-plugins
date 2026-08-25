@@ -105,3 +105,38 @@ ohmyzsh/ohmyzsh path:plugins/git
 them. `gcm` and `gmom` ask the repository what its default branch is —
 `<remote>/HEAD` first, which git records at clone time from what the server
 advertised, then `main`, `trunk`, `master` in that order.
+
+## Branch commands
+
+Two of these are not aliases. `gb` and `gbd` open a picker, and there is nothing
+readable for an alias to expand to, so they are functions in both shells.
+
+| Command | What it does |
+|---|---|
+| `gb [QUERY]` | Fuzzy-pick one of this repository's branches and check it out. The list is newest-commit first, search covers the name, and the preview shows the branch's recent commits |
+| `gb --list [ARG…]` | Plain `git branch`, arguments passed straight through |
+| `gbd [QUERY]` | Pick branches to delete — Tab marks more than one, Ctrl-A marks all |
+| `gbd --force` | Skip the confirmation |
+
+`gbd` reports every branch before it deletes anything, and says which of four
+things makes the deletion safe:
+
+| Verdict | Meaning |
+|---|---|
+| `merged into main` | the branch is an ancestor of the default branch |
+| `squash-merged into main` | its patch is already upstream. `git branch --merged` cannot see this: a squash rewrites the commits, leaving a branch that looks exactly like one nobody merged. The tree is replayed as a single commit on the merge base and `git cherry` compares content instead of history |
+| `leaves main's tree exactly as it found it` | it changes nothing that is not already there |
+| `same commit as X` | another ref holds the same commit, so the commits outlive the name. A pushed branch usually lands here through its remote-tracking ref |
+
+Anything else is `not in main`, printed in yellow, and the confirmation says how
+many of those are in the set. The current branch and the default branch are
+always skipped. Every deletion prints the command that puts the branch back:
+
+```
+  feat/oauth                         squash-merged into main
+  feat/oauth                         deleted — restore with: git branch feat/oauth 4f2a1c0d88be
+```
+
+Deletion is `git branch -D`. `-d` refuses a squash-merged branch that is
+provably redundant, and the checks above have already answered the question it
+asks.

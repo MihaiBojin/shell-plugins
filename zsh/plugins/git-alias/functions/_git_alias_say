@@ -1,0 +1,13 @@
+# Print a git-alias message on stderr.
+#
+# One place decides what these messages look like, and they all go to stderr so
+# `gb --list` and the pickers stay pipeable.
+emulate -L zsh
+
+local level=$1 colour=''
+case $level in
+  err)  colour=$'\e[31m' ;;
+  warn) colour=$'\e[33m' ;;
+esac
+shift
+print -ru2 -- "${colour}git-alias:"$'\e[0m'" $*"

@@ -1,0 +1,31 @@
+# Pick a branch and check it out.
+emulate -L zsh
+
+local -a chosen
+local query=''
+
+case $1 in
+  -h|--help)
+    print -ru2 -- 'gb [QUERY]        pick one of this repository'\''s branches and check it out'
+    print -ru2 -- 'gb --list [ARG…]  what `git branch` prints, arguments passed straight through'
+    print -ru2 -- ''
+    print -ru2 -- 'Fuzzy search covers the branch name. The preview shows its recent'
+    print -ru2 -- 'commits. A QUERY that narrows to one branch checks it out without asking.'
+    return 0
+    ;;
+  -l|--list)
+    shift
+    git branch "$@"
+    return
+    ;;
+esac
+
+if (( $# > 1 )); then
+  _git_alias_say err "too many arguments — usage: gb [QUERY]"
+  return 2
+fi
+query=${1:-}
+
+chosen=( ${(f)"$(_git_alias_branch_pick 'branch>' "$query")"} ) || return 1
+(( $#chosen )) || return 1
+git checkout "$chosen[1]"

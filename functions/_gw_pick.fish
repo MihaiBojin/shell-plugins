@@ -31,10 +31,18 @@ function _gw_pick -a prompt query -d 'Pick one of the worktrees here, printing i
     end
 
     if command -q fzf
-        set -l chosen (printf '%s\n' $lines |
-            fzf --prompt="$prompt " --query="$query" --select-1 --exit-0 \
-                --delimiter=\t --with-nth=1,2 --nth=1 \
-                --preview='git -C {2} status --short --branch 2>/dev/null; echo; git -C {2} log --oneline -5 2>/dev/null')
+        # --select-1 only with a query. Without one the list is the point: a
+        # repository with a single worktree would otherwise pick it and exit
+        # having drawn nothing, which reads as `gwl` doing nothing at all.
+        set -l opts --ansi --height=50% --layout=reverse --border --tabstop=1 \
+            --prompt="$prompt " --delimiter=\t --with-nth=1,2 --nth=1 \
+            --color='hl:#ffcc00,info:#00ffcc,prompt:#ff00ff,pointer:#ff3300' \
+            --preview='git -C {2} -c color.ui=always status --short --branch; echo; git -C {2} -c color.ui=always log --oneline --decorate -15' \
+            --preview-window='down:12:wrap'
+        if test -n "$query"
+            set -a opts --query="$query" --select-1 --exit-0
+        end
+        set -l chosen (printf '%s\n' $lines | fzf $opts)
         or return 1
         set -q chosen[1]; or return 1
         set -l index (contains --index -- $chosen $lines); or return 1
