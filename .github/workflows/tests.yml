@@ -1,0 +1,57 @@
+# tests/run.sh, on both operating systems this package claims to support.
+#
+# The runner skips whichever of zsh/fish is missing rather than failing, which
+# is right on a laptop and wrong here — a skipped shell is a shell nobody is
+# testing. So both are installed on both platforms, and the versions are
+# printed before the run so a failure that is really an old fish says so.
+
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install zsh and fish (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          # Ubuntu ships fish 3.x. The package is developed against fish 4, so
+          # take the PPA when it answers and fall back loudly when it does not
+          # — the version step below is what says which one ran.
+          sudo add-apt-repository -y ppa:fish-shell/release-4 || \
+            echo "::warning::fish 4 PPA unavailable, falling back to the distribution's fish"
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends zsh fish
+
+      - name: Install fish (macOS)
+        if: runner.os == 'macOS'
+        # zsh is macOS's own login shell and already present.
+        run: brew install fish
+
+      - name: Versions
+        run: |
+          zsh --version
+          fish --version
+          git --version
+
+      - name: tests/run.sh
+        run: tests/run.sh
