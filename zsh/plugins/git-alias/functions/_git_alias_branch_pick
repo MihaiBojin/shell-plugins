@@ -1,0 +1,80 @@
+# Pick local branches, printing one name per line. $1 is the picker label, $2 an
+# optional starting query, $3 non-empty to allow marking more than one.
+#
+# fzf when it is there, a numbered list when it is not. Fuzzy search covers the
+# name column only: matching against the subject line makes every branch match
+# nearly every query.
+emulate -L zsh
+
+local label=${1:-branch>} query=${2:-} multi=${3:-}
+local -a records branches lines
+
+if ! git rev-parse --git-dir >/dev/null 2>&1; then
+  _git_alias_say err "not inside a git repository"
+  return 1
+fi
+
+# Newest first. The branch you want is nearly always one you touched recently,
+# and %(HEAD) is the '*' that `git branch` prints.
+records=( ${(f)"$(git for-each-ref --sort=-committerdate refs/heads \
+  --format='%(HEAD)%09%(refname:short)%09%(committerdate:relative)%09%(contents:subject)')"} )
+if (( ! $#records )); then
+  _git_alias_say err "no local branches"
+  return 1
+fi
+
+local record
+for record in "${records[@]}"; do
+  local -a f=( "${(@s:	:)record}" )
+  branches+=( "$f[2]" )
+  lines+=( "$(printf '%s %-34s\t%-14s\t%s' "${f[1]:- }" "${f[2][1,34]}" "$f[3]" "$f[4]")" )
+done
+
+local -a chosen
+if (( $+commands[fzf] )); then
+  local -a opts
+  opts=(
+    --ansi --height=50% --layout=reverse --border --tabstop=1
+    --prompt="$label " --delimiter=$'\t' --with-nth=1,2,3 --nth=1
+    --color='hl:#ffcc00,info:#00ffcc,prompt:#ff00ff,pointer:#ff3300'
+    --preview='git -c color.ui=always log --oneline --decorate --graph -15 {2}'
+    --preview-window='down:12:wrap'
+  )
+  [[ -n $multi ]] && opts+=( --multi --bind='ctrl-a:toggle-all' )
+  # --select-1 only with a query. Without one the list is the point.
+  [[ -n $query ]] && opts+=( --query="$query" --select-1 --exit-0 )
+  chosen=( ${(f)"$(print -rl -- "${lines[@]}" | fzf "${opts[@]}")"} ) || return 1
+  (( $#chosen )) || return 1
+  local line i
+  for line in "${chosen[@]}"; do
+    i=${lines[(Ie)$line]}
+    (( i )) || return 1
+    print -r -- "$branches[i]"
+  done
+  return 0
+fi
+
+# No fzf: a numbered list, filtered by the query if there was one.
+local -a shown
+local i
+for (( i = 1; i <= $#lines; i++ )); do
+  [[ -z $query || $branches[i] == *$query* ]] && shown+=( $i )
+done
+if (( ! $#shown )); then
+  _git_alias_say err "nothing matches: $query"
+  return 1
+fi
+if (( $#shown == 1 )); then
+  print -r -- "$branches[$shown[1]]"
+  return 0
+fi
+local n
+for (( n = 1; n <= $#shown; n++ )); do
+  print -ru2 -- "$(printf '%3d) %s' $n "$lines[$shown[$n]]")"
+done
+local answer
+print -ru2 -n -- "Choice [1]: "
+read answer || { print -ru2 -- ""; return 1 }
+[[ -z $answer ]] && answer=1
+[[ $answer == <-> ]] && (( answer >= 1 && answer <= $#shown )) || return 1
+print -r -- "$branches[$shown[$answer]]"

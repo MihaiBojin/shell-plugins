@@ -72,6 +72,13 @@ else
     skip "fish or git is not installed"
 fi
 
+step "git-alias behaviour, zsh (real repositories)"
+if command -v zsh >/dev/null 2>&1 && command -v git >/dev/null 2>&1; then
+    zsh -f tests/zsh/git-alias.zsh || RC=1
+else
+    skip "zsh or git is not installed"
+fi
+
 step "git-alias behaviour, fish (abbreviations need an interactive shell)"
 if command -v fish >/dev/null 2>&1 && command -v git >/dev/null 2>&1; then
     fish --no-config -i tests/fish/git-alias.fish || RC=1

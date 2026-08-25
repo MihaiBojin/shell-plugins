@@ -128,6 +128,65 @@ else
 end
 popd >/dev/null
 
+# ------------------------------------------------------- branch bookkeeping
+echo
+echo 'branch state'
+
+# One repository, one branch per way a branch can end.
+set -l bs (sandbox)/branches
+git init -q --initial-branch=main $bs
+pushd $bs >/dev/null
+git commit -q --allow-empty -m base
+
+git checkout -q -b merged
+echo a >a; git add a; git commit -q -m a
+git checkout -q main
+git merge -q --no-ff merged -m 'merge merged'
+
+git checkout -q -b squashed main
+echo b >b; git add b; git commit -q -m b
+git checkout -q main
+git merge -q --squash squashed >/dev/null
+git commit -q -m 'squash b'
+
+git checkout -q -b alone main
+echo c >c; git add c; git commit -q -m c
+git checkout -q main
+git branch twin alone
+
+git checkout -q -b nowhere main
+echo d >d; git add d; git commit -q -m d
+git checkout -q main
+
+has 'a merged branch says so' 'merged into main' (_git_alias_branch_state merged)
+has 'a squashed branch is recognised by content' 'squash-merged into main' (_git_alias_branch_state squashed)
+has 'a branch another ref holds says which' 'same commit as twin' (_git_alias_branch_state alone)
+has 'a branch that is nowhere else says so' 'not in main' (_git_alias_branch_state nowhere)
+
+_git_alias_branch_state merged >/dev/null
+eq 'merged exits 0' 0 $status
+_git_alias_branch_state squashed >/dev/null
+eq 'squash-merged exits 0' 0 $status
+_git_alias_branch_state alone >/dev/null
+eq 'held by another ref exits 0' 0 $status
+_git_alias_branch_state nowhere >/dev/null
+eq 'unreferenced exits 1' 1 $status
+
+# gbd refuses the two branches it must never take.
+gbd --force main 2>/dev/null
+eq 'gbd will not delete the default branch' 1 $status
+has 'main survives' ' main' (git branch | string join ' ')
+
+git checkout -q nowhere
+gbd --force nowhere 2>/dev/null
+eq 'gbd will not delete the branch you are on' 1 $status
+git checkout -q main
+
+gbd --force squashed >/dev/null
+eq 'gbd deletes a squash-merged branch' 0 $status
+eq 'and it is gone' '' (git branch --list squashed | string trim)
+popd >/dev/null
+
 cleanup
 echo
 echo "  $PASS passed, $FAIL failed"

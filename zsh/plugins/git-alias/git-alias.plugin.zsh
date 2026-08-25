@@ -24,7 +24,9 @@ fpath=( ${${(%):-%x}:A:h}/functions $fpath )
 unalias gwip 2>/dev/null
 unfunction gunwipall 2>/dev/null
 
-autoload -Uz gwip gunwipall _git_alias_current_branch _git_alias_main_branch
+autoload -Uz gwip gunwipall gb gbd \
+  _git_alias_current_branch _git_alias_main_branch \
+  _git_alias_say _git_alias_branch_pick _git_alias_branch_state
 
 # Add, commit, amend
 alias ga='git add'
@@ -36,6 +38,10 @@ alias 'gcan!'='git commit --verbose --all --no-edit --amend'
 
 # Move about. gcm goes to whatever this repository calls its default branch,
 # asked at the moment you run it rather than guessed.
+#
+# gb and gbd are not here: they open a picker, and there is nothing readable for
+# an alias to expand to. They are functions, autoloaded above. `gb --list` is
+# the plain `git branch` this used to be.
 alias gco='git checkout'
 alias gcb='git checkout -b'
 alias gcm='git checkout $(_git_alias_main_branch)'
