@@ -24,7 +24,7 @@ if (( $+commands[fzf] )); then
     --ansi --height=50% --layout=reverse --border --tabstop=1
     --prompt="$label " --delimiter=$'\t' --with-nth=1,2 --nth=1
     --color='hl:#ffcc00,info:#00ffcc,prompt:#ff00ff,pointer:#ff3300'
-    --preview='git -C {3} -c color.ui=always status --short --branch; echo; git -C {3} -c color.ui=always log --oneline --decorate -15'
+    --preview='git -C {-1} -c color.ui=always status --short --branch; echo; git -C {-1} -c color.ui=always log --oneline --decorate -15'
     --preview-window='down:12:wrap'
   )
   [[ -n $query ]] && opts+=( --query="$query" --select-1 --exit-0 )

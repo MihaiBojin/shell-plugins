@@ -21,9 +21,12 @@ function _git_alias_branch_pick -a prompt query multi -d 'Pick local branches, p
     for record in $records
         set -l fields (string split \t -- $record)
         set -a branches $fields[2]
-        set -a lines (printf '%s %-34s\t%-14s\t%s' \
+        # Last field is the branch name, hidden from the display by
+        # --with-nth and read by the preview as {-1}. The shown name is
+        # truncated to 34 columns, which is not a ref.
+        set -a lines (printf '%s %-34s\t%-14s\t%s\t%s' \
             (test -n "$fields[1]"; and echo '*'; or echo ' ') \
-            (string sub -l 34 -- $fields[2]) $fields[3] $fields[4])
+            (string sub -l 34 -- $fields[2]) $fields[3] $fields[4] $fields[2])
     end
 
     if command -q fzf
@@ -31,7 +34,7 @@ function _git_alias_branch_pick -a prompt query multi -d 'Pick local branches, p
         set -l opts --ansi --height=50% --layout=reverse --border --tabstop=1 \
             --prompt="$prompt " --delimiter=\t --with-nth=1,2,3 --nth=1 \
             --color='hl:#ffcc00,info:#00ffcc,prompt:#ff00ff,pointer:#ff3300' \
-            --preview='git -c color.ui=always log --oneline --decorate --graph -15 {2}' \
+            --preview='git -c color.ui=always log --oneline --decorate --graph -15 {-1}' \
             --preview-window='down:12:wrap'
         test -n "$multi"; and set -a opts --multi --bind='ctrl-a:toggle-all'
         if test -n "$query"
