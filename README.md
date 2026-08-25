@@ -11,6 +11,10 @@ Everything is autoloaded. Loading the whole collection defines no function
 bodies, runs no external command, starts no background work, and prints nothing;
 the first time you type one of the commands is the first time its file is read.
 
+Two of the commands are bash scripts on `$PATH` rather than shell code, because
+they print and exit and both shells can run the same file: see
+[Commands on `$PATH`](#commands-on-path).
+
 What is in it: [`docs/PLUGINS.md`](docs/PLUGINS.md).
 How to work on it: [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md).
 
@@ -31,12 +35,11 @@ Or name the features you want, and control the order yourself:
 
 ```text
 MihaiBojin/shell-plugins path:zsh/plugins/prompt
-MihaiBojin/shell-plugins path:zsh/plugins/battery-prompt
 MihaiBojin/shell-plugins path:zsh/plugins/git-alias
 MihaiBojin/shell-plugins path:zsh/plugins/git-worktree
-MihaiBojin/shell-plugins path:zsh/plugins/macos
 MihaiBojin/shell-plugins path:zsh/plugins/dns
 MihaiBojin/shell-plugins path:zsh/plugins/eternal-terminal
+MihaiBojin/shell-plugins path:zsh/plugins/bin
 ```
 
 Both forms are supported and will stay supported. Every plugin also works when
@@ -46,8 +49,8 @@ sourced on its own, with no configuration:
 source /path/to/shell-plugins/zsh/plugins/prompt/prompt.plugin.zsh
 ```
 
-The one ordering rule: `prompt` clears `RPROMPT`, and `battery-prompt` appends
-to it, so `prompt` goes first.
+Order does not matter: no plugin here reads or writes anything another one
+sets.
 
 ### What your configuration still owns
 
@@ -64,9 +67,11 @@ autoload -Uz compinit && compinit
 `git-worktree` notices and registers its completions directly, so it works
 either way.)
 
-Everything else that is not reusable shell behaviour — `PATH`, history, shell
-options, tool initialization, the plugin manager itself — stays in your
-configuration too.
+Everything else that is not reusable shell behaviour — history, shell options,
+tool initialization, the plugin manager itself — stays in your configuration
+too. `PATH` as well, with one exception: the `bin` plugin appends this
+repository's own `bin/` to it, because there is no `fpath` equivalent for an
+executable. See [Commands on `$PATH`](#commands-on-path).
 
 ## Install — Fish
 
@@ -86,7 +91,32 @@ jorgebucaran/fisher
 MihaiBojin/shell-plugins
 ```
 
-`conf.d/` is intentionally empty: nothing here needs to run at Fish startup.
+`conf.d/` holds one file, `git-alias.fish`, and holding it to one is
+deliberate: everything in that directory runs at every interactive Fish start.
+An abbreviation has to be declared there or it does not exist, which is why
+that one is allowed. Everything else in the package is autoloaded and costs
+nothing until you type its name.
+
+## Commands on `$PATH`
+
+Two things here are not shell code at all — bash scripts that print and exit,
+so a single implementation serves both shells:
+
+| | |
+|---|---|
+| `battery` | The charge, once, when you ask for it |
+| `macos` | Provisioning helpers for setting a Mac up |
+
+Zsh gets them from the `bin` plugin, which appends `bin/` to `$PATH`; loading
+the whole collection includes it.
+
+Fish needs one line, because Fisher only ever copies `functions/`, `conf.d/`,
+`completions/` and `themes/` — a repository-root `bin/` is not part of the
+package it installs. Clone the repository and point at it:
+
+```fish
+fish_add_path ~/git/MihaiBojin/shell-plugins/bin
+```
 
 ## Pinning
 
@@ -116,7 +146,7 @@ Homebrew, Nix, a particular terminal, a username, or a home directory.
 Individual commands use external tools on purpose, and say so when they are
 missing: `git` (and optionally `fzf`) for the worktree helpers, `dig` for
 `dns_records`, `et` for the Eternal Terminal wrapper, `pmset` or Linux sysfs for
-the battery segment.
+`battery`, and bash 3.2 or newer for `battery` and `macos`.
 
 ## Tests
 

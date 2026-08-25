@@ -20,19 +20,17 @@
 # external commands, nothing discovered at startup. Adding a plugin means
 # adding a line.
 #
-# Order only matters in one place: battery-prompt appends to RPROMPT and prompt
-# clears it, so prompt comes first. The rest are independent of each other.
+# Order does not matter. No plugin here reads or writes anything another one
+# sets, so the list is alphabetical.
 #
 
 () {
   local _sp_plugins=${${(%):-%x}:A:h}/zsh/plugins
 
-  source $_sp_plugins/prompt/prompt.plugin.zsh
-  source $_sp_plugins/battery-prompt/battery-prompt.plugin.zsh
-
+  source $_sp_plugins/bin/bin.plugin.zsh
   source $_sp_plugins/dns/dns.plugin.zsh
   source $_sp_plugins/eternal-terminal/eternal-terminal.plugin.zsh
   source $_sp_plugins/git-alias/git-alias.plugin.zsh
   source $_sp_plugins/git-worktree/git-worktree.plugin.zsh
-  source $_sp_plugins/macos/macos.plugin.zsh
+  source $_sp_plugins/prompt/prompt.plugin.zsh
 }

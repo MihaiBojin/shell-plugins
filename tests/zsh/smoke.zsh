@@ -19,7 +19,7 @@ typeset -g PASS=0 FAIL=0
 typeset -g ZSH=${commands[zsh]:-/bin/zsh}
 
 # Every logical plugin, in the order the aggregate loads them.
-typeset -ga LOGICAL=( prompt battery-prompt dns eternal-terminal git-alias git-worktree macos )
+typeset -ga LOGICAL=( bin dns eternal-terminal git-alias git-worktree prompt )
 
 ok()   { (( PASS++ )); print -r  -- "  ok    $1" }
 bad()  { (( FAIL++ )); print -ru2 -- "  FAIL  $1"; [[ -n ${2-} ]] && print -ru2 -- "        $2" }
@@ -47,11 +47,7 @@ group "aggregate entry point"
 out=$(isolated "source $AGG")
 eq "shell-plugins.plugin.zsh loads without printing anything" "" "$out"
 
-# install_pkg and link_if_different come from the macos plugin, which defines
-# nothing off Darwin on purpose — hdiutil, installer and com.apple.dock exist
-# nowhere else. Asking for them on Linux tests the platform, not the package.
-typeset -g PUBLIC='gw gwl gwa gwr gunwipall dns_records et _battery_prompt'
-[[ $OSTYPE == darwin* ]] && PUBLIC+=' install_pkg link_if_different'
+typeset -g PUBLIC='gw gwl gwa gwr gunwipall dns_records et'
 
 out=$(isolated "source $AGG
 for f in $PUBLIC; do
@@ -204,29 +200,24 @@ out=$(isolated "source $PLUGINS/prompt/prompt.plugin.zsh; [[ -o prompt_subst ]] 
 eq "the prompt does not need PROMPT_SUBST" "off" "$out"
 
 #
-# 7. battery-prompt is opt-in.
+# 7. bin/ is on $PATH, and the scripts in it are runnable.
 #
-group "battery-prompt"
-out=$(isolated "source $AGG; print -r -- \"[\$RPROMPT]\"")
-eq "battery-prompt stays out of RPROMPT by default" "[]" "$out"
+group "bin"
+out=$(isolated "source $AGG; whence -p battery")
+eq "battery resolves to this repository's copy" "$ROOT/bin/battery" "$out"
 
-out=$(isolated "zstyle ':battery-prompt:' show yes
+out=$(isolated "source $AGG; whence -p macos")
+eq "macos resolves to this repository's copy" "$ROOT/bin/macos" "$out"
+
+out=$(isolated "source $AGG; print -r -- \$path[-1]")
+eq "bin goes last, so a command of your own still wins" "$ROOT/bin" "$out"
+
+# Antidote sources a plugin once, but a hand-written configuration may not.
+out=$(isolated "source $AGG
 source $AGG
-print -r -- \"\$RPROMPT\"")
-eq "battery-prompt joins RPROMPT when asked" '${_battery_prompt_cache_output}' "$out"
-
-# A parameter expansion, not a command substitution: zsh expands ${...} itself,
-# where $(...) forks a subshell before every prompt. This is the assertion that
-# keeps that from quietly coming back.
-hasnt "battery-prompt does not fork per prompt" '$(' "$out"
-
-out=$(isolated "zstyle ':battery-prompt:' show yes
-source $AGG
-print -r -- \"\${precmd_functions[(r)_battery_prompt_precmd]}\"")
-eq "battery-prompt renders from precmd" "_battery_prompt_precmd" "$out"
-
-out=$(isolated "source $AGG; _battery_prompt >/dev/null; print -r -- \$?")
-eq "_battery_prompt succeeds when called by hand" "0" "$out"
+typeset -a seen=( \${(M)path:#$ROOT/bin} )
+print -r -- \$#seen")
+eq "sourcing twice puts bin on \$PATH once" "1" "$out"
 
 #
 # 8. The commands behave outside a repository / without their tools.
@@ -280,10 +271,6 @@ done
 # than by parsing the plugin text.
 for p in $PLUGINS/*(/); do
   [[ -d $p/functions ]] || continue
-  if [[ ${p:t} == macos && $OSTYPE != darwin* ]]; then
-    ok "macos: autoloads nothing off Darwin, as the plugin says it will"
-    continue
-  fi
   local -a declared files missing extra
   declared=( ${(f)"$(isolated "source $p/${p:t}.plugin.zsh
     for f in \${(k)functions}; do

@@ -1,4 +1,0 @@
-# Add a gap between pinned Dock apps. Takes effect on `killall Dock`.
-emulate -L zsh
-print -r -- "Adding spacer to persistent apps"
-defaults write com.apple.dock persistent-apps -array-add '{tile-data={}; tile-type="spacer-tile";}'

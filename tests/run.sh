@@ -4,10 +4,10 @@
 #
 #     tests/run.sh
 #
-# Static syntax checks, then isolated smoke tests for each shell, then the
-# repository hygiene checks. Written in POSIX sh so it runs from any shell, and
-# it skips (loudly) whichever of zsh/fish is not installed rather than failing —
-# a machine only ever needs one of them.
+# Static syntax checks, then isolated smoke tests for each shell and for the
+# scripts in bin/, then the repository hygiene checks. Written in POSIX sh so it
+# runs from any shell, and it skips (loudly) whichever of zsh/fish is not
+# installed rather than failing — a machine only ever needs one of them.
 #
 set -eu
 
@@ -48,6 +48,26 @@ if command -v fish >/dev/null 2>&1; then
     done
 else
     skip "fish is not installed"
+fi
+
+# -------------------------------------------------------------- bash syntax
+step "bash -n"
+for f in bin/*; do
+    [ -f "$f" ] || continue
+    out=$(bash -n "$f" 2>&1) || { fail "$f does not parse"; continue; }
+    [ -z "$out" ] && pass "$f" || fail "$f parses but complains: $out"
+done
+
+# The scripts in bin/ ship; the test harness does not, and predates the check.
+step "shellcheck bin/"
+if command -v shellcheck >/dev/null 2>&1; then
+    for f in bin/*; do
+        [ -f "$f" ] || continue
+        out=$(shellcheck "$f" 2>&1) && pass "$f" \
+            || { printf '%s\n' "$out" >&2; fail "$f has shellcheck findings"; }
+    done
+else
+    skip "shellcheck is not installed"
 fi
 
 # ----------------------------------------------------------------- zsh smoke
@@ -94,14 +114,18 @@ else
     skip "fish is not installed"
 fi
 
+# ----------------------------------------------------------------- bin smoke
+step "bin/ behaviour (stubbed pmset and uname)"
+sh tests/bin.sh || RC=1
+
 # ----------------------------------------------------------- repository checks
 step "repository checks"
 
 # Every file that ships. The list is enumerated rather than "everything under
 # the root", so a new top-level file has to be added here deliberately before
 # the checks below start covering it.
-SHIPPED=$(find shell-plugins.plugin.zsh zsh functions conf.d completions docs \
-               tests README.md LICENSE -type f 2>/dev/null | sort)
+SHIPPED=$(find shell-plugins.plugin.zsh zsh bin functions conf.d completions \
+               docs tests README.md LICENSE -type f 2>/dev/null | sort)
 
 # `.git` is a directory in a clone and a *file* in a worktree, so ask git
 # rather than looking for a directory — otherwise every check below silently
@@ -159,6 +183,12 @@ for d in zsh/plugins/*/; do
         && pass "$n has exactly one entry point" \
         || fail "$n should have exactly one $n.plugin.zsh (found $c)"
 done
+# A script in bin/ that is not executable is on $PATH and unusable, and the
+# only sign of it is "command not found" from a file you can see is there.
+found=$(find bin -type f ! -perm -u+x 2>/dev/null || true)
+[ -z "$found" ] && pass "everything in bin/ is executable" \
+    || { printf '%s\n' "$found" >&2; fail "not executable"; }
+
 c=$(find . -maxdepth 1 -name '*.plugin.zsh' | wc -l | tr -d ' ')
 [ "$c" = "1" ] && pass "exactly one aggregate entry point at the root" \
     || fail "expected one *.plugin.zsh at the root, found $c"
