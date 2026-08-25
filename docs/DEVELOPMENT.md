@@ -6,16 +6,17 @@
 tests/run.sh
 ```
 
-That is everything: `zsh -n` and `fish -n` over every source file, the isolated
-smoke tests for both shells, and the repository hygiene checks. It skips
-whichever shell is not installed rather than failing — a machine only ever needs
-one of them.
+That is everything: `zsh -n`, `fish -n` and `bash -n` over every source file,
+`shellcheck` over `bin/`, the isolated smoke tests for both shells and for the
+scripts in `bin/`, and the repository hygiene checks. It skips whichever shell
+is not installed rather than failing — a machine only ever needs one of them.
 
 The pieces run standalone too:
 
 ```sh
 zsh -f tests/zsh/smoke.zsh          # never sees your .zshrc
 fish --no-config tests/fish/smoke.fish
+sh tests/bin.sh                     # stubs pmset and uname on $PATH
 ```
 
 Both suites spawn their own child shells for each case, so a plugin that leaks
@@ -40,7 +41,13 @@ Beyond "does it work", they hold the contract in place:
 - **Fisher layout.** The Fish suite copies `functions/`, `conf.d/` and
   `completions/` into a throwaway `$XDG_CONFIG_HOME/fish`, then asserts every
   function is discoverable there by autoloading alone, with no `config.fish`
-  anywhere.
+  anywhere. Those directories are also all Fisher copies, which is why `bin/`
+  is not part of the Fish package and needs a `$PATH` line instead.
+- **`bin/` is executable and behaves.** `battery` keys off pmset's presence
+  rather than the operating system and `macos` asks `uname -s`, so both can be
+  driven from either platform with a stub in front. A file in `bin/` that is not
+  executable fails the repository checks: it would be on `$PATH` and unusable,
+  and the only sign of it is "command not found" from a file you can see.
 - **No leakage.** No machine-specific absolute path, credential-shaped string,
   or package-manager call in shipped code.
 
@@ -56,14 +63,13 @@ nothing loaded but the clock the measurement needs.
 
 | | Load |
 |---|---|
-| **aggregate, all seven** | **1.02 ms** |
-| prompt | 0.10 ms |
-| battery-prompt | 0.26 ms |
-| dns | 0.23 ms |
-| eternal-terminal | 0.23 ms |
-| git-alias | 0.30 ms |
-| git-worktree | 0.31 ms |
-| macos | 0.25 ms |
+| **aggregate, all six** | **0.87 ms** |
+| prompt | 0.09 ms |
+| bin | 0.23 ms |
+| dns | 0.19 ms |
+| eternal-terminal | 0.21 ms |
+| git-alias | 0.36 ms |
+| git-worktree | 0.29 ms |
 
 ```zsh
 zmodload zsh/datetime
@@ -75,10 +81,10 @@ print -f "%.4f ms\n" $(( ($EPOCHREALTIME - t0) * 1000 ))
 The per-plugin figures do not add up to the aggregate, and that is not an
 error. Each one measured alone pays about 0.15 ms of once-per-shell setup — the
 first prompt expansion, the first `fpath` write, the `source` machinery — which
-seven plugins in one shell pay once between them. The aggregate is the number
-that describes a real startup.
+six plugins in one shell pay once between them. The aggregate is the number that
+describes a real startup.
 
-Where git-worktree's 0.32 ms goes, it being the largest:
+Where git-worktree's 0.29 ms goes:
 
 | | |
 |---|---|
@@ -109,18 +115,16 @@ and for the aggregate, by counting `zmodload` output before and after.
 
 Where each is loaded instead:
 
-- `zsh/datetime`, inside `_battery_prompt` on first render.
 - `zsh/zselect`, inside `_gw_run` on first use.
 - `zsh/parameter` — not at all at load time. The "has compinit run" test reads
   `$_comps`, the array compinit builds, rather than `$functions`.
-- `zsh/zutil` — not at all at load time. battery-prompt needs `zstyle` to know
-  whether it was switched on, and asks only when `zmodload -e zsh/zutil` says
-  the module is already there. That is not a guess: `zstyle` is a builtin from
-  that module, so a style can only exist if something already loaded it. No
-  module, no styles, and the defaults are already in place.
+- `zsh/zutil` — not at all at load time. The `zstyle` calls that read
+  git-worktree's settings are inside the functions that need them, so a shell
+  that never runs one never loads the module.
+- `zsh/datetime` — not at all. Nothing here needs a clock any more.
 
-On the Fish side the number is zero by construction: `conf.d/` is empty, so
-Fish runs none of this at startup.
+On the Fish side the only startup cost is `conf.d/git-alias.fish`: twenty-two
+`abbr` calls, 0.19 ms, no forks.
 
 Keep it that way. If a change pushes the aggregate materially past its measured figure,
 something is being done at load time that belongs in a function.
@@ -153,6 +157,20 @@ Both are asserted, so forgetting either fails the suite.
 
 Private globals get a short namespaced prefix (`_GW_*`); everything else is
 `local`.
+
+## Adding a command to bin/
+
+A command belongs in `bin/` when it never touches the shell it was typed in —
+no `cd`, no exported variable, no alias, nothing read back from the caller's
+state. Then it can be one bash script instead of two shell implementations, and
+both shells run the same file.
+
+Bash 3.2, which is what macOS ships: no associative arrays, no `${var,,}`.
+`set -euo pipefail`, `shellcheck`-clean, executable in Git, and a `--help` that
+says what it does. Add the cases to `tests/bin.sh`, which stubs the commands
+that would otherwise download, mount or install something.
+
+Anything that must change the caller's shell stays a function, in both shells.
 
 ## Adding a Fish function
 

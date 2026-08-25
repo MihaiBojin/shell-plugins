@@ -1,0 +1,135 @@
+#!/usr/bin/env bash
+#
+# battery — the charge, once, when you ask for it.
+#
+#     $ battery
+#     󰁻 62% discharging (3:41 left)
+#     $ battery --percent
+#     62
+#
+# `pmset` on macOS, /sys/class/power_supply on Linux. Exits 1 when there is no
+# battery to read.
+#
+# A script rather than a shell function: nothing here touches the shell, so one
+# implementation serves both Zsh and Fish, and a command run by hand can afford
+# the forks a per-prompt segment could not. Written for bash 3.2, which is what
+# macOS ships.
+#
+set -euo pipefail
+
+low=${BATTERY_LOW:-25}
+high=${BATTERY_HIGH:-50}
+show_icon=1
+percent_only=
+colour=auto
+
+usage() {
+    cat <<'USAGE'
+usage: battery [--percent] [--plain] [--no-color]
+
+Print the battery charge, once.
+
+  -p, --percent   just the number: 62
+      --plain     no icon
+      --no-color  never colour the output
+  -h, --help      this
+
+Colour follows the charge: red at or below $BATTERY_LOW (25), yellow at or
+below $BATTERY_HIGH (50), green while charging, none above that. NO_COLOR is
+honoured, and output that is not a terminal is never coloured.
+USAGE
+}
+
+while (( $# )); do
+    case $1 in
+        -p|--percent) percent_only=1 ;;
+        --plain) show_icon= ;;
+        --no-color|--no-colour) colour=never ;;
+        -h|--help) usage; exit 0 ;;
+        *) printf 'battery: unknown option: %s\n' "$1" >&2; usage >&2; exit 2 ;;
+    esac
+    shift
+done
+
+pct=
+state=
+remaining=
+
+# Keyed off pmset's presence rather than `uname`: macOS always ships it, no
+# Linux does, and a test can drop a stub on $PATH.
+if command -v pmset >/dev/null 2>&1; then
+    out=$(pmset -g batt 2>/dev/null || true)
+    # The regexes live in variables: an unquoted space inside [[ =~ ]] would
+    # end the pattern, and quoting the pattern would make it a literal string.
+    re='([0-9]+)%'
+    if [[ $out =~ $re ]]; then pct=${BASH_REMATCH[1]}; fi
+    # Whatever pmset calls it — discharging, charging, charged, AC attached.
+    re='%; ([a-zA-Z ]+);'
+    if [[ $out =~ $re ]]; then state=${BASH_REMATCH[1]}; fi
+    # Absent while the estimate is still settling, when pmset says
+    # "(no estimate)" instead of a time.
+    re='([0-9]+:[0-9]+) remaining'
+    if [[ $out =~ $re ]]; then remaining=${BASH_REMATCH[1]}; fi
+elif [[ -r /sys/class/power_supply/BAT0/capacity ]]; then
+    sysfs=/sys/class/power_supply/BAT0
+    pct=$(<"$sysfs/capacity")
+    if [[ -r $sysfs/status ]]; then
+        state=$(tr '[:upper:]' '[:lower:]' < "$sysfs/status")
+    fi
+    if [[ -r $sysfs/energy_now && -r $sysfs/power_now ]]; then
+        energy=$(<"$sysfs/energy_now")
+        power=$(<"$sysfs/power_now")
+        re='^[0-9]+$'
+        if [[ $power =~ $re ]] && (( power > 0 )); then
+            remaining=$(printf '%d:%02d' $(( energy / power )) \
+                                         $(( energy % power * 60 / power )))
+        fi
+    fi
+fi
+
+if [[ -z $pct ]]; then
+    printf 'battery: no battery found\n' >&2
+    exit 1
+fi
+
+if [[ -n $percent_only ]]; then
+    printf '%s\n' "$pct"
+    exit 0
+fi
+
+# "discharging" contains "charging", so the two that are not charging are
+# matched first and the case stops there.
+charging=
+case $state in
+    discharging|"not charging") ;;
+    *charging*) charging=1 ;;
+esac
+
+tint=
+reset=
+if [[ $colour != never && -t 1 && -z ${NO_COLOR:-} ]]; then
+    if [[ -n $charging ]]; then
+        tint=$'\033[38;2;80;250;123m'
+    elif (( pct <= low )); then
+        tint=$'\033[38;2;255;85;85m'
+    elif (( pct <= high )); then
+        tint=$'\033[38;2;241;250;140m'
+    fi
+    if [[ -n $tint ]]; then reset=$'\033[0m'; fi
+fi
+
+line="$pct%"
+if [[ -n $show_icon ]]; then
+    if [[ -n $charging ]]; then line="󰂄 $line"; else line="󰁻 $line"; fi
+fi
+if [[ -n $state ]]; then line="$line $state"; fi
+if [[ -n $remaining ]]; then
+    # pmset counts down to full while the cable is in, and to empty otherwise.
+    if [[ -n $charging ]]; then
+        line="$line ($remaining to full)"
+    else
+        line="$line ($remaining left)"
+    fi
+fi
+
+printf '%s%s%s\n' "$tint" "$line" "$reset"

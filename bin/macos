@@ -1,0 +1,215 @@
+#!/usr/bin/env bash
+#
+# macos — provisioning helpers for setting a Mac up.
+#
+#     macos install-pkg https://example.com/thing.pkg
+#     macos link-if-different ~/dotfiles/vimrc ~/.vimrc
+#     macos dock add-app /Applications/WezTerm
+#
+# Run by hand, once per machine: most of it wants sudo and the network, and the
+# dock commands need `killall Dock` afterwards to take effect.
+#
+# The three that are not macOS-specific — backup-if-exists, link-if-different,
+# clone-repo — run anywhere. macOS is where they are used, not what they need,
+# and provisioning a Linux box calls clone-repo like everything else.
+#
+# A script rather than a pair of shell plugins. None of these touch the shell —
+# no cd, no exported variable, no alias — so a subprocess is a perfectly good
+# place for all of them, and one implementation serves both Zsh and Fish.
+# Written for bash 3.2, which is what macOS ships.
+#
+set -euo pipefail
+
+# Set by whichever command is holding them, read by the trap below. Globals
+# rather than locals: an EXIT trap runs after the function that made the mess
+# has already returned.
+work=
+mount=
+
+cleanup() {
+    if [[ -n $mount ]]; then hdiutil detach "$mount" >/dev/null 2>&1 || true; fi
+    if [[ -n $work ]]; then rm -rf "$work" || true; fi
+}
+trap cleanup EXIT
+trap 'cleanup; exit 130' INT
+trap 'cleanup; exit 143' TERM
+
+die() {
+    printf 'macos: %s\n' "$1" >&2
+    exit "${2:-1}"
+}
+
+# hdiutil, installer, defaults and com.apple.dock exist nowhere else. Asked per
+# command rather than once at the top, because three of these are ordinary file
+# and git work that a Linux machine being provisioned calls too.
+need_darwin() {
+    [[ $(uname -s) == Darwin ]] || die "macos $1 only works on macOS"
+}
+
+usage() {
+    cat <<'USAGE'
+usage: macos COMMAND [ARGS...]
+
+Provisioning helpers for setting a Mac up.
+
+  install-pkg URL                  download a .pkg and install it
+  install-dmg-pkg URL VOLUME PKG   mount a .dmg and install the .pkg inside it
+  install-dmg URL VOLUME APP       mount a .dmg and copy the .app out of it
+  install-app-zip URL APP          download a .zip and unpack it into /Applications
+  backup-if-exists PATH            move it aside, named after the moment
+  link-if-different ACTUAL LINK    symlink, backing up whatever was there
+  clone-repo REPO PARENT           clone with gh, or fetch and pull if it is there
+  dock add-app APP                 pin an app to the Dock
+  dock add-spacer                  add a gap between the pinned apps
+  dock clear                       remove every pinned app
+  help                             this
+
+The dock commands take effect on `killall Dock`. Everything but
+backup-if-exists, link-if-different and clone-repo requires macOS.
+USAGE
+}
+
+# A temporary directory, and the download inside it rather than beside it:
+# `$(mktemp -t x).pkg` leaves the file mktemp actually made lying around and
+# writes to a path nothing created safely — which then goes to `sudo` as root,
+# on a /tmp anyone can write to.
+workdir() {
+    work=$(mktemp -d -t "macos-$1") || die "could not make a temporary directory"
+}
+
+install_pkg() {
+    (( $# >= 1 )) || die "usage: macos install-pkg URL" 2
+    need_darwin install-pkg
+    workdir install-pkg
+    printf 'Downloading and installing %s\n' "$1"
+    curl -fLo "$work/download.pkg" "$1" || die "download failed"
+    sudo installer -pkg "$work/download.pkg" -target /
+}
+
+install_dmg_pkg() {
+    (( $# >= 3 )) || die "usage: macos install-dmg-pkg URL VOLUME PKG" 2
+    need_darwin install-dmg-pkg
+    workdir install-dmg-pkg
+    printf 'Installing %s\n' "$3"
+    curl -fLo "$work/download.dmg" "$1" || die "download failed"
+    # Set before attaching, so a failure partway through still gets detached.
+    mount=/Volumes/$2
+    hdiutil attach "$work/download.dmg" -nobrowse || die "could not mount the image"
+    sudo installer -pkg "$mount/$3.pkg" -target /
+}
+
+install_dmg() {
+    (( $# >= 3 )) || die "usage: macos install-dmg URL VOLUME APP" 2
+    need_darwin install-dmg
+    workdir install-dmg
+    printf 'Installing %s\n' "$3"
+    curl -fLo "$work/download.dmg" "$1" || die "download failed"
+    mount=/Volumes/$2
+    hdiutil attach "$work/download.dmg" -nobrowse || die "could not mount the image"
+    # -pPR keeps the bundle's symlinks and permissions, which an .app needs.
+    cp -pPR "$mount/$3.app" /Applications/
+}
+
+install_app_zip() {
+    (( $# >= 2 )) || die "usage: macos install-app-zip URL APP" 2
+    need_darwin install-app-zip
+    workdir install-app-zip
+    printf 'Installing %s\n' "$2"
+    curl -fLo "$work/download.zip" "$1" || die "download failed"
+    # -d rather than cd: unzipping used to leave the caller standing in
+    # /Applications.
+    sudo unzip "$work/download.zip" -d /Applications
+}
+
+backup_if_exists() {
+    (( $# >= 1 )) || die "usage: macos backup-if-exists PATH" 2
+    # -e is false for a broken symlink, which is exactly the thing worth
+    # keeping.
+    if [[ ! -e $1 && ! -L $1 ]]; then return 0; fi
+    local backup
+    backup=$1.backup.$(date +%Y%m%d%H%M%S)
+    printf 'Moving old config to: %s\n' "$backup"
+    mv -- "$1" "$backup"
+}
+
+link_if_different() {
+    (( $# >= 2 )) || die "usage: macos link-if-different ACTUAL LINK" 2
+    if [[ -L $2 && $(readlink -- "$2") == "$1" ]]; then
+        printf 'Nothing to do.\n'
+        return 0
+    fi
+    printf 'Linking %s ...\n' "$1"
+    backup_if_exists "$2"
+    ln -sf -- "$1" "$2"
+    printf 'Done.\n'
+}
+
+clone_repo() {
+    (( $# >= 2 )) || die "usage: macos clone-repo REPO PARENT" 2
+    local dir=$2/${1##*/}
+    if [[ -d $dir ]]; then
+        printf "Repository '%s' exists in '%s'. Fetching updates.\n" "$1" "$dir" >&2
+        git -C "$dir" fetch --all
+        git -C "$dir" status
+        git -C "$dir" pull --autostash
+        return
+    fi
+    command -v gh >/dev/null 2>&1 ||
+        die "gh is not installed — see https://cli.github.com" 127
+    printf "Cloning '%s' to '%s'.\n" "$1" "$dir" >&2
+    mkdir -p -- "$2"
+    # The destination is passed explicitly; without it gh clones into $PWD.
+    gh repo clone "$1" "$dir"
+}
+
+dock() {
+    need_darwin dock
+    case ${1:-} in
+        add-app)
+            (( $# >= 2 )) || die "usage: macos dock add-app APP" 2
+            # `defaults` wants the name appended to a file:// URL rather than a
+            # path, so the suffix is added here and stripped from the argument
+            # first — /Applications/Ghostty and /Applications/Ghostty.app both
+            # mean the same thing to a person.
+            local app=${2%.app}
+            # An app that is not installed is not an error: this runs over a
+            # list of everything a machine might have.
+            if [[ ! -e $app.app ]]; then return 0; fi
+            printf 'Adding %s to persistent apps\n' "$app"
+            defaults write com.apple.dock persistent-apps -array-add \
+                "<dict><key>tile-data</key><dict><key>file-data</key><dict><key>_CFURLString</key><string>${app}.app/</string><key>_CFURLStringType</key><integer>0</integer></dict></dict></dict>"
+            ;;
+        add-spacer)
+            printf 'Adding spacer to persistent apps\n'
+            defaults write com.apple.dock persistent-apps -array-add \
+                '{tile-data={}; tile-type="spacer-tile";}'
+            ;;
+        clear)
+            # Leaves the running apps and the right-hand side alone.
+            printf 'Delete persistent apps\n'
+            defaults delete com.apple.dock persistent-apps
+            ;;
+        *) die "usage: macos dock add-app APP | add-spacer | clear" 2 ;;
+    esac
+}
+
+if (( $# == 0 )); then
+    usage >&2
+    exit 2
+fi
+
+command=$1
+shift
+
+case $command in
+    help|-h|--help) usage; exit 0 ;;
+    install-pkg) install_pkg "$@" ;;
+    install-dmg-pkg) install_dmg_pkg "$@" ;;
+    install-dmg) install_dmg "$@" ;;
+    install-app-zip) install_app_zip "$@" ;;
+    backup-if-exists) backup_if_exists "$@" ;;
+    link-if-different) link_if_different "$@" ;;
+    clone-repo) clone_repo "$@" ;;
+    dock) dock "$@" ;;
+    *) die "unknown command: $command (try: macos help)" 2 ;;
+esac

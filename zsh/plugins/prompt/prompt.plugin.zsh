@@ -25,8 +25,8 @@ PROMPT_EOL_MARK=''
 PROMPT=$'\n%F{blue}%~%f\n%(?.%F{magenta}❯.%F{red}❯)%f '
 
 # Deliberately empty: this plugin owns the right-hand prompt, so switching to
-# it from another theme leaves nothing behind. Plugins that want to add to
-# RPROMPT (battery-prompt, for one) must load *after* this one.
+# it from another theme leaves nothing behind. Anything of yours that writes to
+# RPROMPT has to run after this line.
 RPROMPT=''
 
 # Not set on purpose:
