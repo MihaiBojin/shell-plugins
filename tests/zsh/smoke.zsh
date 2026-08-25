@@ -47,8 +47,14 @@ group "aggregate entry point"
 out=$(isolated "source $AGG")
 eq "shell-plugins.plugin.zsh loads without printing anything" "" "$out"
 
+# install_pkg and link_if_different come from the macos plugin, which defines
+# nothing off Darwin on purpose — hdiutil, installer and com.apple.dock exist
+# nowhere else. Asking for them on Linux tests the platform, not the package.
+typeset -g PUBLIC='gw gwl gwa gwr gunwipall dns_records et _battery_prompt'
+[[ $OSTYPE == darwin* ]] && PUBLIC+=' install_pkg link_if_different'
+
 out=$(isolated "source $AGG
-for f in gw gwl gwa gwr gunwipall dns_records et _battery_prompt install_pkg link_if_different; do
+for f in $PUBLIC; do
   whence -w \$f >/dev/null || print -r -- \"missing: \$f\"
 done
 alias gwh >/dev/null || print -r -- 'missing alias: gwh'")
@@ -274,6 +280,10 @@ done
 # than by parsing the plugin text.
 for p in $PLUGINS/*(/); do
   [[ -d $p/functions ]] || continue
+  if [[ ${p:t} == macos && $OSTYPE != darwin* ]]; then
+    ok "macos: autoloads nothing off Darwin, as the plugin says it will"
+    continue
+  fi
   local -a declared files missing extra
   declared=( ${(f)"$(isolated "source $p/${p:t}.plugin.zsh
     for f in \${(k)functions}; do
