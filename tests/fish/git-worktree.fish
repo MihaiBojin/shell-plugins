@@ -262,6 +262,48 @@ else
     bad 'and so does its branch'
 end
 
+# --------------------------------------------------------- picker preview
+group 'picker preview'
+
+# The preview pane runs `git -C` against one field of the line. The field shown
+# to a human has $HOME shortened to ~, and nothing expands a tilde inside an
+# argument fzf hands to a shell, so pointing the preview there makes git say
+# `cannot change to '~/x'` on every keystroke — invisible, because a preview
+# that errors looks the same as a preview with nothing to show.
+#
+# So stand in for fzf and look at what it was handed.
+set -l root4 (fixture)
+set -l repo4 $root4/parent/demo
+cd $repo4
+git -C $repo4 worktree add -q $root4/parent/.worktrees/probe/demo -b probe >/dev/null 2>&1
+
+set -l fake (path resolve (mktemp -d))
+set -ga SANDBOXES $fake
+echo '#!/bin/sh
+cat > "$FAKE_FZF_LINES"
+head -1 "$FAKE_FZF_LINES"' >$fake/fzf
+chmod +x $fake/fzf
+
+set -l seen $fake/lines
+begin
+    set -lx PATH $fake $PATH
+    set -lx FAKE_FZF_LINES $seen
+    _gw_pick 'worktree>' '' >/dev/null
+end
+
+set -l bad 0
+set -l count 0
+for line in (cat $seen)
+    set count (math $count + 1)
+    set -l last (string split \t -- $line)[-1]
+    test -d "$last"; or set bad (math $bad + 1)
+end
+eq 'the picker offered every worktree' 2 $count
+eq 'the preview field is a real directory on every line' 0 $bad
+
+set -l src (string join ' ' (cat $ROOT/functions/_gw_pick.fish))
+has 'the preview reads the last field' '{-1}' (string match -r -- "--preview='[^']*'" $src)
+
 cd /
 cleanup
 echo

@@ -27,7 +27,11 @@ function _gw_pick -a prompt query -d 'Pick one of the worktrees here, printing i
             set mark '*'
         end
         set -a paths $wt
-        set -a lines (printf '%s %-30s\t%s' $mark (string sub -l 30 -- $branch) (string replace -r "^$HOME" '~' -- $wt))
+        # Last field is the real path, hidden from the display by --with-nth
+        # and read by the preview as {-1}. The shown path is shortened to ~,
+        # which git cannot chdir to — nothing expands a tilde inside an
+        # argument fzf hands to a shell.
+        set -a lines (printf '%s %-30s\t%s\t%s' $mark (string sub -l 30 -- $branch) (string replace -r "^$HOME" '~' -- $wt) $wt)
     end
 
     if command -q fzf
@@ -37,7 +41,7 @@ function _gw_pick -a prompt query -d 'Pick one of the worktrees here, printing i
         set -l opts --ansi --height=50% --layout=reverse --border --tabstop=1 \
             --prompt="$prompt " --delimiter=\t --with-nth=1,2 --nth=1 \
             --color='hl:#ffcc00,info:#00ffcc,prompt:#ff00ff,pointer:#ff3300' \
-            --preview='git -C {2} -c color.ui=always status --short --branch; echo; git -C {2} -c color.ui=always log --oneline --decorate -15' \
+            --preview='git -C {-1} -c color.ui=always status --short --branch; echo; git -C {-1} -c color.ui=always log --oneline --decorate -15' \
             --preview-window='down:12:wrap'
         if test -n "$query"
             set -a opts --query="$query" --select-1 --exit-0

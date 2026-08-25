@@ -187,6 +187,52 @@ eq 'gbd deletes a squash-merged branch' 0 $status
 eq 'and it is gone' '' (git branch --list squashed | string trim)
 popd >/dev/null
 
+# --------------------------------------------------------- picker preview
+echo
+echo 'picker preview'
+
+# The preview pane runs a git command against one field of the line, and the
+# other fields are shaped for a human: a branch truncated to 34 columns, a
+# relative date, a subject. Point the preview at one of those and it fails on
+# every keystroke — which is invisible, because a preview that errors just
+# looks like a preview with nothing in it.
+#
+# So stand in for fzf and look at what it was handed. $fake goes on the front
+# of PATH, prints the lines it was given, and picks the first.
+set -l fake (sandbox)
+echo '#!/bin/sh
+cat > "$FAKE_FZF_LINES"
+head -1 "$FAKE_FZF_LINES"' >$fake/fzf
+chmod +x $fake/fzf
+
+pushd $bs >/dev/null
+set -l seen (sandbox)/lines
+begin
+    set -lx PATH $fake $PATH
+    set -lx FAKE_FZF_LINES $seen
+    _git_alias_branch_pick 'branch>' '' >/dev/null
+end
+
+set -l last_fields
+for line in (cat $seen)
+    set -a last_fields (string split \t -- $line)[-1]
+end
+
+eq 'every line carries a last field' (count (cat $seen)) (count $last_fields)
+
+set -l bad 0
+for b in $last_fields
+    git rev-parse --verify --quiet refs/heads/$b >/dev/null; or set bad (math $bad + 1)
+end
+eq 'the preview field is a real branch on every line' 0 $bad
+
+# And the preview must read that field rather than a fixed index, so adding a
+# column cannot silently point it at the wrong one.
+set -l src (cat $ROOT/functions/_git_alias_branch_pick.fish)
+set -l previews (string match -r -- "--preview='[^']*'" (string join ' ' $src))
+has 'the preview reads the last field' '{-1}' "$previews"
+popd >/dev/null
+
 cleanup
 echo
 echo "  $PASS passed, $FAIL failed"

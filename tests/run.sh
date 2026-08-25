@@ -134,6 +134,17 @@ found=$(printf '%s\n' "$SHIPPED" | grep -v '^tests/' \
 [ -z "$found" ] && pass "no secrets or work-specific values" \
     || { printf '%s\n' "$found" >&2; fail "possible secret or private value"; }
 
+# An fzf --preview runs against one field of the line, and the other fields are
+# shaped for a human: a path with $HOME shortened to ~, a name truncated to fit
+# a column. Point a preview at a numbered field and it breaks the moment a
+# column is added or reordered, silently — a preview that errors looks exactly
+# like a preview with nothing to show. So the machine-readable value goes last
+# on the line and every preview asks for {-1}.
+found=$(printf '%s\n' "$SHIPPED" | grep -v '^tests/' \
+    | xargs grep -n -- "--preview=" 2>/dev/null | grep -E '\{[0-9]+\}' || true)
+[ -z "$found" ] && pass "every fzf preview reads {-1}, not a numbered field" \
+    || { printf '%s\n' "$found" >&2; fail "an fzf preview reads a numbered field"; }
+
 # Nothing in the package may assume a platform without saying so.
 found=$(printf '%s\n' "$SHIPPED" | grep -v '^docs/\|^tests/\|README.md$' \
     | xargs grep -nE '\b(brew|apt-get|yum|dnf|pacman|nix-env)\b' 2>/dev/null || true)
