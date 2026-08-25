@@ -48,5 +48,20 @@ if zmodload -e zsh/zutil; then
     add-zsh-hook precmd _battery_prompt_precmd
 
     RPROMPT="${RPROMPT:+${RPROMPT} }"'${_battery_prompt_cache_output}'
+
+    # The right prompt sits on the same row as the command, so copying that row
+    # out of the scrollback takes the battery reading with it. TRANSIENT_RPROMPT
+    # erases it from the line as soon as that line is accepted: only the prompt
+    # you are typing at carries the segment, and everything above it is the
+    # command on its own.
+    #
+    #   zstyle ':battery-prompt:' transient no
+    #
+    # leaves it on every line, which is zsh's default.
+    if ! zstyle -T ':battery-prompt:' transient; then
+      unsetopt TRANSIENT_RPROMPT
+    else
+      setopt TRANSIENT_RPROMPT
+    fi
   fi
 fi
