@@ -30,17 +30,36 @@ if (( $+commands[fzf] )); then
   [[ -n $query ]] && opts+=( --query="$query" --select-1 --exit-0 )
   sel=$(print -rl -- "${lines[@]}" | fzf "${opts[@]}") || return 1
 else
-  local i
+  # Without fzf the QUERY still narrows, and still narrows on the branch alone:
+  # field 1 is `<mark> <branch>` with colour in it, and matching the whole line
+  # would put the path back in the search that --nth=1 keeps it out of.
+  setopt localoptions extended_glob
+  local -a shown
+  local i branch
   for (( i = 1; i <= $#lines; i++ )); do
-    print -ru2 -- "${(l:3:)i}) ${${lines[i]%$'\t'*}//$'\t'/ }"
+    branch=${${${${lines[i]%%$'\t'*}//$'\e'\[[0-9;]#m/}##[* ] #}%% #}
+    [[ -z $query || $branch == *$query* ]] && shown+=( $i )
+  done
+  if (( ! $#shown )); then
+    _gw_err "nothing matches: $query"
+    return 1
+  fi
+  # One match and a query to have found it: the same --select-1 fzf is given.
+  if (( $#shown == 1 && $#query )); then
+    print -r -- "${lines[shown[1]]##*$'\t'}"
+    return 0
+  fi
+  local n
+  for (( n = 1; n <= $#shown; n++ )); do
+    print -ru2 -- "${(l:3:)n}) ${${lines[shown[n]]%$'\t'*}//$'\t'/ }"
   done
   # Not read's ?prompt: it only appears in an interactive shell, and this
   # runs inside $( ). Same shape as _gw_choose.
   local ans
-  print -ru2 -n -- "Selection (1-$#lines): "
+  print -ru2 -n -- "Selection (1-$#shown): "
   read ans || { print -ru2 -- ""; return 1 }
-  [[ $ans == <-> ]] && (( ans >= 1 && ans <= $#lines )) || { _gw_err "invalid selection"; return 1 }
-  sel=${lines[ans]}
+  [[ $ans == <-> ]] && (( ans >= 1 && ans <= $#shown )) || { _gw_err "invalid selection"; return 1 }
+  sel=${lines[shown[ans]]}
 fi
 
 [[ -n $sel ]] || return 1

@@ -388,6 +388,26 @@ sb=$(fixture) || exit 1; repo=$sb/parent/demo
 out=$(in_repo $repo '_gw_dest auth')
 eq "a plain name is the directory" "${sb:A}/parent/.worktrees/auth/demo" "$out"
 
+out=$(in_repo $repo 'gwl --list | wc -l | tr -d " "')
+eq "gwl --list prints one line per worktree" "$(in_repo $repo 'local -a r=( ${(0)"$(_gw_records)"} ); print -r -- $#r')" "$out"
+
+out=$(in_repo $repo 'gwl --list | head -1 | awk -F"\t" "{print NF}"')
+eq "three tab-separated columns" "3" "$out"
+
+out=$(in_repo $repo 'gwl --list extra 2>&1; print -r -- "rc=$?"')
+has "gwl --list takes no QUERY" "takes no QUERY" "$out"
+
+# Without fzf the QUERY still narrows, on the branch alone, and a single match
+# is taken without asking — the same --select-1 fzf is given.
+out=$(in_repo $repo 'gwa --no-fetch auth >/dev/null 2>&1
+  cd "$(_gw_main_worktree)"
+  PATH=/usr/bin:/bin:/usr/sbin:/sbin _gw_pick "w>" auth </dev/null')
+eq "the fzf-less picker honours a QUERY that matches one worktree" \
+   "${sb:A}/parent/.worktrees/auth/demo" "$out"
+
+out=$(in_repo $repo 'PATH=/usr/bin:/bin:/usr/sbin:/sbin _gw_pick "w>" nosuch </dev/null 2>&1')
+has "and says so when nothing matches" "nothing matches: nosuch" "$out"
+
 # git ends every --porcelain attribute with a newline, so a directory holding
 # one used to arrive as two records for worktrees that do not exist. -z and a
 # NUL between records carry the whole path back out.

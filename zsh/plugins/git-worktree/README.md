@@ -55,6 +55,7 @@ this repository — see [The Fish commands](#the-fish-commands) for what differs
 |---------|--------------|
 | `gw`, `gwh` | Print the help below, including where *this* repo's worktrees would go |
 | `gwl [QUERY]` | Pick one of this repository's worktrees with fzf and `cd` into it |
+| `gwl --list` | Print them instead: mark, branch, path, tab-separated |
 | `gwa NAME [BASE]` | Create a worktree on branch `NAME`, based on `BASE`, and `cd` into it |
 | `gwr [PATH\|QUERY]` | Remove a worktree whose branch is finished, and the branch with it |
 | `gwr --all [--yes]` | The same, to every finished worktree at once |
@@ -65,6 +66,7 @@ this repository — see [The Fish commands](#the-fish-commands) for what differs
 gw — git worktree helpers
 
   gwl [QUERY]              pick one of this repository's worktrees and cd into it
+      -l, --list           print them instead, one per line: mark, branch, path
   gwa NAME [BASE]          add a worktree for branch NAME (based on BASE), and cd into it
       --fetch              also ask the remote whether NAME exists there already
       --no-fetch           stay offline

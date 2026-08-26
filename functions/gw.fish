@@ -13,6 +13,7 @@ function gw -d 'git worktree helpers: gwl, gwa, gwr'
     echo 'gw — git worktree helpers'
     echo
     echo '  gwl [QUERY]              pick one of this repository'\''s worktrees and cd into it'
+    echo '      -l, --list           print them instead, one per line: mark, branch, path'
     echo '  gwa NAME [BASE]          add a worktree for branch NAME (based on BASE), and cd into it'
     echo '      --fetch              also ask the remote whether NAME exists there already'
     echo '      --no-fetch           stay offline'

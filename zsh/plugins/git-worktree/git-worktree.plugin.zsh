@@ -35,7 +35,7 @@ autoload -Uz \
   _gw_dest _gw_err _gw_forge_kind _gw_forge_load _gw_forge_slug \
   _gw_forge_state \
   _gw_in_repo _gw_info _gw_is_merged _gw_list _gw_main_worktree \
-  _gw_merged_reason _gw_nap _gw_owns _gw_pick _gw_records _gw_remote \
+  _gw_merged_reason _gw_nap _gw_owns _gw_pick _gw_plain_list _gw_records _gw_remote \
   _gw_remote_has_branch _gw_remote_head _gw_remove_one _gw_rmdir_up \
   _gw_prune_upto _gw_run _gw_squash_merged _gw_stashes_for \
   _gw_suggest_prune _gw_sweep _gw_unpushed_count _gw_usage _gw_warn \

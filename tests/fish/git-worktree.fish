@@ -141,6 +141,17 @@ set -l listed (_gw_records | string split0 | string split (printf '\x1f') -f3 | 
 has 'the listing knows the auth worktree' auth "$listed"
 has 'the listing knows the main checkout' main "$listed"
 
+# --list is the only way to see the set without moving into one of them, and
+# the only form that can be piped.
+set -l plain (gwl --list)
+eq 'gwl --list prints one line per worktree' (count (_gw_records | string split0)) (count $plain)
+set -l cols (string split \t -- $plain[1])
+eq 'three tab-separated columns' 3 (count $cols)
+eq 'and the mark is on the worktree you are standing in' '*' "$cols[1]"
+eq 'the third column is a directory' 1 (count (path filter -d $cols[3]))
+set -l out (gwl --list extra 2>&1)
+has 'gwl --list takes no QUERY' 'takes no QUERY' "$out"
+
 # git ends every --porcelain attribute with a newline, so a directory holding
 # one used to arrive as two records for worktrees that do not exist. -z and a
 # NUL between records carry the whole path back out.
