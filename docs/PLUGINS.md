@@ -118,7 +118,9 @@ plugin repository → register functions/ and completions/ on $fpath
         consuming configuration → compinit, once
 ```
 
-Fish completions belong in the repository-root `completions/`, checked in rather
-than generated at startup. There are none yet, and that is a gap rather than a
-policy: `gwl`, `gwa` and `gwr` all take an argument Zsh already completes —
-worktree paths, branch names — and the Fish equivalents have not been written.
+Fish completions live in the repository-root `completions/`, checked in rather
+than generated at startup, and Fish autoloads one the first time you press Tab
+on that command rather than at login. `gwl`, `gwa`, `gwm`, `gwr`, `gb` and `gbd`
+all have one, offering what their Zsh counterparts offer: branch names where a
+branch is wanted, this repository's worktree paths for `gwr`, and nothing where
+the argument is a name that does not exist yet.

@@ -538,6 +538,12 @@ oversight.
 | asks which branch is the head branch, listing 25, and records the answer | says it could not work one out and prints `git remote set-head <remote> --auto` | the same reason |
 | `zstyle ':git-worktree:' …` | `set -g git_worktree_…` | Fish has no zstyle, and a global variable is what its own configuration looks like |
 
+Fish gets the same completions, in the repository-root `completions/` that
+Fisher installs: branch names where a branch is wanted, this repository's
+worktree paths for `gwr`, and nothing where the argument is a name that does
+not exist yet. Fish autoloads one the first time you press Tab on that command,
+so they cost nothing at startup.
+
 Configuration, then, is three variables and the same two git config keys:
 
 ```fish

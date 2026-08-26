@@ -2,4 +2,5 @@
 # Completion for `gwl [QUERY]`. The query is free text matched by the picker.
 _arguments -s \
   '(-h --help)'{-h,--help}'[show usage]' \
-  '*:query:'
+  '(-l --list *)'{-l,--list}'[print the worktrees instead of picking one]' \
+  '*:query:_gw_branches'

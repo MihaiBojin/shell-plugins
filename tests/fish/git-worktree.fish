@@ -583,6 +583,42 @@ end
 eq 'closed stdin makes the picker fail' 1 $rc
 eq 'and it names nothing' '' "$picked"
 
+# ------------------------------------------------------------- completions
+group 'completions'
+
+# Fish autoloads a completion file the first time you press Tab on that
+# command, so these cost nothing at login — but they are only reached through
+# $fish_complete_path, which this suite has to set up the way Fisher would.
+set -l rootc (fixture)
+set -l repoc $rootc/parent/demo
+cd $repoc
+gwa --no-fetch other >/dev/null 2>&1
+cd $repoc
+
+set -l comp "set -p fish_function_path $ROOT/functions; set -p fish_complete_path $ROOT/completions; cd $repoc;"
+
+set -l out (fish --no-config -c "$comp complete -C'gwl '")
+has 'gwl completes branch names' other "$out"
+set out (fish --no-config -c "$comp complete -C'gwl --'")
+has 'and offers --list' --list "$out"
+
+set out (fish --no-config -c "$comp complete -C'gwr '")
+has 'gwr completes this repository worktree paths' "$rootc/parent/.worktrees/other/demo" "$out"
+set out (fish --no-config -c "$comp complete -C'gwr --all --'")
+has 'gwr --all offers --branch' --branch "$out"
+has 'and --dry-run' --dry-run "$out"
+hasnt 'and not --force, which the sweep refuses' --force "$out"
+
+set out (fish --no-config -c "$comp complete -C'gwa '")
+eq 'gwa offers nothing for NAME, which does not exist yet' '' "$out"
+set out (fish --no-config -c "$comp complete -C'gwa newname '")
+has 'and branch names for BASE' other "$out"
+set out (fish --no-config -c "$comp complete -C'gwa --no-fetch newname '")
+has 'even after a flag' other "$out"
+
+set out (fish --no-config -c "$comp complete -C'gwm '")
+eq 'gwm offers nothing for NEW either' '' "$out"
+
 # --------------------------------------------------------- picker preview
 group 'picker preview'
 
