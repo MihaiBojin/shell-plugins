@@ -16,10 +16,16 @@ while (( $# )); do
 done
 
 local name=${pos[1]} base=${pos[2]}
-[[ -n $name ]] || { _gw_err "NAME is required — usage: gwa NAME [BASE]"; return 2 }
 (( $#pos <= 2 )) || { _gw_err "too many arguments — usage: gwa NAME [BASE]"; return 2 }
 
 _gw_in_repo || { _gw_err "not inside a git repository"; return 1 }
+
+# No NAME: pick one. This is the set gwl cannot show — a branch that exists on
+# the remote but has no worktree yet is invisible to a picker over worktrees.
+if [[ -z $name ]]; then
+  name=$(_gw_pick_branch 'branch>') || return $?
+  [[ -n $name ]] || return 1
+fi
 git check-ref-format "refs/heads/$name" 2>/dev/null || {
   _gw_err "invalid branch name: $name"; return 2
 }

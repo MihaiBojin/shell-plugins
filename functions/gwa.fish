@@ -8,10 +8,6 @@ function gwa -d 'Add a worktree for a branch beside the repository, and cd into 
 
     set -l name $argv[1]
     set -l base $argv[2]
-    if test -z "$name"
-        _gw_say err 'NAME is required — usage: gwa NAME [BASE]'
-        return 2
-    end
     if test (count $argv) -gt 2
         _gw_say err 'too many arguments — usage: gwa NAME [BASE]'
         return 2
@@ -20,6 +16,14 @@ function gwa -d 'Add a worktree for a branch beside the repository, and cd into 
     if not git rev-parse --git-dir >/dev/null 2>&1
         _gw_say err 'not inside a git repository'
         return 1
+    end
+
+    # No NAME: pick one. This is the set gwl cannot show — a branch that exists
+    # on the remote but has no worktree yet is invisible to a picker over
+    # worktrees.
+    if test -z "$name"
+        set name (_gw_pick_branch 'branch>'); or return $status
+        test -n "$name"; or return 1
     end
     if not git check-ref-format refs/heads/$name 2>/dev/null
         _gw_say err "invalid branch name: $name"

@@ -135,6 +135,62 @@ cd $repo
 set out (gwa 'bad..name' 2>&1)
 has 'an invalid branch name is refused' 'invalid branch name' "$out"
 
+# ------------------------------------------------------- gwa with no NAME
+# The set gwl can never show: a branch that exists but has no worktree yet.
+# Stand in for fzf, which always prints the query first under --print-query.
+set -l bfake (path resolve (mktemp -d))
+set -ga SANDBOXES $bfake
+echo '#!/bin/sh
+cat > "$PICK_LINES"
+printf "%s\n" "$PICK_QUERY"
+[ -n "$PICK_LINE" ] && sed -n "${PICK_LINE}p" "$PICK_LINES"
+exit 0' >$bfake/fzf
+chmod +x $bfake/fzf
+
+cd $repo
+git -C $repo branch -q nowt main
+set -l offered
+begin
+    set -lx PATH $bfake $PATH
+    set -lx PICK_LINES $bfake/lines
+    set -lx PICK_QUERY ''
+    set -lx PICK_LINE ''
+    _gw_pick_branch 'b>' >/dev/null
+    set offered (cat $bfake/lines)
+end
+set -l shown (for l in $offered; string split \t -- $l | tail -1; end)
+has 'the branch picker offers a branch with no worktree' nowt (string join ' ' $shown)
+hasnt 'and not the remote HEAD dressed up as a branch' ' origin ' " "(string join ' ' $shown)" "
+
+begin
+    set -lx PATH $bfake $PATH
+    set -lx PICK_LINES $bfake/lines
+    set -lx PICK_QUERY ''
+    set -lx PICK_LINE 1
+    set -l picked (_gw_pick_branch 'b>')
+    eq 'picking a line returns the branch, not the display line' 1 (count (string split \t -- "$picked"))
+end
+
+begin
+    set -lx PATH $bfake $PATH
+    set -lx PICK_LINES $bfake/lines
+    set -lx PICK_QUERY 'typed-new'
+    set -lx PICK_LINE ''
+    eq 'a name that matches nothing is the answer' typed-new (_gw_pick_branch 'b>')
+end
+
+# Asked of the picker directly. gwa reaches it through a command substitution,
+# and in fish 4.8 anything written to stderr inside one goes to the shell's
+# own stderr rather than to a `2>` the caller set up — so `gwa 2>file` catches
+# the exit status but not the words.
+begin
+    set -lx PATH /usr/bin /bin /usr/sbin /sbin
+    gwa
+    eq 'without fzf, gwa exits 2' 2 $status
+    _gw_pick_branch 'b>' 2>$bfake/err >/dev/null
+    has 'and still asks for a NAME' 'NAME is required' (cat $bfake/err)
+end
+
 # -------------------------------------------------------------------- gwl
 group 'gwl'
 set -l listed (_gw_records | string split0 | string split (printf '\x1f') -f3 | string join ' ')

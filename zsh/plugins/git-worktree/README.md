@@ -57,6 +57,7 @@ this repository — see [The Fish commands](#the-fish-commands) for what differs
 | `gwl [QUERY]` | Pick one of this repository's worktrees with fzf and `cd` into it |
 | `gwl --list` | Print them instead: mark, branch, path, tab-separated |
 | `gwa NAME [BASE]` | Create a worktree on branch `NAME`, based on `BASE`, and `cd` into it |
+| `gwa` | Pick a branch to make one for — including one that only exists on the remote |
 | `gwr [PATH\|QUERY]` | Remove a worktree whose branch is finished, and the branch with it |
 | `gwr --all [--yes]` | The same, to every finished worktree at once |
 
@@ -67,7 +68,8 @@ gw — git worktree helpers
 
   gwl [QUERY]              pick one of this repository's worktrees and cd into it
       -l, --list           print them instead, one per line: mark, branch, path
-  gwa NAME [BASE]          add a worktree for branch NAME (based on BASE), and cd into it
+  gwa [NAME] [BASE]        add a worktree for branch NAME (based on BASE), and cd into it
+      (no NAME)            pick a branch, or type a new name, with fzf
       --fetch              also ask the remote whether NAME exists there already
       --no-fetch           stay offline
   gwr [PATH|QUERY]         remove a worktree whose branch is finished, and the branch
@@ -127,8 +129,15 @@ gwa --fetch their-branch   # check the remote for the name before branching
 gwa --no-fetch fix-login   # stay offline
 ```
 
-`NAME` is mandatory and becomes both the new branch and the directory, spelled
-the same way.
+`NAME` becomes both the new branch and the directory, spelled the same way.
+
+With no `NAME`, fzf offers every branch: the local ones, marked where they
+already have a worktree, and the remote's branches that have no local
+counterpart. That last set is the one `gwl` can never show you, because `gwl`
+lists worktrees and these are the branches without one. Typing a name that
+matches nothing and pressing enter creates it, exactly as `gwa NAME` would.
+Without fzf there is no list worth printing — every branch in the repository,
+unfiltered — so it asks for a `NAME` instead.
 `BASE` defaults to the repository's default branch (see below). Flags may go
 anywhere in the arguments.
 

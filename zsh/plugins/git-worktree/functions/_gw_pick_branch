@@ -1,0 +1,87 @@
+# Prompt for a branch to make a worktree for; prints the chosen name. $1 is the
+# picker label.
+#
+# Every local branch, plus the remote's branches that have no local counterpart
+# — the set gwl can never show, because gwl only knows about worktrees that
+# already exist and this is the list of ones that do not.
+#
+# A name that matches nothing is the answer too: typing one and pressing enter
+# is how a new branch is named, the same way `gwa NAME` names one.
+emulate -L zsh
+
+local label=${1:-branch>}
+local -a locals remotes names lines recs fields checked_out
+local remote b r note rec
+
+_gw_in_repo || { _gw_err "not inside a git repository"; return 1 }
+
+locals=( ${(f)"$(git for-each-ref --sort=-committerdate --format='%(refname:short)' refs/heads)"} )
+if (( ! $#locals )); then
+  _gw_err "no branches"
+  return 1
+fi
+
+remote=$(_gw_remote -i) || remote=''
+
+# Which branches already have a worktree, so the list can say so rather than
+# leaving you to find out by being moved somewhere unexpected.
+recs=( ${(0)"$(_gw_records)"} )
+for rec in $recs; do
+  fields=( "${(@ps:\x1f:)rec}" )
+  [[ -n $fields[3] ]] && checked_out+=( $fields[3] )
+done
+
+for b in $locals; do
+  names+=( $b )
+  note=local
+  (( ${checked_out[(Ie)$b]} )) && note='has a worktree'
+  lines+=( "$(printf '%-34s\t%-14s\t%s' "${b[1,34]}" "$note" "$b")" )
+done
+
+if [[ -n $remote ]]; then
+  remotes=( ${(f)"$(git for-each-ref --sort=-committerdate --format='%(refname:short)' refs/remotes/$remote)"} )
+  for r in $remotes; do
+    # refs/remotes/<remote>/HEAD shortens to the remote's own name, not to
+    # <remote>/HEAD, so it arrives looking like a branch called `origin`.
+    [[ $r == $remote ]] && continue
+    b=${r#$remote/}
+    [[ $b == HEAD ]] && continue
+    (( ${names[(Ie)$b]} )) && continue
+    names+=( $b )
+    lines+=( "$(printf '%-34s\t%-14s\t%s' "${b[1,34]}" "on $remote" "$b")" )
+  done
+fi
+
+if (( ! $+commands[fzf] )); then
+  # A numbered list of every branch in the repository is noise, and there is no
+  # query here to narrow it with. Name the branch instead.
+  _gw_err "NAME is required — usage: gwa NAME [BASE]"
+  return 2
+fi
+
+local -a opts out
+opts=(
+  --ansi --height=50% --layout=reverse --border --tabstop=1
+  --prompt="$label " --delimiter=$'\t' --with-nth=1,2 --nth=1
+  --print-query
+  --color='hl:#ffcc00,info:#00ffcc,prompt:#ff00ff,pointer:#ff3300'
+  --preview='git -c color.ui=always log --oneline --decorate --graph -15 {-1} 2>/dev/null'
+  --preview-window='down:12:wrap'
+)
+
+# --print-query puts the typed text first and the selection, if there was one,
+# after it. Which line is which cannot be counted on: fzf emits an empty first
+# line for an empty query, and zsh's (f) drops it where fish keeps it. So ask
+# whether the last line is one of the lines offered — if it is, it is the
+# selection, and if it is not, nothing matched and the query is a branch name
+# nobody has used yet.
+out=( "${(@f)$(print -rl -- "${lines[@]}" | fzf "${opts[@]}")}" )
+(( $#out )) || return 1
+
+local i=${lines[(Ie)$out[-1]]}
+if (( i )); then
+  print -r -- "$names[i]"
+  return 0
+fi
+[[ -n $out[1] ]] || return 1
+print -r -- "$out[1]"
