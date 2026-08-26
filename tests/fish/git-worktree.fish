@@ -73,6 +73,54 @@ function fixture
     echo $root
 end
 
+# One worktree per way a branch can be unfinished, mirroring the Zsh suite's
+# fixture so the two can be compared line for line. Prints the sandbox root.
+function fixture_full
+    set -l root (path resolve (mktemp -d))
+    set -ga SANDBOXES $root
+    begin
+        git init -q --bare --initial-branch=main $root/origin/demo.git
+
+        git init -q --initial-branch=main $root/seed
+        git -C $root/seed commit -q --allow-empty -m base
+        git -C $root/seed remote add origin $root/origin/demo.git
+        git -C $root/seed push -q -u origin main
+        rm -rf $root/seed
+
+        git clone -q $root/origin/demo.git $root/parent/demo
+        set -l repo $root/parent/demo
+
+        for b in squashed unmerged dirty stashed untracked
+            git -C $repo checkout -q -b $b main
+            echo $b >$repo/$b.txt
+            git -C $repo add -A
+            git -C $repo commit -q -m $b
+            git -C $repo checkout -q main
+        end
+
+        # squashed lands on the remote as one commit, so git cannot see the
+        # merge and the second check has to.
+        git -C $repo merge -q --squash squashed
+        git -C $repo commit -q -m 'squash: squashed'
+        git -C $repo push -q origin main
+        git -C $repo fetch -q origin
+
+        for b in squashed unmerged dirty stashed untracked
+            git -C $repo worktree add -q $root/parent/.worktrees/$b/demo $b
+        end
+        git -C $repo worktree add -q --detach $root/parent/.worktrees/loose/demo
+
+        # dirty: a tracked file modified. untracked: one never added.
+        echo changed >>$root/parent/.worktrees/dirty/demo/dirty.txt
+        echo forgotten >$root/parent/.worktrees/untracked/demo/new-work.txt
+
+        # stashed: work parked against that branch.
+        echo wip >>$root/parent/.worktrees/stashed/demo/stashed.txt
+        git -C $root/parent/.worktrees/stashed/demo stash push -q -m parked
+    end >$root/fixture.log 2>&1
+    echo $root
+end
+
 function cleanup
     for s in $SANDBOXES
         rm -rf $s
@@ -582,6 +630,72 @@ begin
 end
 eq 'closed stdin makes the picker fail' 1 $rc
 eq 'and it names nothing' '' "$picked"
+
+# ------------------------------------------------- one refusal per kind
+group 'every refusal'
+
+# The Zsh suite has covered these since the plugin was written; the Fish half
+# had four of them, which is how the submodule refusal and the dead forge check
+# both shipped.
+set -l rootr (fixture_full)
+set -l repor $rootr/parent/demo
+
+cd $repor
+set out (gwr --all --no-fetch 2>&1)
+has 'the worktree you are standing in is refused' 'main — is the worktree you are standing in' "$out"
+has 'a detached HEAD is refused' 'has a detached HEAD' "$out"
+has 'a tracked modification is work' 'dirty — has uncommitted changes' "$out"
+has 'an untracked file is work too' 'untracked — has uncommitted changes' "$out"
+has 'a stash parked on the branch is work' 'stashed — has a stash entry parked on it' "$out"
+has 'an unmerged branch is left alone, and says why' 'unmerged — not merged into main' "$out"
+has 'and a squash-merged one is offered' 'squashed — squash-merged into main' "$out"
+
+cd $rootr/parent/.worktrees/unmerged/demo
+set out (gwr --all --no-fetch 2>&1)
+has 'the main worktree is refused from elsewhere' 'main — is the main worktree' "$out"
+has 'standing inside a worktree refuses that one' 'unmerged — is the worktree you are standing in' "$out"
+
+cd $repor
+git -C $repor worktree lock $rootr/parent/.worktrees/squashed/demo
+set out (gwr --all --no-fetch 2>&1)
+has 'a locked worktree is refused' 'squashed — is locked' "$out"
+set out (gwr --force $rootr/parent/.worktrees/squashed/demo 2>&1)
+has 'and --force does not get past a lock either' 'is locked' "$out"
+git -C $repor worktree unlock $rootr/parent/.worktrees/squashed/demo
+
+# ------------------------------------------------------ shared configuration
+group 'shared configuration'
+
+# The two git config keys are the whole of what a repository can be told, and
+# both tools read them from the same place.
+set -l rootk (fixture_full)
+set -l repok $rootk/parent/demo
+cd $repok
+
+git -C $repok remote add upstream $rootk/origin/demo.git 2>/dev/null
+git -C $repok config git-worktree-plugin.remote upstream
+eq 'git-worktree-plugin.remote picks the remote' upstream (_gw_remote)
+
+# gw.remote was this plugin's own key and is no longer read: one namespace, no
+# fallback.
+git -C $repok config --unset-all git-worktree-plugin.remote
+git -C $repok config gw.remote upstream
+eq 'the retired gw.remote is ignored, not obeyed' origin (_gw_remote)
+
+git -C $repok push -q origin unmerged
+git -C $repok fetch -q origin
+git -C $repok config git-worktree-plugin.headBranch unmerged
+eq 'git-worktree-plugin.headBranch overrides the resolution' origin/unmerged (_gw_head_branch origin 0 $repok)
+
+git -C $repok config git-worktree-plugin.headBranch trunk
+eq 'and falls back to the bare name when there is no such remote ref' trunk (_gw_head_branch origin 0 $repok)
+
+# Where worktrees go is derived, not configured — the one thing both tools work
+# out for themselves so they cannot be told different answers.
+git -C $repok config git-worktree-plugin.worktreeRoot $rootk/elsewhere
+set -g git_worktree_subdir .wt
+eq 'neither the retired git key nor a variable moves the root' "$rootk/parent/.worktrees" (_gw_wt_dir)
+set -e git_worktree_subdir
 
 # ------------------------------------------------------------- completions
 group 'completions'

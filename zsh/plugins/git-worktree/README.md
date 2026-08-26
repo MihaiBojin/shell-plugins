@@ -556,15 +556,13 @@ set -g git_worktree_forge no       # decide from git alone, never ask GitHub/Git
 The forge check needs `gh`, or `glab` **and** `jq` — `gh` embeds its own jq and
 `glab` does not, so the GitLab half is skipped rather than parsed by hand.
 
-`fish --no-config tests/fish/git-worktree.fish` runs against real repositories:
-the layout, the nesting and ref-name collision refusals, all three finished-checks including the
-forge, the submodule and dirty-worktree refusals, `--force`, the sweep's fetch,
-and both halves of `gwr --all`.
-
-It is the smaller of the two suites. The Zsh one covers three refusals it does
-not — detached, locked, and a branch with stashes — so a change to any of those
-is only tested on one side, and a Fish test written alongside it is the way that
-stops being true.
+`fish --no-config tests/fish/git-worktree.fish` runs against real repositories,
+on a fixture with one worktree per way a branch can be unfinished — the same
+shape the Zsh suite builds, so the two can be read line for line. It covers the
+layout, both collision refusals, all three finished-checks including the forge,
+every refusal (standing-in, main, detached, dirty, untracked, stashed, locked,
+submodule), `gwm`, `--force`, the sweep's fetch, both halves of `gwr --all`, the
+completions, and the two git config keys.
 
 ## Configuration
 
