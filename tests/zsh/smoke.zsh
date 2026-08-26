@@ -30,6 +30,13 @@ group(){ print -r -- "" ; print -r -- "$1" }
 # Run zsh code in a pristine shell; prints stdout+stderr merged.
 isolated() { zsh -f -c "$1" 2>&1 }
 
+# The same, with $PATH cut back to the system directories. `zsh -f` inherits
+# $PATH, so on a machine that also has this package installed the installed
+# copy sits ahead of the repository's — and the bin plugin appends rather than
+# prepends, on purpose, so it loses. Only the assertions that resolve a command
+# by name need this; the rest are meant to meet the caller's real environment.
+isolated_path() { PATH=/usr/bin:/bin:/usr/sbin:/sbin $ZSH -f -c "$1" 2>&1 }
+
 #
 # 1. Every logical plugin loads on its own, silently.
 #
@@ -203,10 +210,10 @@ eq "the prompt does not need PROMPT_SUBST" "off" "$out"
 # 7. bin/ is on $PATH, and the scripts in it are runnable.
 #
 group "bin"
-out=$(isolated "source $AGG; whence -p battery")
+out=$(isolated_path "source $AGG; whence -p battery")
 eq "battery resolves to this repository's copy" "$ROOT/bin/battery" "$out"
 
-out=$(isolated "source $AGG; whence -p macos")
+out=$(isolated_path "source $AGG; whence -p macos")
 eq "macos resolves to this repository's copy" "$ROOT/bin/macos" "$out"
 
 out=$(isolated "source $AGG; print -r -- \$path[-1]")
