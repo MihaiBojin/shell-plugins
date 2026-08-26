@@ -384,6 +384,38 @@ out=$(in_repo $repo 'local root=$(mktemp -d)
 eq "an unresolved path and a resolved stop still match" "cleaned up" "$out"
 
 #
+# 4a. gwm renames the branch and moves the checkout with it.
+#
+group "gwm"
+sb=$(fixture) || exit 1; repo=$sb/parent/demo
+
+out=$(in_repo $repo 'gwa --no-fetch fix/login >/dev/null 2>&1
+  cd "$(_gw_dest fix/login)"
+  print y | gwm renamed/thing >/dev/null 2>&1
+  print -r -- "$PWD"')
+eq "gwm follows the worktree it moved" "${sb:A}/parent/.worktrees/renamed/thing/demo" "$out"
+
+out=$(in_repo $repo 'git show-ref --verify --quiet refs/heads/renamed/thing && print -r -- renamed || print -r -- no')
+eq "and the branch went with it" "renamed" "$out"
+
+out=$(in_repo $repo '[[ -d $(_gw_wt_dir)/fix ]] && print -r -- left || print -r -- "cleaned up"')
+eq "the directories it emptied are gone" "cleaned up" "$out"
+
+out=$(in_repo $repo 'gwm 2>&1; print -r -- "rc=$?"')
+has "gwm needs a NEW name" "NEW is required" "$out"
+
+out=$(in_repo $repo 'gwm a b 2>&1; print -r -- "rc=$?"')
+has "and only one of them" "too many arguments" "$out"
+
+# From inside the worktree: run from the main checkout, gwm has no worktree to
+# act on and opens the picker instead.
+out=$(in_repo $repo 'cd "$(_gw_dest renamed/thing)" && gwm main 2>&1')
+has "a name another branch has is refused" "already exists" "$out"
+
+out=$(in_repo $repo 'cd "$(_gw_dest renamed/thing)" && gwm renamed/thing 2>&1')
+has "and so is its own name" "already called that" "$out"
+
+#
 # 4b. The directory is the branch name, slashes and all.
 #
 group "nested branch names"

@@ -30,7 +30,7 @@ typeset -g _GW_RED=$'\e[31m' _GW_YELLOW=$'\e[33m' _GW_CYAN=$'\e[36m'
 typeset -g _GW_GREEN=$'\e[32m'
 
 autoload -Uz \
-  gw gwl gwa gwr \
+  gw gwl gwa gwm gwr \
   _gw_choose _gw_clean_refusal _gw_confirm _gw_default_branch \
   _gw_dest _gw_err _gw_forge_kind _gw_forge_load _gw_forge_slug \
   _gw_forge_state \

@@ -83,7 +83,8 @@ function gwr -d 'Remove a worktree whose branch is finished, and the branch with
             _gw_say err 'not inside a git repository'
             return 1
         end
-        set wt (_gw_pick 'remove>' "$argv[1]"); or return 1
+        _gw_pick 'remove>' "$argv[1]"; or return 1
+        set wt $_gw_reply
     end
 
     set -l main (_gw_main_worktree $wt)

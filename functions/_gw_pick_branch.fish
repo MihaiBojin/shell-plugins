@@ -1,11 +1,12 @@
-function _gw_pick_branch -a prompt -d 'Pick a branch to make a worktree for, or type a new name'
+function _gw_pick_branch -a prompt -d 'Pick a branch to make a worktree for, leaving it in $_gw_reply'
     # Every local branch, plus the remote's branches that have no local
     # counterpart — the set gwl can never show, because gwl only knows about
     # worktrees that already exist and this is the list of ones that do not.
     #
-    # Prints the chosen branch. With fzf a name that matches nothing is the
+    # Leaves the chosen branch in $_gw_reply. With fzf a name that matches nothing is the
     # answer too: typing one and pressing enter is how a new branch is named,
     # the same way `gwa NAME` names one.
+    set -g _gw_reply ''
     set -l remote (_gw_remote)
     set -l us (printf '\x1f')
 
@@ -68,9 +69,9 @@ function _gw_pick_branch -a prompt -d 'Pick a branch to make a worktree for, or 
     # name nobody has used yet.
     set -l index (contains --index -- $out[-1] $lines)
     if test -n "$index"
-        echo $names[$index]
+        set -g _gw_reply $names[$index]
         return 0
     end
     test -n "$out[1]"; or return 1
-    echo $out[1]
+    set -g _gw_reply $out[1]
 end

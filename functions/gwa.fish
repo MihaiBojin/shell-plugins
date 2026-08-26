@@ -22,7 +22,8 @@ function gwa -d 'Add a worktree for a branch beside the repository, and cd into 
     # on the remote but has no worktree yet is invisible to a picker over
     # worktrees.
     if test -z "$name"
-        set name (_gw_pick_branch 'branch>'); or return $status
+        _gw_pick_branch 'branch>'; or return $status
+        set name $_gw_reply
         test -n "$name"; or return 1
     end
     if not git check-ref-format refs/heads/$name 2>/dev/null

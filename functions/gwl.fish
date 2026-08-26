@@ -26,7 +26,8 @@ function gwl -d 'Pick one of this repository worktrees and cd into it, or --list
         return $status
     end
 
-    set -l dest (_gw_pick 'worktree>' "$argv[1]"); or return 1
+    _gw_pick 'worktree>' "$argv[1]"; or return 1
+    set -l dest $_gw_reply
     if not test -d "$dest"
         _gw_say err "no such directory: $dest"
         return 1

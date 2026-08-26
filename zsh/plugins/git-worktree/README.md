@@ -60,6 +60,7 @@ this repository — see [The Fish commands](#the-fish-commands) for what differs
 | `gwa` | Pick a branch to make one for — including one that only exists on the remote |
 | `gwr [PATH\|QUERY]` | Remove a worktree whose branch is finished, and the branch with it |
 | `gwr --all [--yes]` | The same, to every finished worktree at once |
+| `gwm NEW` | Rename this worktree's branch to `NEW` and move its checkout to match |
 
 ### `gw` / `gwh` — help
 
@@ -72,6 +73,7 @@ gw — git worktree helpers
       (no NAME)            pick a branch, or type a new name, with fzf
       --fetch              also ask the remote whether NAME exists there already
       --no-fetch           stay offline
+  gwm NEW                  rename this worktree's branch to NEW and move it to match
   gwr [PATH|QUERY]         remove a worktree whose branch is finished, and the branch
       -f, --force          remove it even when it is not; the branch is kept
       --no-forge           decide from git alone; never ask GitHub/GitLab
@@ -304,6 +306,34 @@ the path comes from the checkout's own location.
 
 Called non-interactively it warns, guesses, and tells you to run `git remote
 set-head <remote> --auto` rather than silently picking one.
+
+### `gwm` — rename
+
+```zsh
+gwm renamed/thing       # from inside the worktree you want renamed
+gwm shorter-name
+```
+
+Directory name equals branch name is the invariant every tool writing into this
+root keeps, so renaming a branch is two operations that have to happen together:
+`git branch -m`, and `git worktree move` to the directory the new name asks for.
+Doing one without the other leaves a worktree whose directory says one thing and
+whose HEAD says another — which is the state `gwl` and `gwr` both read wrong.
+
+It acts on the worktree you are standing in. From the main checkout there is
+nothing to rename, so it opens the picker instead. Three pieces of tidying git
+does not do on its own come with it: the new parent is created first, because
+`git worktree move` will not create nested parents; the directories the old name
+leaves empty are removed, up to and including the root; and the shell follows
+the worktree if that is where it was.
+
+It refuses a locked worktree, a detached one, the main checkout, a name that is
+already this branch's, a name another branch already has, and a destination
+another repository's worktree is nesting above — the same collision `gwa`
+refuses, for the same reason.
+
+The branch is renamed before the move. If the move then fails, the message says
+so and prints the `git worktree move` that finishes the job.
 
 ### `gwr` — remove one
 

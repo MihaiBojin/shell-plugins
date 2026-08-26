@@ -167,8 +167,8 @@ begin
     set -lx PICK_LINES $bfake/lines
     set -lx PICK_QUERY ''
     set -lx PICK_LINE 1
-    set -l picked (_gw_pick_branch 'b>')
-    eq 'picking a line returns the branch, not the display line' 1 (count (string split \t -- "$picked"))
+    _gw_pick_branch 'b>'
+    eq 'picking a line returns the branch, not the display line' 1 (count (string split \t -- "$_gw_reply"))
 end
 
 begin
@@ -176,7 +176,8 @@ begin
     set -lx PICK_LINES $bfake/lines
     set -lx PICK_QUERY 'typed-new'
     set -lx PICK_LINE ''
-    eq 'a name that matches nothing is the answer' typed-new (_gw_pick_branch 'b>')
+    _gw_pick_branch 'b>'
+    eq 'a name that matches nothing is the answer' typed-new "$_gw_reply"
 end
 
 # Asked of the picker directly. gwa reaches it through a command substitution,
@@ -353,6 +354,43 @@ if git -C $repo3 show-ref --verify --quiet refs/heads/keeper
 else
     bad 'and so does its branch'
 end
+
+# --------------------------------------------------------------------- gwm
+group 'gwm'
+
+# Directory name equals branch name, so renaming a branch is a rename and a
+# move together. git does neither half of the tidying: the new parent has to
+# exist first, and the old one is left behind empty.
+set -l rootm (fixture)
+set -l repom $rootm/parent/demo
+cd $repom
+gwa --no-fetch fix/login >/dev/null 2>&1
+set -l srcm (path resolve $PWD)
+eq 'the worktree starts where its branch says' "$rootm/parent/.worktrees/fix/login/demo" $srcm
+
+echo y | gwm renamed/thing >/dev/null 2>&1
+eq 'the branch is renamed' 0 (git -C $repom show-ref --verify --quiet refs/heads/renamed/thing; echo $status)
+eq 'the old branch is gone' 1 (git -C $repom show-ref --verify --quiet refs/heads/fix/login; echo $status)
+eq 'the checkout moved to match' 1 (count (path filter -d $rootm/parent/.worktrees/renamed/thing/demo))
+eq 'and the directories it left behind are gone' 0 (count (path filter -d $rootm/parent/.worktrees/fix 2>/dev/null))
+
+cd $repom
+set out (gwm 2>&1)
+has 'gwm needs a NEW name' 'NEW is required' "$out"
+set out (gwm 'bad..name' 2>&1)
+has 'an invalid branch name is refused' 'invalid branch name' "$out"
+set out (gwm a b 2>&1)
+has 'and only one of them' 'too many arguments' "$out"
+
+cd $rootm/parent/.worktrees/renamed/thing/demo
+set out (gwm renamed/thing 2>&1)
+has 'renaming a branch to its own name is refused' 'already called that' "$out"
+set out (gwm main 2>&1)
+has 'and so is a name another branch has' "branch 'main' already exists" "$out"
+
+cd $repom
+set out (gwm --force 2>&1)
+has 'an unknown flag is refused' 'unknown option' "$out"
 
 # --------------------------------------------------------------- submodules
 group 'submodules'
@@ -538,11 +576,12 @@ set -l picked
 set -l rc 0
 begin
     set -lx PATH /usr/bin /bin /usr/sbin /sbin
-    set picked (_gw_pick 'worktree>' '' </dev/null 2>/dev/null)
+    _gw_pick 'worktree>' '' </dev/null 2>/dev/null
     set rc $status
+    set picked $_gw_reply
 end
 eq 'closed stdin makes the picker fail' 1 $rc
-eq 'and it names nothing' 0 (count $picked)
+eq 'and it names nothing' '' "$picked"
 
 # --------------------------------------------------------- picker preview
 group 'picker preview'
