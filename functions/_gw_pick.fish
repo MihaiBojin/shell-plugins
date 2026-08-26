@@ -2,13 +2,14 @@ function _gw_pick -a prompt query -d 'Pick one of the worktrees here, printing i
     # fzf when it is there, a numbered list when it is not. Fuzzy search covers
     # the branch column only: the path is shown but not searched, since
     # fuzzy-matching a long absolute path makes every entry match everything.
-    set -l records (_gw_records); or return 1
+    set -l records (_gw_records | string split0); or return 1
+    set -l us (printf '\x1f')
 
     set -l lines
     set -l paths
     set -l cwd (path resolve $PWD)
     for record in $records
-        set -l fields (string split \t -- $record)
+        set -l fields (string split $us -- $record)
         set -l wt $fields[1]
         set -l branch $fields[3]
         set -l flags $fields[4]

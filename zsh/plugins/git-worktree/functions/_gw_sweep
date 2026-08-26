@@ -92,11 +92,12 @@ fi
 
 local -a recs fields to_remove
 local rec wt branch flags reason why verb REPLY
+local US=$'\x1f'
 integer skipped=0 considered=0
 
-recs=( ${(f)"$(_gw_records)"} )
+recs=( ${(0)"$(_gw_records)"} )
 for rec in $recs; do
-  fields=( "${(@ps:\t:)rec}" )
+  fields=( "${(@ps:\x1f:)rec}" )
   wt=$fields[1] branch=$fields[3] flags=$fields[4]
   [[ $flags == *bare* ]] && continue
   [[ -n $only && $branch != "$only" ]] && continue
@@ -122,7 +123,7 @@ for rec in $recs; do
     continue
   fi
 
-  to_remove+=( "$wt"$'\t'"$branch"$'\t'"$why" )
+  to_remove+=( "$wt${US}${branch}${US}${why}" )
   if (( ! yes )); then
     verb='would remove'
     print -ru2 -- "  ${_GW_GREEN}${(r:13:)verb}${_GW_RESET}${_GW_CYAN}${branch}${_GW_RESET} — ${why}"
@@ -150,7 +151,7 @@ fi
 
 integer removed=0 failed=0
 for rec in $to_remove; do
-  fields=( "${(@ps:\t:)rec}" )
+  fields=( "${(@ps:\x1f:)rec}" )
   if _gw_remove_one "$fields[1]" "$fields[2]" "$fields[3]"; then
     (( removed++ ))
   else

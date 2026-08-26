@@ -49,8 +49,8 @@ function gwa -d 'Add a worktree for a branch beside the repository, and cd into 
         # is not, rather than cd-ing somebody into a worktree they did not ask
         # for.
         set -l occupant ''
-        for record in (_gw_records)
-            set -l fields (string split \t -- $record)
+        for record in (_gw_records | string split0)
+            set -l fields (string split (printf '\x1f') -- $record)
             test (path resolve $fields[1]) = (path resolve $dest); or continue
             set occupant $fields[3]
             break
@@ -74,8 +74,8 @@ function gwa -d 'Add a worktree for a branch beside the repository, and cd into 
         if test -e "$ancestor/.git"
             if _gw_owns $ancestor
                 set -l owner ''
-                for record in (_gw_records)
-                    set -l fields (string split \t -- $record)
+                for record in (_gw_records | string split0)
+                    set -l fields (string split (printf '\x1f') -- $record)
                     test (path resolve $fields[1]) = (path resolve $ancestor); or continue
                     set owner $fields[3]
                     break
@@ -104,8 +104,8 @@ function gwa -d 'Add a worktree for a branch beside the repository, and cd into 
     end
 
     # Already checked out somewhere? Go there rather than failing.
-    for record in (_gw_records)
-        set -l fields (string split \t -- $record)
+    for record in (_gw_records | string split0)
+        set -l fields (string split (printf '\x1f') -- $record)
         test "$fields[3]" = "$name"; or continue
         _gw_say info "branch '$name' is already checked out at $fields[1]"
         cd $fields[1]

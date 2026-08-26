@@ -137,9 +137,25 @@ has 'an invalid branch name is refused' 'invalid branch name' "$out"
 
 # -------------------------------------------------------------------- gwl
 group 'gwl'
-set -l listed (_gw_records | string split \t -f3 | string join ' ')
+set -l listed (_gw_records | string split0 | string split (printf '\x1f') -f3 | string join ' ')
 has 'the listing knows the auth worktree' auth "$listed"
 has 'the listing knows the main checkout' main "$listed"
+
+# git ends every --porcelain attribute with a newline, so a directory holding
+# one used to arrive as two records for worktrees that do not exist. -z and a
+# NUL between records carry the whole path back out.
+set -l nl (printf '%s/we\nird' $root/parent | string collect)
+git -C $repo worktree add -q -b newline -- $nl 2>/dev/null
+set -l recs (_gw_records | string split0)
+set -l us (printf '\x1f')
+set -l found ''
+for r in $recs
+    set -l f (string split $us -- $r)
+    eq 'every record still has four fields' 4 (count $f)
+    test "$f[3]" = newline; and set found $f[1]
+end
+eq 'a worktree whose path contains a newline survives the parse' "$nl" "$found"
+git -C $repo worktree remove --force $nl 2>/dev/null
 
 # --------------------------------------------------------- the predicate
 group 'what counts as finished'

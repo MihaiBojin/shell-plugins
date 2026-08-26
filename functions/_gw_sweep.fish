@@ -32,8 +32,9 @@ function _gw_sweep -a go use_forge only_branch online -d 'Remove every finished 
     set -l kept 0
     set -l considered 0
 
-    for record in (_gw_records)
-        set -l fields (string split \t -- $record)
+    set -l us (printf '\x1f')
+    for record in (_gw_records | string split0)
+        set -l fields (string split $us -- $record)
         set -l wt $fields[1]
         set -l branch $fields[3]
         set -l flags $fields[4]

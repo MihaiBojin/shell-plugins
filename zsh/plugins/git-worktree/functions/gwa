@@ -51,9 +51,9 @@ if [[ -e $dest/.git ]]; then
   # when it is not, rather than cd-ing somebody into a worktree they did not
   # ask for.
   local occupant=''
-  recs=( ${(f)"$(_gw_records)"} )
+  recs=( ${(0)"$(_gw_records)"} )
   for rec in $recs; do
-    fields=( "${(@ps:\t:)rec}" )
+    fields=( "${(@ps:\x1f:)rec}" )
     [[ ${fields[1]:A} == ${dest:A} ]] || continue
     occupant=$fields[3]
     break
@@ -81,9 +81,9 @@ while [[ -n $wtdir && $ancestor == $wtdir/* ]]; do
     # and what to do about it differs.
     if _gw_owns "$ancestor"; then
       owner=''
-      recs=( ${(f)"$(_gw_records)"} )
+      recs=( ${(0)"$(_gw_records)"} )
       for rec in $recs; do
-        fields=( "${(@ps:\t:)rec}" )
+        fields=( "${(@ps:\x1f:)rec}" )
         [[ ${fields[1]:A} == ${ancestor:A} ]] || continue
         owner=$fields[3]
         break

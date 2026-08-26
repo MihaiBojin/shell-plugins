@@ -388,6 +388,21 @@ sb=$(fixture) || exit 1; repo=$sb/parent/demo
 out=$(in_repo $repo '_gw_dest auth')
 eq "a plain name is the directory" "${sb:A}/parent/.worktrees/auth/demo" "$out"
 
+# git ends every --porcelain attribute with a newline, so a directory holding
+# one used to arrive as two records for worktrees that do not exist. -z and a
+# NUL between records carry the whole path back out.
+out=$(in_repo $repo 'local nl=$PWD/../we$'"'"'\n'"'"'ird
+  git worktree add -q -b newline -- "$nl" 2>/dev/null
+  local -a recs=( ${(0)"$(_gw_records)"} ) fields
+  local rec hit=""
+  for rec in $recs; do
+    fields=( "${(@ps:\x1f:)rec}" )
+    (( $#fields == 4 )) || { print -r -- "field count $#fields"; return }
+    [[ $fields[3] == newline ]] && hit=$fields[1]
+  done
+  [[ $hit == ${nl:A} ]] && print -r -- ok || print -r -- "got [$hit] want [${nl:A}]"')
+eq "a worktree whose path contains a newline survives the parse" "ok" "$out"
+
 out=$(in_repo $repo '_gw_dest fix/login')
 eq "a slash nests rather than flattening" \
    "${sb:A}/parent/.worktrees/fix/login/demo" "$out"

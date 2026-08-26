@@ -1,31 +1,51 @@
-function _gw_records -a dir -d 'Every worktree of this repository as path\tsha\tbranch\tflags'
-    # The one place `git worktree list --porcelain` is parsed. <branch> is empty
-    # for a detached or bare checkout; <flags> is a comma-separated subset of
-    # bare,detached,locked,prunable. The main checkout comes first.
+function _gw_records -a dir -d 'Every worktree of this repository, NUL-separated, as path/sha/branch/flags'
+    # The one place `git worktree list` is parsed. Each record holds four
+    # fields separated by US (0x1f); records are separated by NUL, so a caller
+    # reads them with `string split0` and their fields with `string split \x1f`.
+    #
+    # <branch> is empty for a detached or bare checkout; <flags> is a
+    # comma-separated subset of bare,detached,locked,prunable. The main
+    # checkout comes first, and _gw_dest relies on that.
+    #
+    # --porcelain -z rather than --porcelain: without -z git ends every
+    # attribute with a newline, so a worktree whose directory name contains one
+    # arrives as two lines and parses into two worktrees, neither of which
+    # exists. NUL between records carries that path back out whole, and the
+    # fields inside a record are separated by US because a directory name can
+    # hold a tab and git hands it over without comment.
     test -n "$dir"; or set dir $PWD
-    set -l out (git -C $dir worktree list --porcelain 2>/dev/null); or return 1
+    set -l out (git -C $dir worktree list --porcelain -z 2>/dev/null | string split0); or return 1
 
+    set -l us (printf '\x1f')
+    set -l records
+    set -l seen
     set -l wt ''
     set -l sha ''
     set -l branch ''
-    set -l flags ''
-    set -l seen
-    set -l found 0
+    set -l flags
 
     function __gw_emit_record --no-scope-shadowing
         test -n "$wt"; or return 0
+        # A worktree listed twice under different spellings of the same
+        # directory is still one worktree.
         set -l key (path resolve $wt)
         contains -- $key $seen; and return 0
         set -a seen $key
-        set found 1
-        printf '%s\t%s\t%s\t%s\n' $wt $sha $branch (string join ',' -- $flags)
+        # Concatenated rather than joined through a command substitution: a
+        # substitution splits its output on newlines, so a path holding one
+        # would arrive here as two records. $joined is quoted so a worktree
+        # with no flags still contributes a fourth field.
+        set -l joined (string join , -- $flags)
+        set -a records "$wt$us$sha$us$branch$us$joined"
     end
 
     for line in $out
         switch $line
             case 'worktree *'
                 __gw_emit_record
-                set wt (string replace 'worktree ' '' -- $line)
+                # string collect, for the same reason: this is the one
+                # field git will hand back with a newline in it.
+                set wt (string replace 'worktree ' '' -- $line | string collect)
                 set sha ''
                 set branch ''
                 set flags
@@ -44,5 +64,6 @@ function _gw_records -a dir -d 'Every worktree of this repository as path\tsha\t
     __gw_emit_record
     functions -e __gw_emit_record
 
-    test $found -eq 1
+    set -q records[1]; or return 1
+    string join0 $records
 end

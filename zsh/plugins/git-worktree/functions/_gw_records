@@ -1,27 +1,39 @@
-# Every worktree of the repository containing $1 (default: $PWD), one per line,
-# as four tab-separated fields:
+# Every worktree of the repository containing $1 (default: $PWD), NUL-separated,
+# each record holding four fields separated by US (0x1f):
 #
-#     <path> \t <sha> \t <branch> \t <flags>
+#     <path> US <sha> US <branch> US <flags> NUL
+#
+# A caller reads them with ${(0)"$(_gw_records)"} and their fields with
+# ${(@ps:\x1f:)rec}.
 #
 # <branch> is empty for a detached or bare checkout; <flags> is a
 # comma-separated subset of bare,detached,locked,prunable. The main checkout is
 # included, first — `git worktree list` always names it first, and _gw_dest
 # relies on that.
 #
-# This is the one place `git worktree list --porcelain` is parsed. Fails when
-# there is no repository, or nothing to list.
+# This is the one place `git worktree list` is parsed. Fails when there is no
+# repository, or nothing to list.
+#
+# --porcelain -z rather than --porcelain: without -z git ends every attribute
+# with a newline, so a worktree whose directory name contains one arrives as two
+# lines and parses into two worktrees, neither of which exists. NUL between
+# records carries that path back out whole, and the fields inside a record are
+# separated by US because a directory name can hold a tab and git hands it over
+# without comment.
 emulate -L zsh
 
 # NB: `wt` rather than `path` — `path` is tied to $PATH, and a local one
 # empties it for the length of the call, so nothing external can be found.
 local out rec line wt sha branch flags key
 local -A seen
+local US=$'\x1f'
 
-out=$(git -C "${1:-$PWD}" worktree list --porcelain 2>/dev/null) || return 1
+out=$(git -C "${1:-$PWD}" worktree list --porcelain -z 2>/dev/null) || return 1
 
-for rec in ${(ps:\n\n:)out}; do
+# Records arrive separated by an empty attribute, i.e. two NULs in a row.
+for rec in ${(ps:\0\0:)out}; do
   wt='' sha='' branch='' flags=''
-  for line in ${(f)rec}; do
+  for line in ${(ps:\0:)rec}; do
     case $line in
       'worktree '*) wt=${line#worktree } ;;
       'HEAD '*)     sha=${line#HEAD } ;;
@@ -38,7 +50,7 @@ for rec in ${(ps:\n\n:)out}; do
   key=${wt:A}
   (( ${+seen[$key]} )) && continue
   seen[$key]=1
-  print -r -- "$wt"$'\t'"$sha"$'\t'"$branch"$'\t'"${flags%,}"
+  print -rn -- "${wt}${US}${sha}${US}${branch}${US}${flags%,}"$'\0'
 done
 
 (( $#seen ))

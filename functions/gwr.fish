@@ -96,8 +96,9 @@ function gwr -d 'Remove a worktree whose branch is finished, and the branch with
     # — is asked of the repository the worktree belongs to, not of the shell's.
     set -l branch ''
     set -l flags ''
-    for record in (_gw_records $wt)
-        set -l fields (string split \t -- $record)
+    set -l us (printf '\x1f')
+    for record in (_gw_records $wt | string split0)
+        set -l fields (string split $us -- $record)
         test (path resolve $fields[1]) = "$wt"; or continue
         set branch $fields[3]
         set flags $fields[4]
