@@ -1,5 +1,5 @@
 function gwl -d 'Pick one of this repository worktrees and cd into it, or --list them'
-    argparse h/help l/list -- $argv
+    argparse --name=gw h/help l/list -- $argv
     or return 2
     if set -q _flag_help
         gw >&2

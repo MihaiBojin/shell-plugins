@@ -33,6 +33,10 @@ while (( $# )); do
       only=$2; shift 2 ;;
     --branch=*)    only=${1#--branch=}; shift ;;
     --)            shift; break ;;
+    -f|--force)
+      # --all never removes a checkout that is not finished, so there is
+      # nothing for --force to override.
+      _gw_err "--all takes no --force"; return 2 ;;
     -*)            _gw_err "unknown option: $1"; return 2 ;;
     *)             _gw_err "gwr --all takes no positional arguments — did you mean: gwr --all --branch $1"; return 2 ;;
   esac

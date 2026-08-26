@@ -1,5 +1,5 @@
 function gwa -d 'Add a worktree for a branch beside the repository, and cd into it'
-    argparse h/help fetch no-fetch -- $argv
+    argparse --name=gw h/help fetch no-fetch -- $argv
     or return 2
     if set -q _flag_help
         gw >&2

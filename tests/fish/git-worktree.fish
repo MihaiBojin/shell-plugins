@@ -334,7 +334,7 @@ eq 'and so is the submodule git directory' 1 (count (path filter -d $moddir 2>/d
 # print a command git cannot run.
 set out (gwr --force $repo5 2>&1)
 hasnt 'and does not say that about the main worktree' 'holds submodule git directories' "$out"
-has 'which git refuses on its own terms' 'main working tree' "$out"
+has 'the main worktree is refused outright, not offered a --force' 'refusing to remove the main worktree' "$out"
 
 # ------------------------------------------------------------- the forge check
 group 'forge'

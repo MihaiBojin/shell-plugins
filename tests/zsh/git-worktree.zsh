@@ -268,6 +268,10 @@ out=$(in_repo $repo 'gwr --all --no-fetch --branch nosuch; print -r -- "rc=$?"')
 has "--branch on a branch with no worktree is an error" "no worktree of this repository has branch 'nosuch'" "$out"
 has "and exits non-zero" "rc=1" "$out"
 
+out=$(in_repo $repo 'gwr --all --force 2>&1; print -r -- "rc=$?"')
+has "gwr --all refuses --force, saying why" "--all takes no --force" "$out"
+has "and exits 2" "rc=2" "$out"
+
 out=$(in_repo $repo 'gwr --all extra-arg 2>&1; print -r -- "rc=$?"')
 has "a positional argument is refused, with the fix" "did you mean: gwr --all --branch extra-arg" "$out"
 

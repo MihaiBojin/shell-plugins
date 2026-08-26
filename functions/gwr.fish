@@ -1,5 +1,5 @@
 function gwr -d 'Remove a worktree whose branch is finished, and the branch with it'
-    argparse h/help f/force no-forge fetch no-fetch n/dry-run all y/yes 'branch=' -- $argv
+    argparse --name=gw h/help f/force no-forge fetch no-fetch n/dry-run all y/yes 'branch=' -- $argv
     or return 2
     if set -q _flag_help
         gw >&2
@@ -89,6 +89,14 @@ function gwr -d 'Remove a worktree whose branch is finished, and the branch with
     set -l main (_gw_main_worktree $wt)
     if test -z "$main"
         _gw_say err "not a git worktree: $wt"
+        return 1
+    end
+
+    # Before anything --force could reach: git cannot remove a main worktree at
+    # all, so offering a way to force past this would be offering something
+    # that does not exist.
+    if test (path resolve $wt) = (path resolve $main)
+        _gw_say err "refusing to remove the main worktree: $wt"
         return 1
     end
 
