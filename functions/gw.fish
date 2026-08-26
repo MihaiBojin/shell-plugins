@@ -1,14 +1,13 @@
 function gw -d 'git worktree helpers: gwl, gwa, gwr'
     # Prints to stdout so it can be piped; the -h flag on the individual
     # commands prints the same text to stderr.
+
+    # Through _gw_dest, so the line shows where gwa would actually land rather
+    # than a second derivation of the same path that can drift from it.
     set -l here
     if git rev-parse --git-dir >/dev/null 2>&1
-        set -l root (_gw_wt_dir)
-        set -l main (_gw_main_worktree)
-        if test -n "$root" -a -n "$main"
-            set -l repo (string replace -r '\.git$' '' -- (path basename $main))
-            set here (string replace -r "^$HOME" '~' -- "$root/NAME/$repo")
-        end
+        set -l p (_gw_dest NAME)
+        test -n "$p"; and set here (string replace -r "^$HOME" '~' -- "$p")
     end
 
     echo 'gw — git worktree helpers'
@@ -22,7 +21,10 @@ function gw -d 'git worktree helpers: gwl, gwa, gwr'
     echo '      --no-forge           decide from git alone; never ask GitHub/GitLab'
     echo '      --all                do it to every finished worktree; a dry run without --yes'
     echo '        -y, --yes          go through with it'
+    echo '        -n, --dry-run      say what would go and stop; wins over --yes'
     echo '        --branch NAME      consider only this branch'
+    echo '        --fetch            refresh the head branch first (the default)'
+    echo '        --no-fetch         decide offline: no fetch, and no forge either'
     echo '  gw,  gwh                 this help'
     echo
     echo 'worktrees live beside their repository, at'

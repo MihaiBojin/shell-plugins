@@ -1,5 +1,5 @@
 function gwr -d 'Remove a worktree whose branch is finished, and the branch with it'
-    argparse h/help f/force no-forge no-fetch all y/yes 'branch=' -- $argv
+    argparse h/help f/force no-forge fetch no-fetch n/dry-run all y/yes 'branch=' -- $argv
     or return 2
     if set -q _flag_help
         gw >&2
@@ -8,7 +8,6 @@ function gwr -d 'Remove a worktree whose branch is finished, and the branch with
 
     set -l use_forge 1
     set -q _flag_no_forge; and set use_forge 0
-    set -q _flag_no_fetch; and set use_forge 0
     if set -q git_worktree_forge
         contains -- "$git_worktree_forge" no false off 0; and set use_forge 0
     end
@@ -20,8 +19,52 @@ function gwr -d 'Remove a worktree whose branch is finished, and the branch with
             _gw_say err '--all takes no --force'
             return 2
         end
-        _gw_sweep (set -q _flag_yes; and echo 1; or echo 0) $use_forge "$_flag_branch"
+
+        # The sweep decides against the head branch, so how fresh that is
+        # decides what it reaps. Same policy as gwa, minus its `full` step:
+        # there is no NAME to look for on the remote here, only the head
+        # branch to keep current.
+        set -l mode base
+        set -q git_worktree_fetch; and set mode $git_worktree_fetch
+        set -q _flag_fetch; and set mode always
+        set -q _flag_no_fetch; and set mode no
+        set -l online 1
+        contains -- "$mode" no false off 0; and set online 0
+
+        # Offline means offline. The forge is the one check that needs the
+        # network, so --no-fetch turning off the fetch but leaving a call to
+        # GitHub behind would be a promise half kept.
+        test "$online" = 0; and set use_forge 0
+
+        # A branch name here is the mistake the flag exists for, and sweeping
+        # every finished worktree is much more than the person asking for one
+        # of them wanted.
+        if set -q argv[1]
+            _gw_say err "gwr --all takes no positional arguments — did you mean: gwr --all --branch $argv[1]"
+            return 2
+        end
+
+        # --dry-run wins over --yes whichever order they arrive in: between two
+        # flags that contradict each other, the one that removes nothing is the
+        # one to obey.
+        set -l go 0
+        set -q _flag_yes; and set go 1
+        set -q _flag_dry_run; and set go 0
+
+        _gw_sweep $go $use_forge "$_flag_branch" $online
         return $status
+    end
+
+    # Every flag that belongs to the sweep, refused here rather than accepted
+    # and ignored. The single form never fetches — it resolves the head branch
+    # offline — and it asks about the one worktree it was given, so none of
+    # these would do anything. The forge check is the one thing that reaches
+    # the network, and --no-forge is what turns it off.
+    for flag in fetch no-fetch dry-run yes branch
+        if set -q _flag_(string replace -a -- - _ $flag)
+            _gw_say err "--$flag belongs to gwr --all"
+            return 2
+        end
     end
 
     if test (count $argv) -gt 1
@@ -92,14 +135,30 @@ function gwr -d 'Remove a worktree whose branch is finished, and the branch with
             _gw_say warn "$wt is detached; nothing will refer to $sha afterwards; keep it first with:"
             echo "      git -C $main branch NAME $sha" >&2
         end
+        # Checked before the removal, not after it. `git worktree remove
+        # --force` walks past git's own submodule refusal and deletes
+        # .git/worktrees/<id>/modules/* with the checkout — the submodule's only
+        # copy of anything committed there, which nothing brings back and fsck
+        # does not notice. Reading it out of git's error afterwards would mean
+        # reading an error git never prints.
+        #
+        # Not asked of the main worktree: its git directory is the repository's
+        # own, so its modules/ holds submodules nothing here is removing — and
+        # git refuses to remove a main worktree anyway, for a better reason
+        # than this one would give.
+        set -l gitdir ''
+        test (path resolve $wt) != (path resolve $main)
+        and set gitdir (git -C $wt rev-parse --absolute-git-dir 2>/dev/null)
+        if test -n "$gitdir"; and test -d "$gitdir/modules"
+            _gw_say err "$wt holds submodule git directories — --force would delete them with it"
+            echo "  push the submodules' commits somewhere first, then:" >&2
+            echo "    git -C $main worktree remove --force $wt" >&2
+            return 1
+        end
+
         set -l out (git -C $main worktree remove --force $wt 2>&1)
         if test $status -ne 0
-            if string match --quiet '*submodule*' -- "$out"
-                _gw_say err "left $wt alone; it holds submodules, and --force would delete their git directories"
-                echo "    if you mean it: git -C $main worktree remove --force $wt" >&2
-            else
-                _gw_say err "could not remove $wt: $out"
-            end
+            _gw_say err "could not remove $wt: $out"
             return 1
         end
         _gw_prune_upto $wt $main

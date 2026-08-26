@@ -251,6 +251,19 @@ eq "--branch looks at that branch and no other" \
    "  skip         unmerged — not merged into main
 gw: nothing is finished; 1 left alone" "$out"
 
+# --dry-run wins over --yes whichever order they arrive in, in both shells.
+out=$(in_repo $repo 'local before=$(git worktree list --porcelain | grep -c "^worktree ")
+  gwr --all --no-fetch --yes --dry-run >/dev/null 2>&1
+  local after=$(git worktree list --porcelain | grep -c "^worktree ")
+  [[ $before == $after ]] && print -r -- same || print -r -- "$before -> $after"')
+eq "--yes --dry-run removes nothing" "same" "$out"
+
+out=$(in_repo $repo 'local before=$(git worktree list --porcelain | grep -c "^worktree ")
+  gwr --all --no-fetch --dry-run --yes >/dev/null 2>&1
+  local after=$(git worktree list --porcelain | grep -c "^worktree ")
+  [[ $before == $after ]] && print -r -- same || print -r -- "$before -> $after"')
+eq "and neither does the other order" "same" "$out"
+
 out=$(in_repo $repo 'gwr --all --no-fetch --branch nosuch; print -r -- "rc=$?"')
 has "--branch on a branch with no worktree is an error" "no worktree of this repository has branch 'nosuch'" "$out"
 has "and exits non-zero" "rc=1" "$out"
@@ -382,6 +395,15 @@ eq "a slash nests rather than flattening" \
 out=$(in_repo $repo '_gw_dest feature/oauth/v2')
 eq "and so does every slash" \
    "${sb:A}/parent/.worktrees/feature/oauth/v2/demo" "$out"
+
+# The directory name is whatever git left, a trailing `.git` included. Trimming
+# it would send a worktree somewhere the companion `origin` CLI does not look,
+# and the two agreeing about the path without being told is the point of
+# deriving it.
+git clone -q $sb/origin/demo.git $sb/parent/bare.git 2>/dev/null
+out=$(in_repo $sb/parent/bare.git '_gw_dest auth')
+eq "a checkout named <name>.git keeps the suffix" \
+   "${sb:A}/parent/.worktrees/auth/bare.git" "$out"
 
 out=$(in_repo $repo 'gwa --no-fetch fix/login >/dev/null 2>&1
   print -r -- "${PWD##*/.worktrees/} on $(git rev-parse --abbrev-ref HEAD)"')

@@ -1,4 +1,4 @@
-function _gw_sweep -a go use_forge only_branch -d 'Remove every finished worktree of this repository'
+function _gw_sweep -a go use_forge only_branch online -d 'Remove every finished worktree of this repository'
     # Same predicate and same refusals as a plain gwr; the difference is that
     # nothing stops to ask about each worktree. So it does nothing until asked
     # twice: the plain run is a dry run, and the dry run is the confirmation.
@@ -9,7 +9,7 @@ function _gw_sweep -a go use_forge only_branch -d 'Remove every finished worktre
 
     set -l main (_gw_main_worktree); or return 1
     set -l remote (_gw_remote $main)
-    set -l head_ref (_gw_head_branch "$remote" 0 $main)
+    set -l head_ref (_gw_head_branch "$remote" $online $main)
     set -l head_name (string replace -r "^$remote/" '' -- "$head_ref")
     if test -z "$head_ref"
         _gw_say err "cannot work out this repository's head branch"
@@ -17,9 +17,20 @@ function _gw_sweep -a go use_forge only_branch -d 'Remove every finished worktre
         return 1
     end
 
+    # Every branch here is judged against the head branch, so a stale local copy
+    # of it keeps branches the remote has already taken. One fetch for the whole
+    # run, rather than one per worktree. A remote that cannot be reached is not
+    # fatal — the local copy still answers, it just answers about yesterday.
+    if test "$online" = 1; and test -n "$remote"; and string match --quiet -- "$remote/*" "$head_ref"
+        _gw_say info "fetching $head_ref"
+        git -C $main fetch --quiet $remote $head_name
+        or _gw_say warn "using the local copy of $head_ref"
+    end
+
     set -l cwd (path resolve $PWD)
     set -l removed 0
     set -l kept 0
+    set -l considered 0
 
     for record in (_gw_records)
         set -l fields (string split \t -- $record)
@@ -30,6 +41,7 @@ function _gw_sweep -a go use_forge only_branch -d 'Remove every finished worktre
         if test -n "$only_branch"; and test "$branch" != "$only_branch"
             continue
         end
+        set considered (math $considered + 1)
 
         set -l label $branch
         test -n "$label"; or set label (path basename $wt)
@@ -58,6 +70,13 @@ function _gw_sweep -a go use_forge only_branch -d 'Remove every finished worktre
             printf '  %-12s %s — %s\n' 'would remove' $label $why >&2
             set removed (math $removed + 1)
         end
+    end
+
+    # A --branch nobody has checked out is a typo, not an empty sweep: saying
+    # "0 to remove" and exiting 0 would let a script think it had done the job.
+    if test "$considered" -eq 0; and test -n "$only_branch"
+        _gw_say err "no worktree of this repository has branch '$only_branch' checked out"
+        return 1
     end
 
     if test "$go" = 1

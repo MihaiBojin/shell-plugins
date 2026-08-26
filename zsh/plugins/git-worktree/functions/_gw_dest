@@ -11,7 +11,12 @@
 #
 # <root> comes from _gw_wt_dir: `.worktrees` beside the main checkout, derived
 # rather than configured, so this is stable from inside a worktree too.
+#
+# <REPO> is the checkout's directory name exactly as git left it, a trailing
+# `.git` included. Trimming it would put a worktree somewhere the companion
+# `origin` CLI does not look, and finding each other's worktrees is the whole
+# point of deriving this path rather than configuring it.
 local main root
 main=$(_gw_main_worktree) || return 1
 root=$(_gw_wt_dir "$main") || return 1
-print -r -- "$root/$1/${${main:t}%.git}"
+print -r -- "$root/$1/${main:t}"

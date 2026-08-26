@@ -89,6 +89,15 @@ eq 'the worktree root sits beside the repository' "$root/parent/.worktrees" (_gw
 eq 'a destination is <root>/<NAME>/<REPO>' "$root/parent/.worktrees/auth/demo" (_gw_dest auth)
 eq 'a slash in the branch nests' "$root/parent/.worktrees/fix/login/demo" (_gw_dest fix/login)
 
+# The directory name is whatever git left, a trailing `.git` included. Trimming
+# it would send a worktree somewhere the companion `origin` CLI does not look,
+# and the two agreeing about the path without being told is the point of
+# deriving it.
+git clone -q $root/origin/demo.git $root/parent/bare.git 2>/dev/null
+cd $root/parent/bare.git
+eq 'a checkout named <name>.git keeps the suffix' "$root/parent/.worktrees/auth/bare.git" (_gw_dest auth)
+cd $repo
+
 # -------------------------------------------------------------------- gwa
 group 'gwa'
 gwa auth >/dev/null 2>&1
@@ -261,6 +270,196 @@ if git -C $repo3 show-ref --verify --quiet refs/heads/keeper
 else
     bad 'and so does its branch'
 end
+
+# --------------------------------------------------------------- submodules
+group 'submodules'
+
+# `git worktree remove --force` walks past git's own submodule refusal and
+# deletes .git/worktrees/<id>/modules/* with the checkout. Nothing is printed
+# when it does, so the refusal has to happen before the removal runs.
+set -l root5 (fixture)
+set -l repo5 $root5/parent/demo
+git init -q --initial-branch=main $root5/sub
+git -C $root5/sub commit -q --allow-empty -m sub
+
+cd $repo5
+gwa withsub >/dev/null 2>&1
+set -l wt5 (path resolve $PWD)
+git -c protocol.file.allow=always submodule add -q $root5/sub vendor >/dev/null 2>&1
+git commit -q -m 'add a submodule' >/dev/null 2>&1
+set -l moddir (git -C $wt5 rev-parse --absolute-git-dir)/modules
+
+cd $repo5
+if test -d $moddir
+    ok 'the fixture worktree really holds a submodule git directory'
+else
+    bad 'the fixture worktree really holds a submodule git directory' "no $moddir"
+end
+
+set out (gwr --force $wt5 2>&1)
+has 'gwr --force refuses a worktree holding submodule git directories' 'holds submodule git directories' "$out"
+
+has 'and names the command that would do it anyway' 'worktree remove --force' "$out"
+eq 'the checkout is still there' 1 (count (path filter -d $wt5 2>/dev/null))
+eq 'and so is the submodule git directory' 1 (count (path filter -d $moddir 2>/dev/null))
+# The main checkout's git directory holds the whole repository's submodules, so
+# asking it the same question would refuse it for a reason that is not true and
+# print a command git cannot run.
+set out (gwr --force $repo5 2>&1)
+hasnt 'and does not say that about the main worktree' 'holds submodule git directories' "$out"
+has 'which git refuses on its own terms' 'main working tree' "$out"
+
+# ------------------------------------------------------------- the forge check
+group 'forge'
+
+# The forge answer travels from _gw_forge_state to _gw_is_finished as two
+# tab-separated fields. Fish does not expand \t inside double quotes, so a
+# quoted "$a\t$b" would arrive as one field and every branch would come back
+# unfinished — silently, since an unfinished branch is the normal answer.
+set -l root6 (fixture)
+set -l repo6 $root6/parent/demo
+git -C $repo6 checkout -q -b forged main
+# Real content, and never merged: the two git checks have to fail, or the
+# branch qualifies before the forge is ever consulted.
+echo forged >$repo6/forged.txt
+git -C $repo6 add forged.txt
+git -C $repo6 commit -q -m 'work the forge knows about'
+git -C $repo6 push -q -u origin forged
+git -C $repo6 checkout -q main
+# Only now, so the push above could use the real one.
+git -C $repo6 remote set-url origin https://github.com/example/demo.git
+
+set -l fake6 (path resolve (mktemp -d))
+set -ga SANDBOXES $fake6
+echo '#!/bin/sh
+printf "forged\tMERGED\t7\nother\tOPEN\t8\n"' >$fake6/gh
+chmod +x $fake6/gh
+
+cd $repo6
+begin
+    set -lx PATH $fake6 $PATH
+    set -e _gw_forge_cache_key
+    _gw_forge_state forged $repo6
+    set -g REPLY6 $_gw_reply
+    set -e _gw_forge_cache_key
+    _gw_is_finished forged origin/main main 1 $repo6
+    set -g FINISHED6 $status
+    set -g WHY6 $_gw_reply
+end
+
+eq 'the forge answer splits into two fields' 2 (count (string split \t -- $REPLY6))
+eq 'the first is the state' MERGED (string split \t -- $REPLY6)[1]
+eq 'the second is the number' 7 (string split \t -- $REPLY6)[2]
+eq 'a merged pull request finishes a branch git cannot see merged' 0 $FINISHED6
+has 'and the reason names the request' 'pull request #7 is merged' "$WHY6"
+
+# ------------------------------------------------------------ the sweep's fetch
+group 'gwr --all and the network'
+
+# The sweep judges every branch against the head branch, so it refreshes the
+# head branch first. Without that it keeps branches the remote already has.
+set -l root7 (fixture)
+set -l repo7 $root7/parent/demo
+
+git -C $repo7 checkout -q -b landed main
+echo landed >$repo7/landed.txt
+git -C $repo7 add landed.txt
+git -C $repo7 commit -q -m 'work that lands upstream'
+git -C $repo7 push -q origin landed
+git -C $repo7 checkout -q main
+git -C $repo7 worktree add -q $root7/parent/.worktrees/landed/demo landed 2>/dev/null
+
+# Merge it on the remote, behind this clone's back.
+git clone -q $root7/origin/demo.git $root7/other >/dev/null 2>&1
+git -C $root7/other merge -q --no-ff -m 'merge landed' origin/landed
+git -C $root7/other push -q origin main
+
+cd $repo7
+set out (gwr --all --no-fetch 2>&1)
+has 'offline, the sweep cannot see the merge' 'not merged into main' "$out"
+hasnt 'and says nothing about fetching' fetching "$out"
+
+set out (gwr --all 2>&1)
+has 'online, it fetches the head branch first' 'fetching origin/main' "$out"
+has 'and then sees the merge' 'would remove' "$out"
+
+set out (gwr --all --fetch 2>&1)
+has '--fetch asks for the same thing explicitly' 'fetching origin/main' "$out"
+
+set out (gwr --no-fetch $root7/parent/.worktrees/landed/demo 2>&1)
+has 'the single form has no --no-fetch and says where it belongs' '--no-fetch belongs to gwr --all' "$out"
+
+set out (gwr --dry-run $root7/parent/.worktrees/landed/demo 2>&1)
+has 'and the message names the flag that was rejected' '--dry-run belongs to gwr --all' "$out"
+
+# Every sweep flag, not just the three about the network: accepted-and-ignored
+# is the shape that let --no-fetch mean --no-forge for as long as it did.
+for f in --yes --branch=x --fetch
+    set out (gwr $f $root7/parent/.worktrees/landed/demo 2>&1)
+    has "the single form refuses $f" 'belongs to gwr --all' "$out"
+end
+
+# A branch name where --branch belongs: sweeping everything is much more than
+# the person asking about one worktree wanted.
+set out (gwr --all landed 2>&1)
+has 'a positional argument to the sweep is refused' 'takes no positional arguments' "$out"
+has 'and it names the flag that was meant' -- '--branch landed' "$out"
+eq 'and nothing is swept' 1 (count (path filter -d $root7/parent/.worktrees/landed/demo))
+
+# --no-fetch means offline, and the forge is the one check that needs the
+# network. Stand in for gh and count the calls.
+set -l fake7 (path resolve (mktemp -d))
+set -ga SANDBOXES $fake7
+echo '#!/bin/sh
+echo called >> "$GH_LOG"' >$fake7/gh
+chmod +x $fake7/gh
+git -C $repo7 remote set-url origin https://github.com/example/demo.git
+
+begin
+    set -lx PATH $fake7 $PATH
+    set -lx GH_LOG $fake7/log
+    set -e _gw_forge_cache_key
+    gwr --all --no-fetch >/dev/null 2>&1
+end
+eq '--no-fetch asks the forge nothing either' 0 (count (path filter -f $fake7/log 2>/dev/null))
+
+set out (gwr --all --no-fetch --branch nosuch 2>&1)
+set -l rc $status
+eq '--branch on a branch with no worktree is an error' 1 $rc
+has 'and says so' 'no worktree of this repository has branch' "$out"
+
+# --dry-run wins over --yes whichever order they arrive in.
+gwr --all --no-fetch --yes --dry-run >/dev/null 2>&1
+eq 'the worktree survives --yes --dry-run' 1 (count (path filter -d $root7/parent/.worktrees/landed/demo))
+gwr --all --no-fetch --dry-run --yes >/dev/null 2>&1
+eq 'and the other order too' 1 (count (path filter -d $root7/parent/.worktrees/landed/demo))
+
+begin
+    set -lx git_worktree_fetch no
+    set out (gwr --all 2>&1)
+end
+hasnt 'git_worktree_fetch no keeps the sweep offline' fetching "$out"
+
+# ------------------------------------------------------------- the picker at EOF
+group 'the picker at EOF'
+
+# Without fzf the picker reads a number. A failed read is not an empty answer:
+# falling through to the [1] default would hand gwr a worktree nobody chose.
+set -l root8 (fixture)
+set -l repo8 $root8/parent/demo
+cd $repo8
+git worktree add -q $root8/parent/.worktrees/one/demo -b one >/dev/null 2>&1
+git worktree add -q $root8/parent/.worktrees/two/demo -b two >/dev/null 2>&1
+
+set -l picked
+set -l rc 0
+begin
+    set -lx PATH /usr/bin /bin /usr/sbin /sbin
+    set picked (_gw_pick 'worktree>' '' </dev/null 2>/dev/null)
+    set rc $status
+end
+eq 'closed stdin makes the picker fail' 1 $rc
+eq 'and it names nothing' 0 (count $picked)
 
 # --------------------------------------------------------- picker preview
 group 'picker preview'

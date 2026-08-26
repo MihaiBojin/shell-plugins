@@ -73,7 +73,10 @@ gw — git worktree helpers
       --no-forge           decide from git alone; never ask GitHub/GitLab
       --all                do it to every finished worktree; a dry run without --yes
         -y, --yes          go through with it
+        -n, --dry-run      say what would go and stop; wins over --yes
         --branch NAME      consider only this branch
+        --fetch            refresh the head branch first (the default)
+        --no-fetch         decide offline: no fetch, and no forge either
   gw,  gwh                 this help
 
 worktrees live beside their repository, at
@@ -482,9 +485,10 @@ layout, same commands, same three checks for what counts as finished, same
 refusals, and the same per-repository git config keys — so the two shells agree
 about a repository without either of them writing anything the other reads.
 
-It is a reimplementation, not a translation: 1063 lines against 1731, in 23
-files against 40. Four things account for most of the difference, and each is a
-deliberate omission rather than an oversight.
+It is a reimplementation, not a translation, and about two thirds the size:
+roughly 1150 lines across 28 files against 1740 across 47. Four things account
+for most of the difference, and each is a deliberate omission rather than an
+oversight.
 
 | Zsh | Fish | Why |
 |---|---|---|
@@ -505,9 +509,15 @@ set -g git_worktree_forge no       # decide from git alone, never ask GitHub/Git
 The forge check needs `gh`, or `glab` **and** `jq` — `gh` embeds its own jq and
 `glab` does not, so the GitLab half is skipped rather than parsed by hand.
 
-`fish --no-config tests/fish/git-worktree.fish` exercises the lot against real
-repositories: the layout, both collision refusals, all three finished-checks,
-every refusal, `--force`, and both halves of `gwr --all`.
+`fish --no-config tests/fish/git-worktree.fish` runs against real repositories:
+the layout, the nesting and ref-name collision refusals, all three finished-checks including the
+forge, the submodule and dirty-worktree refusals, `--force`, the sweep's fetch,
+and both halves of `gwr --all`.
+
+It is the smaller of the two suites. The Zsh one covers three refusals it does
+not — detached, locked, and a branch with stashes — so a change to any of those
+is only tested on one side, and a Fish test written alongside it is the way that
+stops being true.
 
 ## Configuration
 

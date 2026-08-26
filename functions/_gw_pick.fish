@@ -71,7 +71,12 @@ function _gw_pick -a prompt query -d 'Pick one of the worktrees here, printing i
     for n in (seq (count $shown))
         printf '%3d) %s\n' $n $lines[$shown[$n]] >&2
     end
-    read --local --prompt-str="Choice [1]: " answer
+    # A failed read is not an empty answer: closed stdin would otherwise fall
+    # through to the [1] default and pick a worktree nobody chose.
+    if not read --local --prompt-str="Choice [1]: " answer
+        echo >&2
+        return 1
+    end
     test -n "$answer"; or set answer 1
     string match --quiet --regex '^[0-9]+$' -- $answer; or return 1
     test "$answer" -ge 1 -a "$answer" -le (count $shown); or return 1
