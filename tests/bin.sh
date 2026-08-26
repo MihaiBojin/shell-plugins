@@ -110,8 +110,18 @@ out=$("$ROOT/bin/macos" install-pkg 2>&1) && status=0 || status=$?
 eq "install-pkg without a URL exits 2" "2" "$status"
 has "and prints that command's usage" "usage: macos install-pkg URL" "$out"
 
-out=$("$ROOT/bin/macos" install-dmg https://example.invalid/x.dmg Volume 2>&1) && status=0 || status=$?
-eq "install-dmg with two of three arguments exits 2" "2" "$status"
+out=$("$ROOT/bin/macos" install-dmg https://example.invalid/x.dmg 2>&1) && status=0 || status=$?
+eq "install-dmg with one of two arguments exits 2" "2" "$status"
+has "and prints that command's usage" "usage: macos install-dmg URL APP" "$out"
+
+out=$("$ROOT/bin/macos" install-dmg-pkg https://example.invalid/x.dmg 2>&1) && status=0 || status=$?
+eq "install-dmg-pkg with one of two arguments exits 2" "2" "$status"
+has "and prints that command's usage" "usage: macos install-dmg-pkg URL PKG" "$out"
+
+# The signature these two used to have. Refused rather than read as URL + PKG.
+out=$("$ROOT/bin/macos" install-dmg https://example.invalid/x.dmg Volume App 2>&1) && status=0 || status=$?
+eq "the old three-argument install-dmg call is refused" "2" "$status"
+has "and says which argument went away" "the VOLUME argument is gone" "$out"
 
 out=$("$ROOT/bin/macos" dock 2>&1) && status=0 || status=$?
 eq "dock without a subcommand exits 2" "2" "$status"

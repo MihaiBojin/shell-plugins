@@ -27,7 +27,15 @@ work=
 mount=
 
 cleanup() {
-    if [[ -n $mount ]]; then hdiutil detach "$mount" >/dev/null 2>&1 || true; fi
+    # Detach before deleting, and do not delete at all when the detach failed.
+    # The mountpoint lives inside $work, so an `rm -rf` over a still-attached
+    # image recurses through the mount and empties the image instead of the
+    # directory. A leaked temporary directory is the cheaper mistake, and a
+    # busy volume is the ordinary way a detach fails.
+    if [[ -n $mount ]]; then
+        hdiutil detach "$mount" >/dev/null 2>&1 ||
+            hdiutil detach -force "$mount" >/dev/null 2>&1 || return 0
+    fi
     if [[ -n $work ]]; then rm -rf "$work" || true; fi
 }
 trap cleanup EXIT
@@ -53,8 +61,8 @@ usage: macos COMMAND [ARGS...]
 Provisioning helpers for setting a Mac up.
 
   install-pkg URL                  download a .pkg and install it
-  install-dmg-pkg URL VOLUME PKG   mount a .dmg and install the .pkg inside it
-  install-dmg URL VOLUME APP       mount a .dmg and copy the .app out of it
+  install-dmg-pkg URL PKG          mount a .dmg and install the .pkg inside it
+  install-dmg URL APP              mount a .dmg and copy the .app out of it
   install-app-zip URL APP          download a .zip and unpack it into /Applications
   backup-if-exists PATH            move it aside, named after the moment
   link-if-different ACTUAL LINK    symlink, backing up whatever was there
@@ -87,27 +95,49 @@ install_pkg() {
 }
 
 install_dmg_pkg() {
-    (( $# >= 3 )) || die "usage: macos install-dmg-pkg URL VOLUME PKG" 2
+    (( $# >= 2 )) || die "usage: macos install-dmg-pkg URL PKG" 2
+    # This used to take a VOLUME between the two, and the image is now mounted
+    # somewhere private instead. Refuse the old call rather than read PKG out
+    # of the argument that used to name the volume.
+    (( $# == 2 )) || die "macos install-dmg-pkg takes URL and PKG; the VOLUME argument is gone" 2
     need_darwin install-dmg-pkg
     workdir install-dmg-pkg
-    printf 'Installing %s\n' "$3"
+    printf 'Installing %s\n' "$2"
     curl -fLo "$work/download.dmg" "$1" || die "download failed"
-    # Set before attaching, so a failure partway through still gets detached.
-    mount=/Volumes/$2
-    hdiutil attach "$work/download.dmg" -nobrowse || die "could not mount the image"
-    sudo installer -pkg "$mount/$3.pkg" -target /
+    attach_dmg
+    sudo installer -pkg "$mount/$2.pkg" -target /
 }
 
 install_dmg() {
-    (( $# >= 3 )) || die "usage: macos install-dmg URL VOLUME APP" 2
+    (( $# >= 2 )) || die "usage: macos install-dmg URL APP" 2
+    (( $# == 2 )) || die "macos install-dmg takes URL and APP; the VOLUME argument is gone" 2
     need_darwin install-dmg
     workdir install-dmg
-    printf 'Installing %s\n' "$3"
+    printf 'Installing %s\n' "$2"
     curl -fLo "$work/download.dmg" "$1" || die "download failed"
-    mount=/Volumes/$2
-    hdiutil attach "$work/download.dmg" -nobrowse || die "could not mount the image"
+    attach_dmg
     # -pPR keeps the bundle's symlinks and permissions, which an .app needs.
-    cp -pPR "$mount/$3.app" /Applications/
+    cp -pPR "$mount/$2.app" /Applications/
+}
+
+# Mount $work/download.dmg somewhere only this run knows about, and record it
+# for the trap.
+#
+# Into the temporary directory rather than /Volumes, and $mount is set from
+# what the attach produced rather than from a name given up front. A volume
+# name is not ours to predict: an image whose name is already taken mounts as
+# "<name> 1" and everything after it reads the wrong directory, and naming
+# /Volumes/<name> before attaching points the cleanup trap at whatever was
+# already mounted there — detaching a disk this script never touched.
+attach_dmg() {
+    local mnt=$work/mnt
+    # stdout redirected rather than -quiet: hdiutil writes its table to stdout
+    # and its diagnosis to stderr, so -quiet would silence the one line that
+    # says whether the download was truncated, encrypted, or has no mountable
+    # filesystem at all.
+    hdiutil attach "$work/download.dmg" -nobrowse -mountpoint "$mnt" >/dev/null ||
+        die "could not mount the image"
+    mount=$mnt
 }
 
 install_app_zip() {
