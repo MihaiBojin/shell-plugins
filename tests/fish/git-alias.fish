@@ -275,11 +275,39 @@ set -l picked
 set -l rc 0
 begin
     set -lx PATH /usr/bin /bin /usr/sbin /sbin
-    set picked (_git_alias_branch_pick 'branch>' '' '' </dev/null 2>/dev/null)
+    _git_alias_branch_pick 'branch>' '' '' </dev/null 2>/dev/null
     set rc $status
+    set picked $_git_alias_reply
 end
 eq 'closed stdin makes the picker fail' 1 $rc
 eq 'and it names no branch' 0 (count $picked)
+
+# The callers reach the picker without a command substitution, so a redirect on
+# them reaches its `read`. Through one, fish hands `read` the terminal instead
+# and gbd waits on a keyboard nobody is at.
+begin
+    set -lx PATH /usr/bin /bin /usr/sbin /sbin
+    gbd </dev/null 2>/dev/null
+    eq 'gbd gives up on closed stdin rather than waiting' 1 $status
+    gb </dev/null 2>/dev/null
+    eq 'and so does gb' 1 $status
+end
+
+# The last field is the raw branch, hidden from the fzf view by --with-nth and
+# read by the preview as {-1}; printed in the numbered list it is the first
+# column over again.
+begin
+    set -lx PATH /usr/bin /bin /usr/sbin /sbin
+    _git_alias_branch_pick 'branch>' '' '' </dev/null 2>$bs/numbered
+end
+# The hidden field is tab-separated from the rest, so the fix is visible as
+# the absence of a tab: what is printed is now the columns a person reads.
+set -l tab (printf '\t')
+set -l tabs 0
+for line in (cat $bs/numbered)
+    string match --quiet -- "*$tab*" $line; and set tabs (math $tabs + 1)
+end
+eq 'the numbered list drops the raw branch it used to repeat' 0 $tabs
 popd >/dev/null
 
 cleanup
