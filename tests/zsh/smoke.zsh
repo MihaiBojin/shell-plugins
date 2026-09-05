@@ -123,7 +123,7 @@ typeset -ga REG=()
 compdef() { REG+=( \"\$1:\$2\" ) }
 source $PLUGINS/git-worktree/git-worktree.plugin.zsh
 print -r -- \${(j:,:)REG}")
-eq "git-worktree wires up compdef when compinit already ran" "_gwa:gwa,_gwl:gwl,_gwr:gwr" "$out"
+eq "git-worktree wires up compdef when compinit already ran" "_gwa:gwa,_gwl:gwl,_gwm:gwm,_gwr:gwr" "$out"
 
 out=$(isolated "typeset -ga REG=()
 compdef() { REG+=( \"\$1:\$2\" ) }

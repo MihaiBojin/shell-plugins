@@ -12,8 +12,8 @@ emulate -L zsh
 local -a recs fields
 local rec p br flags cwd mark
 
-_gw_in_repo || return 1
-
+# No _gw_in_repo here: gwl has already said so with a message this cannot
+# match, and _gw_records fails on its own when there is no repository.
 recs=( ${(0)"$(_gw_records)"} )
 (( $#recs )) || return 1
 

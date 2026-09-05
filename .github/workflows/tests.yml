@@ -1,9 +1,11 @@
 # tests/run.sh, on both operating systems this package claims to support.
 #
-# The runner skips whichever of zsh/fish is missing rather than failing, which
-# is right on a laptop and wrong here — a skipped shell is a shell nobody is
-# testing. So both are installed on both platforms, and the versions are
-# printed before the run so a failure that is really an old fish says so.
+# The runner skips whichever of zsh/fish/shellcheck is missing rather than
+# failing, which is right on a laptop and wrong here — a skipped shell is a
+# shell nobody is testing, and a skipped linter is worse because it looks the
+# same as a clean one. So all three are installed on both platforms, and the
+# versions are printed before the run so a failure that is really an old fish
+# says so.
 
 name: tests
 
@@ -42,16 +44,22 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends zsh fish
 
-      - name: Install fish (macOS)
+      - name: Install fish and shellcheck (macOS)
         if: runner.os == 'macOS'
-        # zsh is macOS's own login shell and already present.
-        run: brew install fish
+        # zsh is macOS's own login shell and already present. shellcheck is not,
+        # and tests/run.sh skips the step rather than failing when it is
+        # missing — which on a runner means the linter quietly checked nothing.
+        run: brew install fish shellcheck
 
       - name: Versions
+        # shellcheck --version doubles as the assertion that it is installed:
+        # the step fails here rather than the suite skipping the check silently,
+        # the same reason both shells are installed above.
         run: |
           zsh --version
           fish --version
           git --version
+          shellcheck --version
 
       - name: tests/run.sh
         run: tests/run.sh

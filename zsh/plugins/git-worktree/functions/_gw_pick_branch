@@ -52,7 +52,7 @@ if [[ -n $remote ]]; then
   done
 fi
 
-if (( ! $+commands[fzf] )); then
+if (( ! $+commands[fzf] )) || [[ ! -t 0 ]]; then
   # A numbered list of every branch in the repository is noise, and there is no
   # query here to narrow it with. Name the branch instead.
   _gw_err "NAME is required — usage: gwa NAME [BASE]"

@@ -9,6 +9,8 @@
 # by putting a stub in front. Nothing here downloads, mounts or installs
 # anything: the commands that would are checked for the arguments they refuse.
 #
+# shellcheck disable=SC1007  # `CDPATH= cd` is the idiom, not a typo'd assignment
+# shellcheck disable=SC2015  # `A && pass || fail` is deliberate: pass never fails
 set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
