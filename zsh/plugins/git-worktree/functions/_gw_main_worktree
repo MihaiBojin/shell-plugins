@@ -1,10 +1,18 @@
 # The main worktree of the repository containing $1 (default: $PWD).
 #
-# `git worktree list --porcelain` always names the main checkout first. Take
-# that line with a parameter expansion rather than piping into head(1): one
-# fewer process per call, and one fewer command this has to assume exists.
-local out line
-out=$(git -C "${1:-$PWD}" worktree list --porcelain 2>/dev/null) || return 1
-line=${out%%$'\n'*}
-[[ $line == 'worktree '* ]] || return 1
-print -r -- "${line#worktree }"
+# `git worktree list --porcelain` always names the main checkout first, and
+# _gw_dest relies on that. Take the first attribute with a parameter expansion
+# rather than piping into head(1): one fewer process per call, and one fewer
+# command this has to assume exists.
+#
+# -z, for the reason _gw_records gives at length: without it git ends every
+# attribute with a newline, so a checkout whose directory name contains one
+# arrives as two lines and the first is a path that does not exist. Every path
+# this plugin computes is derived from this answer.
+emulate -L zsh
+
+local out first
+out=$(git -C "${1:-$PWD}" worktree list --porcelain -z 2>/dev/null) || return 1
+first=${${(ps:\0:)out}[1]}
+[[ $first == 'worktree '* ]] || return 1
+print -r -- "${first#worktree }"

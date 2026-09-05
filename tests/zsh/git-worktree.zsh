@@ -459,6 +459,40 @@ out=$(in_repo $repo 'local nl=$PWD/../we$'"'"'\n'"'"'ird
   [[ $hit == ${nl:A} ]] && print -r -- ok || print -r -- "got [$hit] want [${nl:A}]"')
 eq "a worktree whose path contains a newline survives the parse" "ok" "$out"
 
+# _gw_records is not the only thing that parses `git worktree list`. These two
+# read it as well, and used to read it without -z: the answer came back cut off
+# at the newline, gwa reported success, and cd landed nowhere.
+out=$(in_repo $repo 'local nl=$PWD/../we2$'"'"'\n'"'"'ird
+  git worktree add -q -b newline2 -- "$nl" 2>/dev/null
+  local got=$(_gw_worktree_of_branch newline2)
+  [[ $got == ${nl:A} ]] && print -r -- ok || print -r -- "got [$got] want [${nl:A}]"')
+eq "_gw_worktree_of_branch keeps a newline in the path it hands back" "ok" "$out"
+
+# The main worktree's own path is where every derived path starts, so a newline
+# there is the widest-reaching version of the same bug.
+nlroot=$(mktemp -d)
+SANDBOXES+=( $nlroot )
+mkdir -p "$nlroot/pa"$'\n'"rent"
+(
+  cd "$nlroot/pa"$'\n'"rent" &&
+  git init -q --initial-branch=main demo >/dev/null 2>&1 &&
+  cd demo && print x > a && git add a && git commit -qm init
+) >/dev/null 2>&1
+out=$(in_repo "$nlroot/pa"$'\n'"rent/demo" 'local m=$(_gw_main_worktree)
+  [[ -d $m ]] && print -r -- ok || print -r -- "got [$m]"')
+eq "_gw_main_worktree keeps a newline in the repository's own path" "ok" "$out"
+
+out=$(in_repo "$nlroot/pa"$'\n'"rent/demo" 'local d=$(_gw_dest feat/x)
+  [[ $d == *"pa"$'"'"'\n'"'"'"rent/.worktrees/feat/x/demo" ]] && print -r -- ok || print -r -- "got [$d]"')
+eq "and every path derived from it" "ok" "$out"
+
+# _gw_owns answers in $REPLY. gwa reads it without declaring it, so the value
+# used to survive into the shell that ran the command.
+out=$(in_repo $repo 'REPLY=untouched
+  gwa reply/probe >/dev/null 2>&1
+  print -r -- $REPLY')
+eq "gwa does not leak \$REPLY into the caller" "untouched" "$out"
+
 out=$(in_repo $repo '_gw_dest fix/login')
 eq "a slash nests rather than flattening" \
    "${sb:A}/parent/.worktrees/fix/login/demo" "$out"
