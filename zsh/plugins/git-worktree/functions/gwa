@@ -16,10 +16,16 @@ while (( $# )); do
 done
 
 local name=${pos[1]} base=${pos[2]}
-[[ -n $name ]] || { _gw_err "NAME is required — usage: gwa NAME [BASE]"; return 2 }
 (( $#pos <= 2 )) || { _gw_err "too many arguments — usage: gwa NAME [BASE]"; return 2 }
 
 _gw_in_repo || { _gw_err "not inside a git repository"; return 1 }
+
+# No NAME: pick one. This is the set gwl cannot show — a branch that exists on
+# the remote but has no worktree yet is invisible to a picker over worktrees.
+if [[ -z $name ]]; then
+  name=$(_gw_pick_branch 'branch>') || return $?
+  [[ -n $name ]] || return 1
+fi
 git check-ref-format "refs/heads/$name" 2>/dev/null || {
   _gw_err "invalid branch name: $name"; return 2
 }
@@ -51,9 +57,9 @@ if [[ -e $dest/.git ]]; then
   # when it is not, rather than cd-ing somebody into a worktree they did not
   # ask for.
   local occupant=''
-  recs=( ${(f)"$(_gw_records)"} )
+  recs=( ${(0)"$(_gw_records)"} )
   for rec in $recs; do
-    fields=( "${(@ps:\t:)rec}" )
+    fields=( "${(@ps:\x1f:)rec}" )
     [[ ${fields[1]:A} == ${dest:A} ]] || continue
     occupant=$fields[3]
     break
@@ -81,9 +87,9 @@ while [[ -n $wtdir && $ancestor == $wtdir/* ]]; do
     # and what to do about it differs.
     if _gw_owns "$ancestor"; then
       owner=''
-      recs=( ${(f)"$(_gw_records)"} )
+      recs=( ${(0)"$(_gw_records)"} )
       for rec in $recs; do
-        fields=( "${(@ps:\t:)rec}" )
+        fields=( "${(@ps:\x1f:)rec}" )
         [[ ${fields[1]:A} == ${ancestor:A} ]] || continue
         owner=$fields[3]
         break

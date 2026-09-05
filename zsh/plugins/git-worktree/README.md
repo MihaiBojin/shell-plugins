@@ -55,9 +55,12 @@ this repository — see [The Fish commands](#the-fish-commands) for what differs
 |---------|--------------|
 | `gw`, `gwh` | Print the help below, including where *this* repo's worktrees would go |
 | `gwl [QUERY]` | Pick one of this repository's worktrees with fzf and `cd` into it |
+| `gwl --list` | Print them instead: mark, branch, path, tab-separated |
 | `gwa NAME [BASE]` | Create a worktree on branch `NAME`, based on `BASE`, and `cd` into it |
+| `gwa` | Pick a branch to make one for — including one that only exists on the remote |
 | `gwr [PATH\|QUERY]` | Remove a worktree whose branch is finished, and the branch with it |
 | `gwr --all [--yes]` | The same, to every finished worktree at once |
+| `gwm NEW` | Rename this worktree's branch to `NEW` and move its checkout to match |
 
 ### `gw` / `gwh` — help
 
@@ -65,15 +68,21 @@ this repository — see [The Fish commands](#the-fish-commands) for what differs
 gw — git worktree helpers
 
   gwl [QUERY]              pick one of this repository's worktrees and cd into it
-  gwa NAME [BASE]          add a worktree for branch NAME (based on BASE), and cd into it
+      -l, --list           print them instead, one per line: mark, branch, path
+  gwa [NAME] [BASE]        add a worktree for branch NAME (based on BASE), and cd into it
+      (no NAME)            pick a branch, or type a new name, with fzf
       --fetch              also ask the remote whether NAME exists there already
       --no-fetch           stay offline
+  gwm NEW                  rename this worktree's branch to NEW and move it to match
   gwr [PATH|QUERY]         remove a worktree whose branch is finished, and the branch
       -f, --force          remove it even when it is not; the branch is kept
       --no-forge           decide from git alone; never ask GitHub/GitLab
       --all                do it to every finished worktree; a dry run without --yes
         -y, --yes          go through with it
+        -n, --dry-run      say what would go and stop; wins over --yes
         --branch NAME      consider only this branch
+        --fetch            refresh the head branch first (the default)
+        --no-fetch         decide offline: no fetch, and no forge either
   gw,  gwh                 this help
 
 worktrees live beside their repository, at
@@ -122,8 +131,15 @@ gwa --fetch their-branch   # check the remote for the name before branching
 gwa --no-fetch fix-login   # stay offline
 ```
 
-`NAME` is mandatory and becomes both the new branch and the directory, spelled
-the same way.
+`NAME` becomes both the new branch and the directory, spelled the same way.
+
+With no `NAME`, fzf offers every branch: the local ones, marked where they
+already have a worktree, and the remote's branches that have no local
+counterpart. That last set is the one `gwl` can never show you, because `gwl`
+lists worktrees and these are the branches without one. Typing a name that
+matches nothing and pressing enter creates it, exactly as `gwa NAME` would.
+Without fzf there is no list worth printing — every branch in the repository,
+unfiltered — so it asks for a `NAME` instead.
 `BASE` defaults to the repository's default branch (see below). Flags may go
 anywhere in the arguments.
 
@@ -290,6 +306,34 @@ the path comes from the checkout's own location.
 
 Called non-interactively it warns, guesses, and tells you to run `git remote
 set-head <remote> --auto` rather than silently picking one.
+
+### `gwm` — rename
+
+```zsh
+gwm renamed/thing       # from inside the worktree you want renamed
+gwm shorter-name
+```
+
+Directory name equals branch name is the invariant every tool writing into this
+root keeps, so renaming a branch is two operations that have to happen together:
+`git branch -m`, and `git worktree move` to the directory the new name asks for.
+Doing one without the other leaves a worktree whose directory says one thing and
+whose HEAD says another — which is the state `gwl` and `gwr` both read wrong.
+
+It acts on the worktree you are standing in. From the main checkout there is
+nothing to rename, so it opens the picker instead. Three pieces of tidying git
+does not do on its own come with it: the new parent is created first, because
+`git worktree move` will not create nested parents; the directories the old name
+leaves empty are removed, up to and including the root; and the shell follows
+the worktree if that is where it was.
+
+It refuses a locked worktree, a detached one, the main checkout, a name that is
+already this branch's, a name another branch already has, and a destination
+another repository's worktree is nesting above — the same collision `gwa`
+refuses, for the same reason.
+
+The branch is renamed before the move. If the move then fails, the message says
+so and prints the `git worktree move` that finishes the job.
 
 ### `gwr` — remove one
 
@@ -482,9 +526,10 @@ layout, same commands, same three checks for what counts as finished, same
 refusals, and the same per-repository git config keys — so the two shells agree
 about a repository without either of them writing anything the other reads.
 
-It is a reimplementation, not a translation: 1063 lines against 1731, in 23
-files against 40. Four things account for most of the difference, and each is a
-deliberate omission rather than an oversight.
+It is a reimplementation, not a translation, and about two thirds the size:
+roughly 1150 lines across 28 files against 1740 across 47. Four things account
+for most of the difference, and each is a deliberate omission rather than an
+oversight.
 
 | Zsh | Fish | Why |
 |---|---|---|
@@ -492,6 +537,12 @@ deliberate omission rather than an oversight.
 | asks which remote when several are plausible, and remembers the answer | resolves the same ladder, falls back to `origin` and then to the first remote | a picker that stops to ask a second question is worse than a wrong default you can override with one config key |
 | asks which branch is the head branch, listing 25, and records the answer | says it could not work one out and prints `git remote set-head <remote> --auto` | the same reason |
 | `zstyle ':git-worktree:' …` | `set -g git_worktree_…` | Fish has no zstyle, and a global variable is what its own configuration looks like |
+
+Fish gets the same completions, in the repository-root `completions/` that
+Fisher installs: branch names where a branch is wanted, this repository's
+worktree paths for `gwr`, and nothing where the argument is a name that does
+not exist yet. Fish autoloads one the first time you press Tab on that command,
+so they cost nothing at startup.
 
 Configuration, then, is three variables and the same two git config keys:
 
@@ -505,9 +556,13 @@ set -g git_worktree_forge no       # decide from git alone, never ask GitHub/Git
 The forge check needs `gh`, or `glab` **and** `jq` — `gh` embeds its own jq and
 `glab` does not, so the GitLab half is skipped rather than parsed by hand.
 
-`fish --no-config tests/fish/git-worktree.fish` exercises the lot against real
-repositories: the layout, both collision refusals, all three finished-checks,
-every refusal, `--force`, and both halves of `gwr --all`.
+`fish --no-config tests/fish/git-worktree.fish` runs against real repositories,
+on a fixture with one worktree per way a branch can be unfinished — the same
+shape the Zsh suite builds, so the two can be read line for line. It covers the
+layout, both collision refusals, all three finished-checks including the forge,
+every refusal (standing-in, main, detached, dirty, untracked, stashed, locked,
+submodule), `gwm`, `--force`, the sweep's fetch, both halves of `gwr --all`, the
+completions, and the two git config keys.
 
 ## Configuration
 

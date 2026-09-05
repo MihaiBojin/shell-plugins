@@ -233,6 +233,83 @@ set -l previews (string match -r -- "--preview='[^']*'" (string join ' ' $src))
 has 'the preview reads the last field' '{-1}' "$previews"
 popd >/dev/null
 
+# ---------------------------------------------------- what the picker marks
+echo
+echo 'picker marker'
+
+# %(HEAD) is '*' on the checked-out branch and a single space on every other
+# one, so the marker has to compare against the '*'. Asking whether the field
+# is empty marks the whole list — on the picker branches get deleted from.
+pushd $bs >/dev/null
+set -l seen2 (sandbox)/lines2
+begin
+    set -lx PATH $fake $PATH
+    set -lx FAKE_FZF_LINES $seen2
+    _git_alias_branch_pick 'branch>' '' >/dev/null
+end
+
+set -l marked 0
+set -l total 0
+for line in (cat $seen2)
+    set total (math $total + 1)
+    string match --quiet -- '\**' $line; and set marked (math $marked + 1)
+end
+eq 'the picker offered more than one branch' 1 (test $total -gt 1; and echo 1; or echo 0)
+eq 'exactly one of them is marked as checked out' 1 $marked
+
+set -l current (git rev-parse --abbrev-ref HEAD)
+set -l marked_branch
+for line in (cat $seen2)
+    string match --quiet -- '\**' $line; and set marked_branch (string split \t -- $line)[-1]
+end
+eq 'and it is the branch actually checked out' $current $marked_branch
+
+# ------------------------------------------------------- the picker at EOF
+echo
+echo 'picker at EOF'
+
+# Without fzf the picker reads a number. A failed read is not an empty answer:
+# falling through to the [1] default hands back the newest branch nobody chose,
+# and gbd --force deletes it.
+set -l picked
+set -l rc 0
+begin
+    set -lx PATH /usr/bin /bin /usr/sbin /sbin
+    _git_alias_branch_pick 'branch>' '' '' </dev/null 2>/dev/null
+    set rc $status
+    set picked $_git_alias_reply
+end
+eq 'closed stdin makes the picker fail' 1 $rc
+eq 'and it names no branch' 0 (count $picked)
+
+# The callers reach the picker without a command substitution, so a redirect on
+# them reaches its `read`. Through one, fish hands `read` the terminal instead
+# and gbd waits on a keyboard nobody is at.
+begin
+    set -lx PATH /usr/bin /bin /usr/sbin /sbin
+    gbd </dev/null 2>/dev/null
+    eq 'gbd gives up on closed stdin rather than waiting' 1 $status
+    gb </dev/null 2>/dev/null
+    eq 'and so does gb' 1 $status
+end
+
+# The last field is the raw branch, hidden from the fzf view by --with-nth and
+# read by the preview as {-1}; printed in the numbered list it is the first
+# column over again.
+begin
+    set -lx PATH /usr/bin /bin /usr/sbin /sbin
+    _git_alias_branch_pick 'branch>' '' '' </dev/null 2>$bs/numbered
+end
+# The hidden field is tab-separated from the rest, so the fix is visible as
+# the absence of a tab: what is printed is now the columns a person reads.
+set -l tab (printf '\t')
+set -l tabs 0
+for line in (cat $bs/numbered)
+    string match --quiet -- "*$tab*" $line; and set tabs (math $tabs + 1)
+end
+eq 'the numbered list drops the raw branch it used to repeat' 0 $tabs
+popd >/dev/null
+
 cleanup
 echo
 echo "  $PASS passed, $FAIL failed"

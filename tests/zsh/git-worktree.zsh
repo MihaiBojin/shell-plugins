@@ -251,9 +251,26 @@ eq "--branch looks at that branch and no other" \
    "  skip         unmerged — not merged into main
 gw: nothing is finished; 1 left alone" "$out"
 
+# --dry-run wins over --yes whichever order they arrive in, in both shells.
+out=$(in_repo $repo 'local before=$(git worktree list --porcelain | grep -c "^worktree ")
+  gwr --all --no-fetch --yes --dry-run >/dev/null 2>&1
+  local after=$(git worktree list --porcelain | grep -c "^worktree ")
+  [[ $before == $after ]] && print -r -- same || print -r -- "$before -> $after"')
+eq "--yes --dry-run removes nothing" "same" "$out"
+
+out=$(in_repo $repo 'local before=$(git worktree list --porcelain | grep -c "^worktree ")
+  gwr --all --no-fetch --dry-run --yes >/dev/null 2>&1
+  local after=$(git worktree list --porcelain | grep -c "^worktree ")
+  [[ $before == $after ]] && print -r -- same || print -r -- "$before -> $after"')
+eq "and neither does the other order" "same" "$out"
+
 out=$(in_repo $repo 'gwr --all --no-fetch --branch nosuch; print -r -- "rc=$?"')
 has "--branch on a branch with no worktree is an error" "no worktree of this repository has branch 'nosuch'" "$out"
 has "and exits non-zero" "rc=1" "$out"
+
+out=$(in_repo $repo 'gwr --all --force 2>&1; print -r -- "rc=$?"')
+has "gwr --all refuses --force, saying why" "--all takes no --force" "$out"
+has "and exits 2" "rc=2" "$out"
 
 out=$(in_repo $repo 'gwr --all extra-arg 2>&1; print -r -- "rc=$?"')
 has "a positional argument is refused, with the fix" "did you mean: gwr --all --branch extra-arg" "$out"
@@ -367,6 +384,38 @@ out=$(in_repo $repo 'local root=$(mktemp -d)
 eq "an unresolved path and a resolved stop still match" "cleaned up" "$out"
 
 #
+# 4a. gwm renames the branch and moves the checkout with it.
+#
+group "gwm"
+sb=$(fixture) || exit 1; repo=$sb/parent/demo
+
+out=$(in_repo $repo 'gwa --no-fetch fix/login >/dev/null 2>&1
+  cd "$(_gw_dest fix/login)"
+  print y | gwm renamed/thing >/dev/null 2>&1
+  print -r -- "$PWD"')
+eq "gwm follows the worktree it moved" "${sb:A}/parent/.worktrees/renamed/thing/demo" "$out"
+
+out=$(in_repo $repo 'git show-ref --verify --quiet refs/heads/renamed/thing && print -r -- renamed || print -r -- no')
+eq "and the branch went with it" "renamed" "$out"
+
+out=$(in_repo $repo '[[ -d $(_gw_wt_dir)/fix ]] && print -r -- left || print -r -- "cleaned up"')
+eq "the directories it emptied are gone" "cleaned up" "$out"
+
+out=$(in_repo $repo 'gwm 2>&1; print -r -- "rc=$?"')
+has "gwm needs a NEW name" "NEW is required" "$out"
+
+out=$(in_repo $repo 'gwm a b 2>&1; print -r -- "rc=$?"')
+has "and only one of them" "too many arguments" "$out"
+
+# From inside the worktree: run from the main checkout, gwm has no worktree to
+# act on and opens the picker instead.
+out=$(in_repo $repo 'cd "$(_gw_dest renamed/thing)" && gwm main 2>&1')
+has "a name another branch has is refused" "already exists" "$out"
+
+out=$(in_repo $repo 'cd "$(_gw_dest renamed/thing)" && gwm renamed/thing 2>&1')
+has "and so is its own name" "already called that" "$out"
+
+#
 # 4b. The directory is the branch name, slashes and all.
 #
 group "nested branch names"
@@ -375,6 +424,41 @@ sb=$(fixture) || exit 1; repo=$sb/parent/demo
 out=$(in_repo $repo '_gw_dest auth')
 eq "a plain name is the directory" "${sb:A}/parent/.worktrees/auth/demo" "$out"
 
+out=$(in_repo $repo 'gwl --list | wc -l | tr -d " "')
+eq "gwl --list prints one line per worktree" "$(in_repo $repo 'local -a r=( ${(0)"$(_gw_records)"} ); print -r -- $#r')" "$out"
+
+out=$(in_repo $repo 'gwl --list | head -1 | awk -F"\t" "{print NF}"')
+eq "three tab-separated columns" "3" "$out"
+
+out=$(in_repo $repo 'gwl --list extra 2>&1; print -r -- "rc=$?"')
+has "gwl --list takes no QUERY" "takes no QUERY" "$out"
+
+# Without fzf the QUERY still narrows, on the branch alone, and a single match
+# is taken without asking — the same --select-1 fzf is given.
+out=$(in_repo $repo 'gwa --no-fetch auth >/dev/null 2>&1
+  cd "$(_gw_main_worktree)"
+  PATH=/usr/bin:/bin:/usr/sbin:/sbin _gw_pick "w>" auth </dev/null')
+eq "the fzf-less picker honours a QUERY that matches one worktree" \
+   "${sb:A}/parent/.worktrees/auth/demo" "$out"
+
+out=$(in_repo $repo 'PATH=/usr/bin:/bin:/usr/sbin:/sbin _gw_pick "w>" nosuch </dev/null 2>&1')
+has "and says so when nothing matches" "nothing matches: nosuch" "$out"
+
+# git ends every --porcelain attribute with a newline, so a directory holding
+# one used to arrive as two records for worktrees that do not exist. -z and a
+# NUL between records carry the whole path back out.
+out=$(in_repo $repo 'local nl=$PWD/../we$'"'"'\n'"'"'ird
+  git worktree add -q -b newline -- "$nl" 2>/dev/null
+  local -a recs=( ${(0)"$(_gw_records)"} ) fields
+  local rec hit=""
+  for rec in $recs; do
+    fields=( "${(@ps:\x1f:)rec}" )
+    (( $#fields == 4 )) || { print -r -- "field count $#fields"; return }
+    [[ $fields[3] == newline ]] && hit=$fields[1]
+  done
+  [[ $hit == ${nl:A} ]] && print -r -- ok || print -r -- "got [$hit] want [${nl:A}]"')
+eq "a worktree whose path contains a newline survives the parse" "ok" "$out"
+
 out=$(in_repo $repo '_gw_dest fix/login')
 eq "a slash nests rather than flattening" \
    "${sb:A}/parent/.worktrees/fix/login/demo" "$out"
@@ -382,6 +466,15 @@ eq "a slash nests rather than flattening" \
 out=$(in_repo $repo '_gw_dest feature/oauth/v2')
 eq "and so does every slash" \
    "${sb:A}/parent/.worktrees/feature/oauth/v2/demo" "$out"
+
+# The directory name is whatever git left, a trailing `.git` included. Trimming
+# it would send a worktree somewhere the companion `origin` CLI does not look,
+# and the two agreeing about the path without being told is the point of
+# deriving it.
+git clone -q $sb/origin/demo.git $sb/parent/bare.git 2>/dev/null
+out=$(in_repo $sb/parent/bare.git '_gw_dest auth')
+eq "a checkout named <name>.git keeps the suffix" \
+   "${sb:A}/parent/.worktrees/auth/bare.git" "$out"
 
 out=$(in_repo $repo 'gwa --no-fetch fix/login >/dev/null 2>&1
   print -r -- "${PWD##*/.worktrees/} on $(git rev-parse --abbrev-ref HEAD)"')

@@ -19,7 +19,8 @@ function gbd -d 'Delete branches, having said first what each one would cost'
         return 2
     end
 
-    set -l chosen (_git_alias_branch_pick 'delete>' "$argv[1]" multi); or return 1
+    _git_alias_branch_pick 'delete>' "$argv[1]" multi; or return 1
+    set -l chosen $_git_alias_reply
 
     set -l current (_git_alias_current_branch)
     set -l head (_git_alias_main_branch)

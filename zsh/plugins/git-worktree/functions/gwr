@@ -78,9 +78,9 @@ fi
 local -a recs fields
 local rec branch='' flags='' sha=''
 local REPLY
-recs=( ${(f)"$(_gw_records "$main")"} )
+recs=( ${(0)"$(_gw_records "$main")"} )
 for rec in $recs; do
-  fields=( "${(@ps:\t:)rec}" )
+  fields=( "${(@ps:\x1f:)rec}" )
   [[ ${fields[1]:A} == ${dest:A} ]] || continue
   sha=$fields[2]
   branch=$fields[3]

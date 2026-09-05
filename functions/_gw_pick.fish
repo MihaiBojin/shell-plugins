@@ -1,14 +1,21 @@
-function _gw_pick -a prompt query -d 'Pick one of the worktrees here, printing its path'
+function _gw_pick -a prompt query -d 'Pick one of the worktrees here, leaving its path in $_gw_reply'
+    # The answer goes in $_gw_reply rather than on stdout, so a caller does not
+    # have to wrap this in a command substitution — inside one, fish gives
+    # `read` the terminal rather than whatever stdin the caller was given, and
+    # a picker that cannot see EOF hangs where the Zsh one returns.
+    #
     # fzf when it is there, a numbered list when it is not. Fuzzy search covers
     # the branch column only: the path is shown but not searched, since
     # fuzzy-matching a long absolute path makes every entry match everything.
-    set -l records (_gw_records); or return 1
+    set -g _gw_reply ''
+    set -l records (_gw_records | string split0); or return 1
+    set -l us (printf '\x1f')
 
     set -l lines
     set -l paths
     set -l cwd (path resolve $PWD)
     for record in $records
-        set -l fields (string split \t -- $record)
+        set -l fields (string split $us -- $record)
         set -l wt $fields[1]
         set -l branch $fields[3]
         set -l flags $fields[4]
@@ -50,7 +57,7 @@ function _gw_pick -a prompt query -d 'Pick one of the worktrees here, printing i
         or return 1
         set -q chosen[1]; or return 1
         set -l index (contains --index -- $chosen $lines); or return 1
-        echo $paths[$index]
+        set -g _gw_reply $paths[$index]
         return 0
     end
 
@@ -65,15 +72,23 @@ function _gw_pick -a prompt query -d 'Pick one of the worktrees here, printing i
         return 1
     end
     if test (count $shown) -eq 1
-        echo $paths[$shown[1]]
+        set -g _gw_reply $paths[$shown[1]]
         return 0
     end
     for n in (seq (count $shown))
-        printf '%3d) %s\n' $n $lines[$shown[$n]] >&2
+        # Without the last field: it is the raw path, hidden from the fzf view
+        # by --with-nth and shown here only as a duplicate of the column beside
+        # it.
+        printf '%3d) %s\n' $n (string join ' ' (string split \t -- $lines[$shown[$n]])[1..-2]) >&2
     end
-    read --local --prompt-str="Choice [1]: " answer
+    # A failed read is not an empty answer: closed stdin would otherwise fall
+    # through to the [1] default and pick a worktree nobody chose.
+    if not read --local --prompt-str="Choice [1]: " answer
+        echo >&2
+        return 1
+    end
     test -n "$answer"; or set answer 1
     string match --quiet --regex '^[0-9]+$' -- $answer; or return 1
     test "$answer" -ge 1 -a "$answer" -le (count $shown); or return 1
-    echo $paths[$shown[$answer]]
+    set -g _gw_reply $paths[$shown[$answer]]
 end

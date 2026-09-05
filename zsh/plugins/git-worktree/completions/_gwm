@@ -1,0 +1,6 @@
+#compdef gwm
+# Completion for `gwm NEW`. NEW is a branch that does not exist yet, so there is
+# nothing to offer for it.
+_arguments -s \
+  '(-h --help)'{-h,--help}'[show usage]' \
+  '1:new branch name:'

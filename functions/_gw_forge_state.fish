@@ -30,7 +30,10 @@ function _gw_forge_state -a branch repo -d 'What the forge says about the reques
         set -l fields (string split \t -- $line)
         test (count $fields) -ge 3; or continue
         test "$fields[1]" = "$branch"; or continue
-        set -g _gw_reply "$fields[2]\t$fields[3]"
+        # `string join`, not "$a\t$b": Fish leaves escapes alone inside double
+        # quotes, so the quoted form writes a literal backslash and a t, and the
+        # `string split \t` on the other side finds one field instead of two.
+        set -g _gw_reply (string join \t -- $fields[2] $fields[3])
         return 0
     end
     return 1

@@ -15,12 +15,12 @@ local rec p br flags cwd mark short
 
 _gw_in_repo || return 1
 
-recs=( ${(f)"$(_gw_records)"} )
+recs=( ${(0)"$(_gw_records)"} )
 (( $#recs )) || return 1
 
 cwd=${PWD:A}
 for rec in $recs; do
-  fields=( "${(@ps:\t:)rec}" )
+  fields=( "${(@ps:\x1f:)rec}" )
   p=$fields[1]
   br=$fields[3]
   flags=$fields[4]

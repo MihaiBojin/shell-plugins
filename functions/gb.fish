@@ -21,6 +21,7 @@ function gb -d 'Pick a branch and check it out'
         return 2
     end
 
-    set -l chosen (_git_alias_branch_pick 'branch>' "$argv[1]"); or return 1
+    _git_alias_branch_pick 'branch>' "$argv[1]"; or return 1
+    set -l chosen $_git_alias_reply
     git checkout $chosen[1]
 end
