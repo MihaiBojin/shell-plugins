@@ -16,7 +16,7 @@ if (( ! $#lines )); then
 fi
 
 local sel
-if (( $+commands[fzf] )); then
+if (( $+commands[fzf] )) && [[ -t 0 ]]; then
   local -a opts
   # Show the path but keep it out of the search: fuzzy-matching a long
   # absolute path makes every entry match nearly every query.
