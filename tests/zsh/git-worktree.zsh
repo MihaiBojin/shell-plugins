@@ -415,6 +415,54 @@ has "a name another branch has is refused" "already exists" "$out"
 out=$(in_repo $repo 'cd "$(_gw_dest renamed/thing)" && gwm renamed/thing 2>&1')
 has "and so is its own name" "already called that" "$out"
 
+out=$(in_repo $repo 'gwm --help')
+has "gwm --help explains itself" "rename this worktree's branch" "$out"
+
+out=$(in_repo $repo 'gwm -x new 2>&1; print -r -- "rc=$?"')
+has "an unknown option is refused" "unknown option: -x" "$out"
+has "as a usage error" "rc=2" "$out"
+
+out=$(in_repo $repo 'cd "$(_gw_dest renamed/thing)" && gwm "bad..name" 2>&1; print -r -- "rc=$?"')
+has "a name git would not take is refused" "invalid branch name" "$out"
+has "as a usage error too" "rc=2" "$out"
+
+# A detached checkout is a worktree with no branch, so there is nothing for a
+# rename to act on.
+out=$(in_repo $repo 'git worktree add -q --detach "$(_gw_wt_dir)/det/demo" >/dev/null 2>&1
+  cd "$(_gw_wt_dir)/det/demo" && gwm named 2>&1; print -r -- "rc=$?"')
+has "a detached checkout has no branch to rename" "no branch checked out" "$out"
+has "and that is not a usage error" "rc=1" "$out"
+
+out=$(in_repo $repo 'gwa --no-fetch lock/me >/dev/null 2>&1
+  git -C "$(_gw_main_worktree)" worktree lock "$(_gw_dest lock/me)" 2>/dev/null
+  cd "$(_gw_dest lock/me)" && gwm lock/other 2>&1')
+has "a locked worktree is left where it is" "is locked" "$out"
+has "and the command to unlock it is offered" "worktree unlock" "$out"
+
+# Both halves of the rename have to happen together, so declining does neither.
+out=$(in_repo $repo 'gwa --no-fetch keep/me >/dev/null 2>&1
+  cd "$(_gw_dest keep/me)"
+  print n | gwm keep/other 2>&1
+  print -r -- "rc=$?"
+  git show-ref --verify --quiet refs/heads/keep/me && print -r -- "branch kept"
+  [[ -d $(_gw_dest keep/me) ]] && print -r -- "checkout kept"')
+has "saying no leaves it alone" "left alone" "$out"
+has "the branch keeps its name" "branch kept" "$out"
+has "and the checkout stays where it was" "checkout kept" "$out"
+
+out=$(in_repo $repo 'gwa --no-fetch dest/one >/dev/null 2>&1
+  mkdir -p "$(_gw_wt_dir)/dest/two/demo"
+  cd "$(_gw_dest dest/one)" && gwm dest/two 2>&1')
+has "a destination that is already taken is refused" "dest/two/demo already exists" "$out"
+
+# From the main checkout there is no worktree to act on, so it asks which one.
+out=$(in_repo $repo 'cd "$(_gw_main_worktree)" && gwm from/main </dev/null 2>&1
+  print -r -- "rc=$?"
+  git show-ref --verify --quiet refs/heads/from/main || print -r -- "nothing renamed"')
+has "from the main checkout it wants one chosen" "rc=1" "$out"
+has "and renames nothing when none is" "nothing renamed" "$out"
+
+
 #
 # 4b. The directory is the branch name, slashes and all.
 #
