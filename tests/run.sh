@@ -9,6 +9,8 @@
 # runs from any shell, and it skips (loudly) whichever of zsh/fish is not
 # installed rather than failing — a machine only ever needs one of them.
 #
+# shellcheck disable=SC1007  # `CDPATH= cd` is the idiom, not a typo'd assignment
+# shellcheck disable=SC2015  # `A && pass || fail` is deliberate: pass never fails
 set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
@@ -58,10 +60,11 @@ for f in bin/*; do
     [ -z "$out" ] && pass "$f" || fail "$f parses but complains: $out"
 done
 
-# The scripts in bin/ ship; the test harness does not, and predates the check.
-step "shellcheck bin/"
+# The scripts in bin/ ship. The harness does not, but it is the thing that says
+# whether everything else is sound, so it is held to the same standard.
+step "shellcheck"
 if command -v shellcheck >/dev/null 2>&1; then
-    for f in bin/*; do
+    for f in bin/* tests/run.sh tests/bin.sh; do
         [ -f "$f" ] || continue
         out=$(shellcheck "$f" 2>&1) && pass "$f" \
             || { printf '%s\n' "$out" >&2; fail "$f has shellcheck findings"; }
