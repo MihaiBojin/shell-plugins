@@ -57,8 +57,9 @@ alias gwh='gw'
 # the less precise test: a framework that stubs compdef ahead of compinit makes
 # it true early.
 if (( $+_comps )); then
-  autoload -Uz _gwa _gwl _gwr _gw_branches _gw_worktree_paths
+  autoload -Uz _gwa _gwl _gwm _gwr _gw_branches _gw_worktree_paths
   compdef _gwa gwa
   compdef _gwl gwl
+  compdef _gwm gwm
   compdef _gwr gwr
 fi
