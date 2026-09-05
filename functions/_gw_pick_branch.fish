@@ -46,7 +46,10 @@ function _gw_pick_branch -a prompt -d 'Pick a branch to make a worktree for, lea
         end
     end
 
-    if not command -q fzf
+    # isatty as well as installed: fzf with a redirected stdin draws over the
+    # terminal and waits for input that cannot arrive. Without a terminal there
+    # is no list worth printing either, so both cases say the same thing.
+    if not command -q fzf; or not isatty stdin
         # A numbered list of every branch in the repository is noise, and there
         # is no query here to narrow it with. Name the branch instead.
         _gw_say err 'NAME is required — usage: gwa NAME [BASE]'

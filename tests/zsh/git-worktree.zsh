@@ -493,6 +493,16 @@ out=$(in_repo $repo 'REPLY=untouched
   print -r -- $REPLY')
 eq "gwa does not leak \$REPLY into the caller" "untouched" "$out"
 
+# gwm reads _gw_owns's answer the same way. It has to go through with the
+# rename to reach _gw_run, which writes $REPLY too — declining at the prompt
+# gets nowhere near either of them.
+out=$(in_repo $repo 'gwa --no-fetch leak/probe >/dev/null 2>&1
+  cd "$(_gw_dest leak/probe)"
+  REPLY=untouched
+  print y | gwm leak/renamed >/dev/null 2>&1
+  print -r -- $REPLY')
+eq "gwm does not leak \$REPLY either" "untouched" "$out"
+
 out=$(in_repo $repo '_gw_dest fix/login')
 eq "a slash nests rather than flattening" \
    "${sb:A}/parent/.worktrees/fix/login/demo" "$out"

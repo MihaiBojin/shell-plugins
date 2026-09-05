@@ -49,6 +49,31 @@ function hasnt -a desc needle haystack
     or ok $desc
 end
 
+# Run a fish snippet under a real pty, so a picker gated on `isatty stdin`
+# takes its fzf path. The snippet inherits nothing: it sets its own function
+# path, the way Fisher's install would.
+#
+# python3 is on both CI runners and is only ever used here; without it the
+# assertions that need a terminal are skipped rather than passing for the
+# wrong reason.
+function have_tty_runner
+    command -q python3
+end
+
+function with_tty -d 'Run a fish snippet under a real pty'
+    python3 -c '
+import pty, sys, os
+def rd(fd):
+    return os.read(fd, 1024)
+pty.spawn([sys.argv[1], "--no-config", "-c", sys.argv[2]], rd)
+' (status fish-path) "set -p fish_function_path $ROOT/functions
+$argv[1]" >/dev/null 2>&1
+end
+
+function skip
+    echo "  skip  $argv[1]"
+end
+
 function group
     echo
     echo $argv[1]
@@ -197,35 +222,46 @@ chmod +x $bfake/fzf
 
 cd $repo
 git -C $repo branch -q nowt main
-set -l offered
-begin
-    set -lx PATH $bfake $PATH
-    set -lx PICK_LINES $bfake/lines
-    set -lx PICK_QUERY ''
-    set -lx PICK_LINE ''
-    _gw_pick_branch 'b>' >/dev/null
-    set offered (cat $bfake/lines)
-end
-set -l shown (for l in $offered; string split \t -- $l | tail -1; end)
-has 'the branch picker offers a branch with no worktree' nowt (string join ' ' $shown)
-hasnt 'and not the remote HEAD dressed up as a branch' ' origin ' " "(string join ' ' $shown)" "
-
-begin
-    set -lx PATH $bfake $PATH
-    set -lx PICK_LINES $bfake/lines
-    set -lx PICK_QUERY ''
-    set -lx PICK_LINE 1
-    _gw_pick_branch 'b>'
-    eq 'picking a line returns the branch, not the display line' 1 (count (string split \t -- "$_gw_reply"))
+if have_tty_runner
+    with_tty "set -gx PATH $bfake \$PATH
+        set -gx PICK_LINES $bfake/lines
+        set -gx PICK_QUERY ''
+        set -gx PICK_LINE ''
+        cd $repo
+        _gw_pick_branch 'b>'"
+    set -l offered (cat $bfake/lines)
+    set -l shown (for l in $offered; string split \t -- $l | tail -1; end)
+    has 'the branch picker offers a branch with no worktree' nowt (string join ' ' $shown)
+    hasnt 'and not the remote HEAD dressed up as a branch' ' origin ' " "(string join ' ' $shown)" "
+else
+    skip 'the branch picker offers a branch with no worktree (no python3 for a pty)'
+    skip 'and not the remote HEAD dressed up as a branch (no python3 for a pty)'
 end
 
-begin
-    set -lx PATH $bfake $PATH
-    set -lx PICK_LINES $bfake/lines
-    set -lx PICK_QUERY 'typed-new'
-    set -lx PICK_LINE ''
-    _gw_pick_branch 'b>'
-    eq 'a name that matches nothing is the answer' typed-new "$_gw_reply"
+if have_tty_runner
+    with_tty "set -gx PATH $bfake \$PATH
+        set -gx PICK_LINES $bfake/lines
+        set -gx PICK_QUERY ''
+        set -gx PICK_LINE 1
+        cd $repo
+        _gw_pick_branch 'b>'
+        echo -n \$_gw_reply > $bfake/reply"
+    eq 'picking a line returns the branch, not the display line' 1 (count (string split \t -- (cat $bfake/reply)))
+else
+    skip 'picking a line returns the branch, not the display line (no python3 for a pty)'
+end
+
+if have_tty_runner
+    with_tty "set -gx PATH $bfake \$PATH
+        set -gx PICK_LINES $bfake/lines
+        set -gx PICK_QUERY 'typed-new'
+        set -gx PICK_LINE ''
+        cd $repo
+        _gw_pick_branch 'b>'
+        echo -n \$_gw_reply > $bfake/reply"
+    eq 'a name that matches nothing is the answer' typed-new (cat $bfake/reply)
+else
+    skip 'a name that matches nothing is the answer (no python3 for a pty)'
 end
 
 # Asked of the picker directly. gwa reaches it through a command substitution,
@@ -697,6 +733,45 @@ set -g git_worktree_subdir .wt
 eq 'neither the retired git key nor a variable moves the root' "$rootk/parent/.worktrees" (_gw_wt_dir)
 set -e git_worktree_subdir
 
+# ----------------------------------------------------- fzf wants a terminal
+group 'fzf wants a terminal'
+
+# Both pickers run where a caller may have redirected stdin. fzf with nothing
+# to read from draws its full-screen UI over the terminal and waits for a key
+# that cannot arrive, so neither reaches for it without a terminal.
+set -l roott (fixture)
+set -l repot $roott/parent/demo
+cd $repot
+git -C $repot worktree add -q $roott/parent/.worktrees/one/demo -b one 2>/dev/null
+
+set -l tfake (path resolve (mktemp -d))
+set -ga SANDBOXES $tfake
+echo '#!/bin/sh
+echo ran >> "$TFZF_MARKER"
+head -1' >$tfake/fzf
+chmod +x $tfake/fzf
+
+begin
+    set -lx PATH $tfake $PATH
+    set -lx TFZF_MARKER $tfake/marker
+    _gw_pick 'w>' '' </dev/null >/dev/null 2>&1
+    eq 'gwl picker gives up rather than opening fzf blind' 1 $status
+    _gw_pick_branch 'b>' </dev/null >/dev/null 2>&1
+    eq 'and the branch picker asks for a NAME instead' 2 $status
+end
+eq 'neither of them ran fzf' 0 (count (path filter -f $tfake/marker 2>/dev/null))
+
+if have_tty_runner
+    with_tty "set -gx PATH $tfake \$PATH
+        set -gx TFZF_MARKER $tfake/marker
+        cd $repot
+        _gw_pick 'w>' ''
+        _gw_pick_branch 'b>'"
+    eq 'with a terminal they both reach for it' 2 (count (cat $tfake/marker 2>/dev/null))
+else
+    skip 'with a terminal they both reach for it (no python3 for a pty)'
+end
+
 # ------------------------------------------------------------- completions
 group 'completions'
 
@@ -756,10 +831,14 @@ head -1 "$FAKE_FZF_LINES"' >$fake/fzf
 chmod +x $fake/fzf
 
 set -l seen $fake/lines
-begin
-    set -lx PATH $fake $PATH
-    set -lx FAKE_FZF_LINES $seen
-    _gw_pick 'worktree>' '' >/dev/null
+if have_tty_runner
+    with_tty "set -gx PATH $fake \$PATH
+        set -gx FAKE_FZF_LINES $seen
+        cd $repo4
+        _gw_pick 'worktree>' ''"
+else
+    skip 'the picker preview assertions (no python3 for a pty)'
+    printf '' >$seen
 end
 
 set -l bad 0

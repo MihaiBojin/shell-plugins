@@ -41,7 +41,11 @@ function _gw_pick -a prompt query -d 'Pick one of the worktrees here, leaving it
         set -a lines (printf '%s %-30s\t%s\t%s' $mark (string sub -l 30 -- $branch) (string replace -r "^$HOME" '~' -- $wt) $wt)
     end
 
-    if command -q fzf
+    # isatty as well as installed: this runs where a caller may have redirected
+    # stdin, and fzf with nothing to read from draws its full-screen UI over the
+    # terminal and waits for input that cannot arrive. The Zsh side asks the
+    # same question.
+    if command -q fzf; and isatty stdin
         # --select-1 only with a query. Without one the list is the point: a
         # repository with a single worktree would otherwise pick it and exit
         # having drawn nothing, which reads as `gwl` doing nothing at all.

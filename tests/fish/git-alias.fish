@@ -39,6 +39,31 @@ function eq -a desc expected actual
     test "$expected" = "$actual"; and ok $desc; or bad $desc "expected [$expected], got [$actual]"
 end
 
+# Run a fish snippet under a real pty, so a picker gated on `isatty stdin`
+# takes its fzf path. The snippet inherits nothing: it sets its own function
+# path, the way Fisher's install would.
+#
+# python3 is on both CI runners and is only ever used here; without it the
+# assertions that need a terminal are skipped rather than passing for the
+# wrong reason.
+function have_tty_runner
+    command -q python3
+end
+
+function with_tty -d 'Run a fish snippet under a real pty'
+    python3 -c '
+import pty, sys, os
+def rd(fd):
+    return os.read(fd, 1024)
+pty.spawn([sys.argv[1], "--no-config", "-c", sys.argv[2]], rd)
+' (status fish-path) "set -p fish_function_path $ROOT/functions
+$argv[1]" >/dev/null 2>&1
+end
+
+function skip
+    echo "  skip  $argv[1]"
+end
+
 function has -a desc needle haystack
     string match --quiet "*$needle*" -- "$haystack"; and ok $desc
     or bad $desc "[$haystack] does not contain [$needle]"
@@ -242,10 +267,14 @@ echo 'picker marker'
 # is empty marks the whole list — on the picker branches get deleted from.
 pushd $bs >/dev/null
 set -l seen2 (sandbox)/lines2
-begin
-    set -lx PATH $fake $PATH
-    set -lx FAKE_FZF_LINES $seen2
-    _git_alias_branch_pick 'branch>' '' >/dev/null
+if have_tty_runner
+    with_tty "set -gx PATH $fake \$PATH
+        set -gx FAKE_FZF_LINES $seen2
+        cd $bs
+        _git_alias_branch_pick 'branch>' ''"
+else
+    skip 'the picker marker assertions (no python3 for a pty)'
+    printf '' >$seen2
 end
 
 set -l marked 0
