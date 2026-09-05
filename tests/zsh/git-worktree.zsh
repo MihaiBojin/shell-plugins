@@ -28,6 +28,25 @@ eq()   { [[ $2 == $3 ]] && ok "$1" || bad "$1" "expected [$2], got [$3]" }
 has()  { [[ $3 == *$2* ]] && ok "$1" || bad "$1" "[$3] does not contain [$2]" }
 hasnt(){ [[ $3 != *$2* ]] && ok "$1" || bad "$1" "[$3] should not contain [$2]" }
 group(){ print -r -- ""; print -r -- "$1" }
+skip() { print -r  -- "  skip  $1" }
+
+# A real pty, so a picker gated on `[[ -t 0 ]]` takes its fzf path. python3 is
+# on both CI runners and is only ever used here; without it the assertions that
+# need a terminal are skipped rather than passing for the wrong reason.
+have_tty_runner() { (( $+commands[python3] )) }
+
+with_tty() {
+  local dir=$1 body=$2
+  python3 -c '
+import pty, sys, os
+def rd(fd):
+    return os.read(fd, 1024)
+pty.spawn([sys.argv[1], "-f", "-c", sys.argv[2]], rd)
+' zsh "zstyle ':git-worktree:' spinner no
+source ${(q)PLUGIN}
+cd ${(q)dir} || exit 1
+$body" >/dev/null 2>&1
+}
 
 cleanup() { local s; for s in $SANDBOXES; do rm -rf $s; done }
 trap cleanup EXIT
@@ -461,7 +480,6 @@ out=$(in_repo $repo 'cd "$(_gw_main_worktree)" && gwm from/main </dev/null 2>&1
   git show-ref --verify --quiet refs/heads/from/main || print -r -- "nothing renamed"')
 has "from the main checkout it wants one chosen" "rc=1" "$out"
 has "and renames nothing when none is" "nothing renamed" "$out"
-
 
 #
 # 4b. The directory is the branch name, slashes and all.
@@ -914,6 +932,44 @@ out=$(in_repo $repo 'typeset -g _GW_FORGE_PRS=$(printf "unmerged\tMERGED\t7\n")
   typeset -g _GW_FORGE_NOUN="pull request"
   local REPLY; _gw_is_merged unmerged origin/main main 0; print -r -- "$? $REPLY"')
 eq "--no-forge decides from git alone" "1 not merged into main" "$out"
+
+#
+# 12. fzf only when there is a terminal to draw on.
+#
+group "fzf wants a terminal"
+
+# Both pickers run where a caller may have redirected stdin. fzf with nothing to
+# read from draws its full-screen UI over the terminal and waits for a key that
+# cannot arrive, so neither reaches for it without one.
+sb=$(fixture) || exit 1; repo=$sb/parent/demo
+git -C $repo worktree add -q $sb/parent/.worktrees/one/demo -b one 2>/dev/null
+
+tfake=$(mktemp -d); SANDBOXES+=( $tfake )
+print -r -- '#!/bin/sh
+echo ran >> "$TFZF_MARKER"
+head -1' > $tfake/fzf
+chmod +x $tfake/fzf
+export TFZF_DIR=$tfake TFZF_MARKER=$tfake/marker
+
+out=$(in_repo $repo 'path=( $TFZF_DIR $path )
+  _gw_pick "w>" "" </dev/null >/dev/null 2>&1
+  print -r -- "pick=$?"
+  _gw_pick_branch "b>" </dev/null >/dev/null 2>&1
+  print -r -- "branch=$?"')
+has "the worktree picker gives up rather than opening fzf blind" "pick=1" "$out"
+has "and the branch picker asks for a NAME instead" "branch=2" "$out"
+eq "neither of them ran fzf" "0" "$(grep -c . $TFZF_MARKER 2>/dev/null || print 0)"
+
+if have_tty_runner; then
+  rm -f $TFZF_MARKER
+  with_tty $repo 'path=( $TFZF_DIR $path )
+    _gw_pick "w>" "" >/dev/null 2>&1
+    _gw_pick_branch "b>" >/dev/null 2>&1'
+  eq "with a terminal they both reach for it" "2" \
+     "$(grep -c . $TFZF_MARKER 2>/dev/null || print 0)"
+else
+  skip "with a terminal they both reach for it (no python3 for a pty)"
+fi
 
 print -r -- ""
 print -r -- "git-worktree: $PASS passed, $FAIL failed"
