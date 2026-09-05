@@ -69,9 +69,10 @@ back every one of them rather than the last.
 they are functions, so Fish autoloads them and neither shell pays anything at
 startup.
 
-The aliases are Zsh only. The Fish equivalent of an alias worth having is an
-abbreviation, and abbreviations have to be declared at startup, which means
-`conf.d/` — and that stays empty.
+The aliases are Zsh only, but the names are not. The Fish equivalent of an
+alias worth having is an abbreviation, and an abbreviation has to be declared at
+startup — which means `conf.d/git-alias.fish`, the one file in the package that
+is not autoloaded, at 0.19ms a shell.
 
 ## Where the rest of them are
 

@@ -36,7 +36,7 @@ in `config.fish`, because Fisher only copies `functions/`, `conf.d/`,
 | `gbd [QUERY]` | zsh, fish | `git`, `fzf` (optional) | Delete branches, having said first whether each one is merged, squash-merged, or held by another ref |
 | `gh-login` `gh-add-key` | zsh, fish | `gh` | Authenticate a new machine with GitHub over SSH |
 | `gwip` | zsh, fish | `git` | Commit everything as `--wip-- [skip ci]`, unsigned and unverified |
-| `gunwip` | zsh, fish | `git` | Undo the last commit if it is a `--wip--` |
+| `gunwip` | zsh, fish | `git`, `grep` (zsh only) | Undo the last commit if it is a `--wip--` |
 | `gunwipall` | zsh, fish | `git` | Reset onto the newest non-`--wip--` commit |
 | `macos install-pkg` `install-dmg-pkg` `install-dmg` `install-app-zip` | `$PATH` | macOS, `curl`, `sudo` | Install something from a URL |
 | `macos backup-if-exists` `link-if-different` | `$PATH` | — | Symlink a file, keeping whatever was there |
@@ -61,8 +61,10 @@ models differ enough that a common layer costs more than it saves.
 
 Every feature is in both shells. Two commands sidestep the question entirely:
 
-- **git-alias** — both shells. `gwip`, `gunwip` and `gunwipall` are functions in
-  both, and so are the `gb`/`gbd` pickers. The rest are Zsh aliases and Fish
+- **git-alias** — both shells. `gwip` and `gunwipall` are functions in both, and
+  so are the `gb`/`gbd` pickers. `gunwip` is a function in Fish and an alias in
+  Zsh, which is why it is the one name here that wants `grep` on Zsh and
+  nothing but `git` on Fish. The rest are Zsh aliases and Fish
   abbreviations, which is the closer equivalent anyway: an abbreviation expands
   where you can see it. Declaring one means `conf.d/`, which is why that
   directory is not empty — 0.19ms at every Fish start, and the only thing in the
