@@ -14,15 +14,24 @@ function _gw_forge_state -a branch repo -d 'What the forge says about the reques
         set -g _gw_forge_cache
         set -g _gw_forge_noun request
 
-        if command -q gh; and git -C $repo remote -v 2>/dev/null | string match --quiet '*github.com*'
-            set -g _gw_forge_noun 'pull request'
-            set -g _gw_forge_cache (gh -R (_gw_forge_slug $repo) pr list --state all --limit 200 \
-                --json headRefName,state,number \
-                --jq '.[] | "\(.headRefName)\t\(.state)\t\(.number)"' 2>/dev/null)
-        else if command -q glab; and command -q jq; and git -C $repo remote -v 2>/dev/null | string match --quiet '*gitlab*'
-            set -g _gw_forge_noun 'merge request'
-            set -g _gw_forge_cache (glab mr list --all --output json 2>/dev/null |
-                jq -r '.[] | "\(.source_branch)\t\(.state | ascii_upcase)\t\(.iid)"' 2>/dev/null)
+        # Fail closed. Without -R, gh and glab answer about whatever repository
+        # the shell happens to be standing in, and for `gwr <path>` that is
+        # somebody else's — an answer that then decides whether to delete a
+        # branch. No forge data at all is strictly better than another
+        # repository's. `string collect` because an empty substitution drops
+        # the argument entirely, which would leave `gh -R pr list`.
+        set -l slug (_gw_forge_slug $repo | string collect)
+        if test -n "$slug"
+            if command -q gh; and git -C $repo remote -v 2>/dev/null | string match --quiet '*github.com*'
+                set -g _gw_forge_noun 'pull request'
+                set -g _gw_forge_cache (gh -R $slug pr list --state all --limit 200 \
+                    --json headRefName,state,number \
+                    --jq '.[] | "\(.headRefName)\t\(.state)\t\(.number)"' 2>/dev/null)
+            else if command -q glab; and command -q jq; and git -C $repo remote -v 2>/dev/null | string match --quiet '*gitlab*'
+                set -g _gw_forge_noun 'merge request'
+                set -g _gw_forge_cache (glab -R $slug mr list --all --output json 2>/dev/null |
+                    jq -r '.[] | "\(.source_branch)\t\(.state | ascii_upcase)\t\(.iid)"' 2>/dev/null)
+            end
         end
     end
 
