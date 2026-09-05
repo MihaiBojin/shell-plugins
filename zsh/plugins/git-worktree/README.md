@@ -119,7 +119,9 @@ entry match everything. The preview pane shows `git status` and the last
 commits.
 
 With a `QUERY` that narrows to a single worktree, fzf selects it without asking.
-Without fzf installed, the picker degrades to a numbered list.
+Without fzf installed — or with stdin redirected, where fzf would draw its
+full-screen interface over the terminal and wait for a key that cannot arrive —
+the picker degrades to a numbered list.
 
 ### `gwa` — add
 
@@ -138,8 +140,8 @@ already have a worktree, and the remote's branches that have no local
 counterpart. That last set is the one `gwl` can never show you, because `gwl`
 lists worktrees and these are the branches without one. Typing a name that
 matches nothing and pressing enter creates it, exactly as `gwa NAME` would.
-Without fzf there is no list worth printing — every branch in the repository,
-unfiltered — so it asks for a `NAME` instead.
+Without fzf, or without a terminal on stdin, there is no list worth printing —
+every branch in the repository, unfiltered — so it asks for a `NAME` instead.
 `BASE` defaults to the repository's default branch (see below). Flags may go
 anywhere in the arguments.
 

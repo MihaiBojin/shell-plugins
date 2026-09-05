@@ -30,6 +30,8 @@ git check-ref-format "refs/heads/$new" 2>/dev/null || {
   _gw_err "invalid branch name: $new"; return 2
 }
 
+# _gw_owns answers in $REPLY; without this it lands in the caller's shell.
+local REPLY
 local main src=''
 main=$(_gw_main_worktree) || { _gw_err "cannot locate this repository's main worktree"; return 1 }
 

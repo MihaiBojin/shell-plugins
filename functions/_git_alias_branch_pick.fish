@@ -39,7 +39,10 @@ function _git_alias_branch_pick -a prompt query multi -d 'Pick local branches, l
             (string sub -l 34 -- $fields[2]) $fields[3] $fields[4] $fields[2])
     end
 
-    if command -q fzf
+    # isatty as well as installed, for the reason the worktree pickers give: fzf
+    # with a redirected stdin draws over the terminal and waits for a key that
+    # cannot arrive.
+    if command -q fzf; and isatty stdin
         # --select-1 only with a query. Without one the list is the point.
         set -l opts --ansi --height=50% --layout=reverse --border --tabstop=1 \
             --prompt="$prompt " --delimiter=\t --with-nth=1,2,3 --nth=1 \

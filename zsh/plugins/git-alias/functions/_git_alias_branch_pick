@@ -34,7 +34,10 @@ for record in "${records[@]}"; do
 done
 
 local -a chosen
-if (( $+commands[fzf] )); then
+# Installed and a terminal on stdin both: fzf with a redirected stdin draws its
+# full-screen UI over the terminal and waits for a key that cannot arrive. The
+# worktree pickers and _gw_choose ask the same question.
+if (( $+commands[fzf] )) && [[ -t 0 ]]; then
   local -a opts
   opts=(
     --ansi --height=50% --layout=reverse --border --tabstop=1
