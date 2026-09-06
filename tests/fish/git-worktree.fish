@@ -1024,6 +1024,32 @@ begin
 end
 hasnt 'and no stays off the network entirely' fetching "$outf"
 
+# The same answer, recorded where the Zsh plugin and the origin CLI can read
+# it too.
+cd $repof
+git config git-worktree-plugin.fetch no
+set outf (gwa keyed/one 2>&1 | string collect)
+hasnt 'git-worktree-plugin.fetch no keeps gwa offline' fetching "$outf"
+
+cd $repof
+begin
+    set -lx git_worktree_fetch always
+    set outf (gwa keyed/two 2>&1 | string collect)
+end
+has 'and git_worktree_fetch outranks the key' fetching "$outf"
+
+cd $repof
+set outf (gwr --all 2>&1 | string collect)
+hasnt 'the sweep reads the same key' fetching "$outf"
+
+cd $repof
+eq 'the policy reads the key when something says' yes (begin
+    git config git-worktree-plugin.fetch yes
+    _gw_fetch_policy always
+end)
+git config --unset git-worktree-plugin.fetch
+eq 'and falls back when nothing does' always (_gw_fetch_policy always)
+
 cd /
 cleanup
 echo

@@ -244,7 +244,7 @@ the one result line per step.
 
 | Mode | What happens |
 |------|--------------|
-| `--no-fetch`, or `zstyle ':git-worktree:' fetch no` | Nothing. Everything resolves from local refs. |
+| `--no-fetch`, `zstyle ':git-worktree:' fetch no`, or `git config git-worktree-plugin.fetch no` | Nothing. Everything resolves from local refs. |
 | `zstyle ':git-worktree:' fetch yes` | Fetches the single base branch (`git fetch origin main`), best-effort: a failure warns and falls back to your local copy. |
 | default, or `--fetch` | The above, plus one `git ls-remote` to check whether `NAME` itself exists on the remote. |
 
@@ -573,14 +573,24 @@ completions, and the two git config keys.
 Add to `.zshrc` before the plugin loads (all styles are read at call time):
 
 ```zsh
-zstyle ':git-worktree:' fetch no                 # never touch the network (default: yes)
-zstyle ':git-worktree:' fetch always             # always check NAME on the remote, as if --fetch
+zstyle ':git-worktree:' fetch no                 # never touch the network
+zstyle ':git-worktree:' fetch yes                # base branch only; do not check NAME on the remote
 zstyle ':git-worktree:' remote upstream          # force a remote (default: resolved per repo, see above)
 zstyle ':git-worktree:' spinner ascii            # |/-\ instead of braille (default: braille in a UTF-8 locale)
 zstyle ':git-worktree:' spinner no               # result lines only, no animation
 ```
 
 `gwa --fetch` / `--no-fetch` override the `fetch` style for a single call.
+
+The network policy is also readable from git config, which is how the Fish
+plugin and the companion `origin` CLI see the same answer:
+
+```zsh
+git config git-worktree-plugin.fetch no          # this repository stays offline
+```
+
+The style wins where both are set, because it is how a preference is stated for
+every repository at once. The default, with neither set, is `always`.
 
 Per-repository, in git config rather than zstyle:
 

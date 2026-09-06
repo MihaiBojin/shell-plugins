@@ -1108,6 +1108,28 @@ out=$(in_repo $repo 'zstyle ":git-worktree:" fetch no
   gwa offline/one 2>&1')
 hasnt "and fetch no stays off the network entirely" "fetching" "$out"
 
+# The same answer, recorded where the Fish plugin and the origin CLI can read
+# it too.
+out=$(in_repo $repo 'git config git-worktree-plugin.fetch no
+  gwa keyed/one 2>&1')
+hasnt "git-worktree-plugin.fetch no keeps gwa offline" "fetching" "$out"
+
+out=$(in_repo $repo 'git config git-worktree-plugin.fetch no
+  zstyle ":git-worktree:" fetch always
+  gwa keyed/two 2>&1')
+has "and the zstyle outranks the key" "fetching" "$out"
+
+out=$(in_repo $repo 'git config git-worktree-plugin.fetch no
+  gwr --all 2>&1')
+hasnt "the sweep reads the same key" "fetching" "$out"
+
+out=$(in_repo $repo 'git config --unset git-worktree-plugin.fetch 2>/dev/null
+  print -r -- "$(_gw_fetch_policy always)"
+  git config git-worktree-plugin.fetch yes
+  print -r -- "$(_gw_fetch_policy always)"')
+eq "the policy falls back when nothing says" "always" "${${(f)out}[1]}"
+eq "and reads the key when something does" "yes" "${${(f)out}[2]}"
+
 print -r -- ""
 print -r -- "git-worktree: $PASS passed, $FAIL failed"
 (( FAIL == 0 ))

@@ -33,7 +33,7 @@ autoload -Uz \
   gw gwl gwa gwm gwr \
   _gw_choose _gw_clean_refusal _gw_confirm _gw_default_branch \
   _gw_dest _gw_err _gw_forge_kind _gw_forge_load _gw_forge_slug \
-  _gw_forge_state _gw_full_ref \
+  _gw_fetch_policy _gw_forge_state _gw_full_ref \
   _gw_ignored_paths _gw_in_repo _gw_info _gw_is_merged _gw_list _gw_main_worktree \
   _gw_merged_reason _gw_nap _gw_owns _gw_pick _gw_pick_branch _gw_plain_list _gw_records _gw_remote \
   _gw_remote_has_branch _gw_remote_head _gw_remove_one _gw_rmdir_up \

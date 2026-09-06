@@ -119,8 +119,7 @@ function gwa -d 'Add a worktree for a branch beside the repository, and cd into 
 
     # none: stay offline. base: refresh the branch we are about to fork from.
     # full, the default: also ask the remote whether NAME itself already exists.
-    set -l mode always
-    set -q git_worktree_fetch; and set mode $git_worktree_fetch
+    set -l mode (_gw_fetch_policy always)
     set -q _flag_fetch; and set mode always
     set -q _flag_no_fetch; and set mode no
     switch $mode
