@@ -721,10 +721,10 @@ eq 'the retired gw.remote is ignored, not obeyed' origin (_gw_remote)
 git -C $repok push -q origin unmerged
 git -C $repok fetch -q origin
 git -C $repok config git-worktree-plugin.headBranch unmerged
-eq 'git-worktree-plugin.headBranch overrides the resolution' origin/unmerged (_gw_head_branch origin 0 $repok)
+eq 'git-worktree-plugin.headBranch overrides the resolution' refs/remotes/origin/unmerged (_gw_head_branch origin 0 $repok)
 
 git -C $repok config git-worktree-plugin.headBranch trunk
-eq 'and falls back to the bare name when there is no such remote ref' trunk (_gw_head_branch origin 0 $repok)
+eq 'and spells a name with no remote ref under refs/heads/' refs/heads/trunk (_gw_head_branch origin 0 $repok)
 
 # Where worktrees go is derived, not configured — the one thing both tools work
 # out for themselves so they cannot be told different answers.
@@ -732,6 +732,95 @@ git -C $repok config git-worktree-plugin.worktreeRoot $rootk/elsewhere
 set -g git_worktree_subdir .wt
 eq 'neither the retired git key nor a variable moves the root' "$rootk/parent/.worktrees" (_gw_wt_dir)
 set -e git_worktree_subdir
+
+# ------------------------------------------- a newline in a path is carried whole
+group 'a newline in a path is carried whole'
+
+# fish splits a command substitution on newlines, so every path that travels
+# through one arrives as two list elements when a directory name holds one.
+# git allows such a directory, and `git worktree list --porcelain -z` hands it
+# back whole, so nothing upstream of these commands truncates it.
+set -l rootn (path resolve (mktemp -d) | string collect)
+set -ga SANDBOXES $rootn
+set -l parentn "$rootn/pa
+rent"
+set -l repon "$parentn/demo"
+git init -q --initial-branch=main "$repon"
+git -C "$repon" commit -q --allow-empty -m base
+
+eq 'the main worktree comes back whole' "$repon" (_gw_main_worktree "$repon" | string collect)
+eq 'and the worktree root is derived from all of it' "$parentn/.worktrees" (_gw_wt_dir "$repon" | string collect)
+
+cd "$repon"
+eq 'and so is the destination for a new branch' "$parentn/.worktrees/feat/demo" (_gw_dest feat | string collect)
+
+set -l recn (_gw_records "$repon" | string split0)
+eq 'one worktree is listed, not two' 1 (count $recn)
+eq 'and its path is the whole one' "$repon" (string split (printf '\x1f') -- $recn[1])[1]
+
+gwa --no-fetch feat >/dev/null 2>&1
+eq 'gwa lands in the right directory' "$parentn/.worktrees/feat/demo" "$PWD"
+
+cd "$repon"
+
+# --------------------------------------- gitignored files are not collateral
+group 'gitignored files are not collateral'
+
+# `git worktree remove` deletes gitignored files without --force and without a
+# word, and `git status --porcelain` never mentions them — so every refusal
+# upstream reads the checkout as clean. They get their own flag. Same spec as
+# the Zsh suite.
+set -l rooti (fixture_full)
+set -l repoi $rooti/parent/demo
+set -l wti $rooti/parent/.worktrees/squashed/demo
+cd $repoi
+
+# info/exclude rather than a committed .gitignore: the branch has to stay
+# exactly as finished as the fixture made it, or this tests the wrong refusal.
+echo '.env' >>$repoi/.git/info/exclude
+echo secret >$wti/.env
+
+eq 'the checkout still reads as clean' '' (git -C $wti status --porcelain | string collect)
+eq 'and the ignored file is what git would take' .env (_gw_ignored_paths $wti)
+
+set -l outi (gwr --no-forge $wti 2>&1 </dev/null | string collect)
+has 'with no terminal it refuses rather than deleting them' '--delete-ignored' "$outi"
+has 'and names the file it would have taken' '.env' "$outi"
+eq 'and the file is still there' secret (cat $wti/.env 2>/dev/null)
+eq 'and so is the worktree' yes (test -d $wti; and echo yes; or echo no)
+
+# The sweep never prompts, so it leaves them alone and says why.
+set -l outs (gwr --all --yes --no-fetch --no-forge 2>&1 </dev/null | string collect)
+has '--all --yes leaves it alone too' '--delete-ignored deletes them' "$outs"
+eq 'so the file survives the sweep' secret (cat $wti/.env 2>/dev/null)
+
+# ------------------------------------ a tag cannot impersonate the head branch
+group 'a tag cannot impersonate the head branch'
+
+# git resolves refs/tags/ before refs/remotes/, so a tag called `origin/main` is
+# what a bare `origin/main` means to merge-base, cherry and ^{tree} — and an
+# unmerged branch then reads as merged, at rc 0. Same spec as the Zsh suite.
+set -l roots (fixture_full)
+set -l repos $roots/parent/demo
+cd $repos
+
+# Pointed at a commit that contains the unmerged branch, which is what makes the
+# wrong answer look like a right one.
+git -C $repos tag origin/main unmerged
+
+# The rest of this group only proves anything while the shadow really shadows.
+git -C $repos merge-base --is-ancestor refs/heads/unmerged origin/main 2>/dev/null
+eq 'the bare name reads the tag, and calls an unmerged branch merged' 0 $status
+git -C $repos merge-base --is-ancestor refs/heads/unmerged refs/remotes/origin/main
+eq 'the full ref reads the remote-tracking branch' 1 $status
+
+eq 'so the head branch is resolved to a full ref' refs/remotes/origin/main \
+    (_gw_head_branch origin 0 $repos)
+
+set -l heads (_gw_head_branch origin 0 $repos)
+_gw_is_finished unmerged $heads main 0 $repos
+eq 'and the branch the tag would have retired is still unmerged' 1 $status
+has 'and says so' 'not merged into main' "$_gw_reply"
 
 # ----------------------------------------------------- fzf wants a terminal
 group 'fzf wants a terminal'

@@ -3,13 +3,13 @@ function _gw_clean_refusal -a wt branch flags cwd main head -d 'Why $wt must not
     # refusals that have nothing to do with whether the branch was merged, and
     # none of them is worked around.
     set -g _gw_reply ''
-    set -l here (path resolve $wt)
+    set -l here (path resolve $wt | string collect)
 
     if test "$cwd" = "$here"; or string match --quiet -- "$here/*" $cwd
         set -g _gw_reply 'is the worktree you are standing in'
         return 0
     end
-    if test -n "$main"; and test (path resolve $main) = "$here"
+    if test -n "$main"; and test (path resolve $main | string collect) = "$here"
         set -g _gw_reply 'is the main worktree'
         return 0
     end

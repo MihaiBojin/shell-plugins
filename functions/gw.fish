@@ -6,7 +6,7 @@ function gw -d 'git worktree helpers: gwl, gwa, gwr'
     # than a second derivation of the same path that can drift from it.
     set -l here
     if git rev-parse --git-dir >/dev/null 2>&1
-        set -l p (_gw_dest NAME)
+        set -l p (_gw_dest NAME | string collect)
         test -n "$p"; and set here (string replace -r "^$HOME" '~' -- "$p")
     end
 
@@ -21,6 +21,7 @@ function gw -d 'git worktree helpers: gwl, gwa, gwr'
     echo '  gwm NEW                  rename this worktree'\''s branch to NEW and move it to match'
     echo '  gwr [PATH|QUERY]         remove a worktree whose branch is finished, and the branch'
     echo '      -f, --force          remove it even when it is not; the branch is kept'
+    echo '      --delete-ignored     also delete its gitignored files; nothing restores them'
     echo '      --no-forge           decide from git alone; never ask GitHub/GitLab'
     echo '      --all                do it to every finished worktree; a dry run without --yes'
     echo '        -y, --yes          go through with it'

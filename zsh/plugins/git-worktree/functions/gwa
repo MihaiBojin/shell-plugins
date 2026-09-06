@@ -143,12 +143,13 @@ local online=0
 local start
 if [[ -n $base ]]; then
   if [[ -n $remote ]] && git show-ref --verify --quiet "refs/remotes/$remote/$base" 2>/dev/null; then
-    start=$remote/$base
+    start=refs/remotes/$remote/$base
   elif git rev-parse --verify --quiet "${base}^{commit}" >/dev/null; then
+    # An explicit BASE is whatever the person named — a tag here is deliberate.
     start=$base
   elif (( online )) && [[ -n $remote ]] &&
        _gw_run "fetching $remote/$base" git fetch --quiet "$remote" "$base"; then
-    start=$remote/$base
+    start=refs/remotes/$remote/$base
     git show-ref --verify --quiet "refs/remotes/$remote/$base" 2>/dev/null || start=FETCH_HEAD
   else
     _gw_err "unknown base: $base"
@@ -161,9 +162,13 @@ else
   }
 fi
 
-if (( online )) && [[ -n $remote && $start == $remote/* ]]; then
-  _gw_run "fetching $start" git fetch --quiet "$remote" "${start#$remote/}" ||
-    _gw_warn "using the local copy of $start"
+# refs/remotes/origin/main is what git is handed; origin/main is what is said.
+local start_disp=${start#refs/remotes/}
+start_disp=${start_disp#refs/heads/}
+
+if (( online )) && [[ -n $remote && $start == refs/remotes/$remote/* ]]; then
+  _gw_run "fetching $start_disp" git fetch --quiet "$remote" "${start#refs/remotes/$remote/}" ||
+    _gw_warn "using the local copy of $start_disp"
 fi
 
 # --fetch: NAME may exist on the remote without us knowing yet. Checking costs
@@ -196,7 +201,7 @@ elif [[ -n $remote ]] && git show-ref --verify --quiet "refs/remotes/$remote/$na
   label="checking out '$name' tracking $remote/$name"
   add=( git worktree add --track -b "$name" "$dest" "$remote/$name" )
 else
-  label="creating '$name' from $start"
+  label="creating '$name' from $start_disp"
   add=( git worktree add --no-track -b "$name" "$dest" "$start" )
 fi
 

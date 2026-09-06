@@ -8,7 +8,7 @@ function _gw_plain_list -d "This repository's worktrees as mark/branch/path, wit
     # columns are shortened and coloured for a person reading a picker.
     set -l records (_gw_records | string split0); or return 1
     set -l us (printf '\x1f')
-    set -l cwd (path resolve $PWD)
+    set -l cwd (path resolve $PWD | string collect)
 
     for record in $records
         set -l fields (string split $us -- $record)
@@ -24,7 +24,7 @@ function _gw_plain_list -d "This repository's worktrees as mark/branch/path, wit
                 set branch '?'
             end
         end
-        set -l here (path resolve $wt)
+        set -l here (path resolve $wt | string collect)
         set -l mark ' '
         if test "$cwd" = "$here"; or string match --quiet -- "$here/*" $cwd
             set mark '*'

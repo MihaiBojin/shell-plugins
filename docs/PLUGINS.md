@@ -75,8 +75,11 @@ Every feature is in both shells. Two commands sidestep the question entirely:
   refusals. What is left out is deliberate and listed in
   [the plugin's README](../zsh/plugins/git-worktree/README.md#the-fish-commands):
   no spinner, and nothing interactive beyond the picker and the one `gwr`
-  confirmation. Where Zsh stops to ask which remote or which head branch, Fish
-  says what it could not work out and names the command that records it.
+  confirmation. Where Zsh stops to offer a list — which remote, which head
+  branch — Fish decides for itself: it prefers `origin`, climbs the same
+  head-branch ladder, and warns when the answer it reached was a guess. Only
+  when that ladder runs out does it give up, and then it names `git remote
+  set-head`, which records the answer for both shells.
 - **`battery` and `macos`** — neither shell, which is the point. They print and
   exit without touching the shell, so they are bash scripts in `bin/` and there
   is only one copy of each. The cost is the `$PATH` line Fish needs, and that

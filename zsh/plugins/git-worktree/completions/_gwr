@@ -3,6 +3,7 @@
 _arguments -s \
   '(-h --help)'{-h,--help}'[show usage]' \
   '(--all)'{-f,--force}'[remove it even when the branch is unfinished; the branch is kept]' \
+  '--delete-ignored[also delete the gitignored files in it; nothing restores them]' \
   '--no-forge[decide from git alone; never ask GitHub/GitLab]' \
   '(-f --force 1)--all[do it to every finished worktree]' \
   '(-n --dry-run)'{-y,--yes}'[with --all: go through with it]' \

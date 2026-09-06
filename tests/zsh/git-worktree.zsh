@@ -852,11 +852,11 @@ out=$(in_repo $repo 'git push -q origin unmerged
   git fetch -q origin
   git config git-worktree-plugin.headBranch unmerged
   _gw_default_branch origin 0 0')
-eq "git-worktree-plugin.headBranch overrides the resolution" "origin/unmerged" "$out"
+eq "git-worktree-plugin.headBranch overrides the resolution" "refs/remotes/origin/unmerged" "$out"
 
 out=$(in_repo $repo 'git config git-worktree-plugin.headBranch trunk
   _gw_default_branch origin 0 0')
-eq "and falls back to the bare name when there is no such remote ref" "trunk" "$out"
+eq "and spells a name with no remote ref under refs/heads/" "refs/heads/trunk" "$out"
 
 #
 # Where worktrees go is derived, not configured — the one thing both tools
@@ -873,6 +873,102 @@ out=$(in_repo $repo 'git config git-worktree-plugin.worktreeRoot '"$sb"'/elsewhe
   _gw_wt_dir')
 eq "and neither the retired git key nor the retired style moves it" \
    "${sb:A}/parent/.worktrees" "$out"
+
+#
+# A directory name may hold a newline, and git hands it over without comment.
+# $( ) strips trailing newlines rather than splitting on them, so Zsh carries
+# such a path whole as long as `git worktree list` is read with -z. Same spec
+# as the Fish suite.
+#
+group "a newline in a path is carried whole"
+
+nlroot=$(mktemp -d); SANDBOXES+=( $nlroot )
+# :A, because /var is a symlink to /private/var on macOS and every path these
+# commands return has been through `git worktree list`, which resolves it.
+nlparent=${nlroot:A}/$'pa\nrent'
+nlrepo=$nlparent/demo
+git init -q --initial-branch=main $nlrepo
+git -C $nlrepo commit -q --allow-empty -m base
+
+out=$(in_repo $nlrepo '_gw_main_worktree')
+eq "the main worktree comes back whole" "$nlrepo" "$out"
+
+out=$(in_repo $nlrepo '_gw_wt_dir')
+eq "and the worktree root is derived from all of it" "$nlparent/.worktrees" "$out"
+
+out=$(in_repo $nlrepo '_gw_dest feat')
+eq "and so is the destination for a new branch" "$nlparent/.worktrees/feat/demo" "$out"
+
+out=$(in_repo $nlrepo 'recs=( ${(0)"$(_gw_records)"} ); print -r -- $#recs')
+eq "one worktree is listed, not two" "1" "$out"
+
+out=$(in_repo $nlrepo 'gwa --no-fetch feat >/dev/null 2>&1; print -r -- $PWD')
+eq "gwa lands in the right directory" "$nlparent/.worktrees/feat/demo" "$out"
+
+#
+# Gitignored files are deleted by `git worktree remove` without --force and
+# without a word, and `git status --porcelain` never mentions them — so every
+# refusal upstream reads the checkout as clean. They get their own flag.
+#
+group "gitignored files are not collateral"
+
+sb=$(fixture) || exit 1; repo=$sb/parent/demo
+wt=$sb/parent/.worktrees/squashed/demo
+
+# info/exclude rather than a committed .gitignore: the branch has to stay
+# exactly as finished as the fixture made it, or this tests the wrong refusal.
+print -r -- '.env' >> $repo/.git/info/exclude
+print -r -- secret > $wt/.env
+
+eq "the checkout still reads as clean" "" "$(git -C $wt status --porcelain)"
+eq "and the ignored file is what git would take" ".env" "$(in_repo $repo '_gw_ignored_paths '"$wt"'')"
+
+out=$(in_repo $repo 'gwr --no-forge '"$wt"' </dev/null 2>&1; print -r -- "rc=$?"')
+has "with no terminal it refuses rather than deleting them" "--delete-ignored" "$out"
+has "and names the file it would have taken" ".env" "$out"
+has "and exits non-zero" "rc=1" "$out"
+eq "and the file is still there" "secret" "$(cat $wt/.env 2>/dev/null)"
+eq "and so is the worktree" "yes" "$([[ -d $wt ]] && print yes || print no)"
+
+# The sweep never prompts, so it leaves them alone and says why.
+out=$(in_repo $repo 'gwr --all --yes --no-fetch --no-forge </dev/null 2>&1')
+has "--all --yes leaves it alone too" "--delete-ignored deletes them" "$out"
+eq "so the file survives the sweep" "secret" "$(cat $wt/.env 2>/dev/null)"
+
+out=$(in_repo $repo 'print -r -- y | gwr --no-forge --delete-ignored '"$wt"' 2>&1; print -r -- "rc=$?"')
+has "--delete-ignored is the way through" "rc=0" "$out"
+eq "and then the worktree is gone" "no" "$([[ -d $wt ]] && print yes || print no)"
+
+#
+# A tag named after the head ref does not get to decide what the head ref
+# means. git resolves refs/tags/ before refs/remotes/, so a tag called
+# `origin/main` is what a bare `origin/main` means to merge-base, cherry and
+# ^{tree} — and an unmerged branch then reads as merged, at rc 0.
+#
+group "a tag cannot impersonate the head branch"
+
+sb=$(fixture) || exit 1; repo=$sb/parent/demo
+
+# Pointed at a commit that contains the unmerged branch, which is what makes
+# the wrong answer look like a right one.
+git -C $repo tag origin/main unmerged
+
+# The rest of this group only proves anything while the shadow really shadows.
+out=$(in_repo $repo 'git merge-base --is-ancestor refs/heads/unmerged origin/main 2>/dev/null
+  print -r -- "bare=$?"
+  git merge-base --is-ancestor refs/heads/unmerged refs/remotes/origin/main 2>/dev/null
+  print -r -- "full=$?"')
+has "the bare name reads the tag, and calls an unmerged branch merged" "bare=0" "$out"
+has "the full ref reads the remote-tracking branch" "full=1" "$out"
+
+out=$(in_repo $repo '_gw_default_branch origin 0 0')
+eq "so the head branch is resolved to a full ref" "refs/remotes/origin/main" "$out"
+
+out=$(in_repo $repo 'local REPLY head
+  head=$(_gw_default_branch origin 0 0)
+  _gw_is_merged unmerged "$head" main 0; print -r -- "$? $REPLY"')
+eq "and the branch the tag would have retired is still unmerged" \
+   "1 not merged into main" "$out"
 
 #
 # 4. The forge, without touching the network.
