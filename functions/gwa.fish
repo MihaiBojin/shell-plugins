@@ -118,8 +118,8 @@ function gwa -d 'Add a worktree for a branch beside the repository, and cd into 
     end
 
     # none: stay offline. base: refresh the branch we are about to fork from.
-    # full: also ask the remote whether NAME itself already exists.
-    set -l mode base
+    # full, the default: also ask the remote whether NAME itself already exists.
+    set -l mode always
     set -q git_worktree_fetch; and set mode $git_worktree_fetch
     set -q _flag_fetch; and set mode always
     set -q _flag_no_fetch; and set mode no
@@ -173,17 +173,13 @@ function gwa -d 'Add a worktree for a branch beside the repository, and cd into 
         or _gw_say warn "using the local copy of $start_disp"
     end
 
-    # --fetch: NAME may exist on the remote without us knowing yet. Checking
-    # costs a round trip, so it is opt-in; skipping it would fork a second,
-    # divergent branch of the same name off the base.
+    # NAME may exist on the remote without us knowing yet. Not asking forks a
+    # second, divergent branch of the same name off the base, which is worth
+    # one ref-advertisement round trip; `git_worktree_fetch yes` declines it.
     if test "$mode" = full; and test -n "$remote"
         and not git show-ref --verify --quiet refs/heads/$name
         and not git show-ref --verify --quiet refs/remotes/$remote/$name
-        # The status matters as well as the output: a failed ls-remote leaves
-        # its error in $_gw_reply, and a non-empty reply alone would read as
-        # "the remote has it".
-        if _gw_run "asking $remote about '$name'" git ls-remote --heads $remote $name
-            and test -n "$_gw_reply"
+        if _gw_remote_has_branch $remote $name
             _gw_say info "$remote already has '$name' — tracking it instead of branching"
             _gw_run "fetching $remote/$name" git fetch --quiet $remote $name
             or _gw_say warn "could not fetch $remote/$name"

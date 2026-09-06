@@ -1067,6 +1067,47 @@ else
   skip "with a terminal they both reach for it (no python3 for a pty)"
 fi
 
+#
+# 13. How much gwa asks the remote.
+#
+group "fetch scope"
+
+sb=$(fixture) || exit 1; repo=$sb/parent/demo
+
+# A branch that exists only on the remote, which is the case the default is for.
+out=$(in_repo $repo 'git push -q origin main:theirs
+  git branch -q -D -r origin/theirs 2>/dev/null
+  gwa theirs 2>&1
+  print -r -- "tracks=$(git -C "$(_gw_dest theirs)" rev-parse --abbrev-ref "theirs@{upstream}" 2>/dev/null)"')
+has "the default asks the remote about NAME" "already has 'theirs'" "$out"
+eq "and the branch tracks theirs rather than forking" "tracks=origin/theirs" "${${(f)out}[-1]}"
+
+# ls-remote matches the tail of a ref path, so a bare name must not be answered
+# for by a nested branch that ends with it.
+out=$(in_repo $repo 'git push -q origin main:feat/login
+  git branch -q -D -r origin/feat/login 2>/dev/null
+  gwa login 2>&1')
+hasnt "a nested branch does not answer for a bare name" "already has 'login'" "$out"
+hasnt "so nothing is fetched that is not there" "could not fetch" "$out"
+
+out=$(in_repo $repo '_gw_remote_has_branch origin feat/login; print -r -- "nested=$?"
+  _gw_remote_has_branch origin login; print -r -- "bare=$?"
+  _gw_remote_has_branch origin main; print -r -- "main=$?"')
+has "the probe finds the nested branch" "nested=0" "$out"
+has "and not the bare name it ends with" "bare=1" "$out"
+has "and still finds an ordinary one" "main=0" "$out"
+
+# `fetch yes` is how to decline the round trip.
+out=$(in_repo $repo 'zstyle ":git-worktree:" fetch yes
+  git push -q origin main:mine
+  git branch -q -D -r origin/mine 2>/dev/null
+  gwa mine 2>&1')
+hasnt "fetch yes asks the remote nothing about NAME" "already has" "$out"
+
+out=$(in_repo $repo 'zstyle ":git-worktree:" fetch no
+  gwa offline/one 2>&1')
+hasnt "and fetch no stays off the network entirely" "fetching" "$out"
+
 print -r -- ""
 print -r -- "git-worktree: $PASS passed, $FAIL failed"
 (( FAIL == 0 ))
