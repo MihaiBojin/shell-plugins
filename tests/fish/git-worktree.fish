@@ -375,7 +375,7 @@ else
     bad 'the unmerged branch survives'
 end
 
-set out (gwr --force $root2/parent/.worktrees/unmerged/demo 2>&1)
+set out (echo y | gwr --force $root2/parent/.worktrees/unmerged/demo 2>&1)
 has '--force removes the checkout' removed "$out"
 has 'and keeps the branch' 'branch unmerged kept' "$out"
 if git -C $repo2 show-ref --verify --quiet refs/heads/unmerged
@@ -383,6 +383,32 @@ if git -C $repo2 show-ref --verify --quiet refs/heads/unmerged
 else
     bad 'the branch is still there after --force'
 end
+
+# --force overrides the refusal, not the question. `git worktree remove
+# --force` deletes whatever is uncommitted, and an unstaged edit was never
+# hashed, so nothing restores it — which is why no terminal has to mean no.
+git -C $repo2 worktree add -q $root2/parent/.worktrees/messy/demo -b messy 2>/dev/null
+set -l messy $root2/parent/.worktrees/messy/demo
+echo 'unsaved' >>$messy/squashed.txt
+
+set out (gwr --force $messy </dev/null 2>&1)
+eq 'with no terminal --force keeps a dirty worktree' 1 (count (path filter -d $messy))
+has 'and says it left it alone' 'left alone' "$out"
+
+set out (echo n | gwr --force $messy 2>&1)
+eq 'declining keeps it too' 1 (count (path filter -d $messy))
+has 'the summary names the branch and the refusal' 'branch messy — has uncommitted changes' "$out"
+has 'and says the flag is overriding it' '--force: removing it anyway' "$out"
+
+set out (echo y | gwr --force $messy 2>&1)
+eq 'saying yes is the only way through' 0 (count (path filter -d $messy 2>/dev/null))
+
+_gw_confirm 'q?' </dev/null
+eq 'the confirmation fails closed at EOF' 1 $status
+echo y | _gw_confirm 'q?'
+eq 'and takes yes' 0 $status
+echo n | _gw_confirm 'q?'
+eq 'and no' 1 $status
 
 # --------------------------------------------------------------- gwr --all
 group 'gwr --all'
