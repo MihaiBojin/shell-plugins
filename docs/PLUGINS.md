@@ -70,16 +70,16 @@ Every feature is in both shells. Two commands sidestep the question entirely:
   directory is not empty — 0.19ms at every Fish start, and the only thing in the
   package that is not autoloaded.
 - **git-worktree** — both shells. The Fish commands are a reimplementation
-  rather than a translation, and about a third smaller: 1063 lines against 1731.
+  rather than a translation, and a little smaller: 1832 lines against 2090.
   Same commands, same layout, same predicate for what counts as finished, same
   refusals. What is left out is deliberate and listed in
   [the plugin's README](../zsh/plugins/git-worktree/README.md#the-fish-commands):
-  no spinner, and nothing interactive beyond the picker and the one `gwr`
-  confirmation. Where Zsh stops to offer a list — which remote, which head
-  branch — Fish decides for itself: it prefers `origin`, climbs the same
-  head-branch ladder, and warns when the answer it reached was a guess. Only
-  when that ladder runs out does it give up, and then it names `git remote
-  set-head`, which records the answer for both shells.
+  nothing interactive beyond the picker and the one `gwr` confirmation. Where
+  Zsh stops to offer a list — which remote, which head branch — Fish decides
+  for itself: it prefers `origin`, climbs the same head-branch ladder, and
+  warns when the answer it reached was a guess. Only when that ladder runs out
+  does it give up, and then it names `git remote set-head`, which records the
+  answer for both shells.
 - **`battery` and `macos`** — neither shell, which is the point. They print and
   exit without touching the shell, so they are bash scripts in `bin/` and there
   is only one copy of each. The cost is the `$PATH` line Fish needs, and that

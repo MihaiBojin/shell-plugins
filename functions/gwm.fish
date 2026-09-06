@@ -139,8 +139,7 @@ function gwm -d "Rename this worktree's branch and move its checkout to match"
     # The branch first: `git worktree move` records the new path, and renaming
     # afterwards would leave the two steps recoverable in the wrong order if the
     # move failed.
-    _gw_say info "renaming $branch"
-    if not git -C $main branch -m $branch $new
+    if not _gw_run "renaming $branch" git -C $main branch -m $branch $new
         return 1
     end
 
@@ -150,8 +149,7 @@ function gwm -d "Rename this worktree's branch and move its checkout to match"
         return 1
     end
 
-    _gw_say info "moving "(path basename $src | string collect)
-    if not git -C $main worktree move $src $dest
+    if not _gw_run "moving "(path basename $src | string collect) git -C $main worktree move $src $dest
         _gw_say err "the branch is now $new; its worktree is still at $src"
         echo "  finish it with: git -C $main worktree move $src $dest" >&2
         return 1

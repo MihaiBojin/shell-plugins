@@ -30,8 +30,7 @@ function _gw_sweep -a go use_forge only_branch online delete_ignored -d 'Remove 
     # run, rather than one per worktree. A remote that cannot be reached is not
     # fatal — the local copy still answers, it just answers about yesterday.
     if test "$online" = 1; and test -n "$remote"; and string match --quiet -- "refs/remotes/$remote/*" "$head_ref"
-        _gw_say info "fetching $head_disp"
-        git -C $main fetch --quiet $remote $head_name
+        _gw_run "fetching $head_disp" git -C $main fetch --quiet $remote $head_name
         or _gw_say warn "using the local copy of $head_disp"
     end
 

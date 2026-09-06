@@ -217,9 +217,7 @@ function gwr -d 'Remove a worktree whose branch is finished, and the branch with
             end
         end
 
-        set -l out (git -C $main worktree remove --force $wt 2>&1)
-        if test $status -ne 0
-            _gw_say err "could not remove $wt: $out"
+        if not _gw_run "removing $wt" git -C $main worktree remove --force $wt
             return 1
         end
         _gw_prune_upto $wt $main

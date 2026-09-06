@@ -145,8 +145,7 @@ function gwa -d 'Add a worktree for a branch beside the repository, and cd into 
             # deliberate.
             set start $base
         else if test "$online" = 1; and test -n "$remote"
-            _gw_say info "fetching $remote/$base"
-            if git fetch --quiet $remote $base
+            if _gw_run "fetching $remote/$base" git fetch --quiet $remote $base
                 set start refs/remotes/$remote/$base
                 git show-ref --verify --quiet refs/remotes/$remote/$base; or set start FETCH_HEAD
             else
@@ -170,8 +169,7 @@ function gwa -d 'Add a worktree for a branch beside the repository, and cd into 
     set -l start_disp (string replace -r '^refs/(remotes|heads)/' '' -- $start)
 
     if test "$online" = 1; and test -n "$remote"; and string match --quiet -- "refs/remotes/$remote/*" $start
-        _gw_say info "fetching $start_disp"
-        git fetch --quiet $remote (string replace -- "refs/remotes/$remote/" '' $start)
+        _gw_run "fetching $start_disp" git fetch --quiet $remote (string replace -- "refs/remotes/$remote/" '' $start)
         or _gw_say warn "using the local copy of $start_disp"
     end
 
@@ -181,11 +179,14 @@ function gwa -d 'Add a worktree for a branch beside the repository, and cd into 
     if test "$mode" = full; and test -n "$remote"
         and not git show-ref --verify --quiet refs/heads/$name
         and not git show-ref --verify --quiet refs/remotes/$remote/$name
-        _gw_say info "asking $remote about '$name'"
-        set -l found (git ls-remote --heads $remote $name 2>/dev/null)
-        if set -q found[1]
+        # The status matters as well as the output: a failed ls-remote leaves
+        # its error in $_gw_reply, and a non-empty reply alone would read as
+        # "the remote has it".
+        if _gw_run "asking $remote about '$name'" git ls-remote --heads $remote $name
+            and test -n "$_gw_reply"
             _gw_say info "$remote already has '$name' — tracking it instead of branching"
-            git fetch --quiet $remote $name; or _gw_say warn "could not fetch $remote/$name"
+            _gw_run "fetching $remote/$name" git fetch --quiet $remote $name
+            or _gw_say warn "could not fetch $remote/$name"
         end
     end
 
@@ -210,8 +211,7 @@ function gwa -d 'Add a worktree for a branch beside the repository, and cd into 
         set add git worktree add --no-track -b $name $dest $start
     end
 
-    _gw_say info $label
-    if not $add
+    if not _gw_run $label $add
         _gw_prune_upto $dest (_gw_main_worktree | string collect)
         return 1
     end

@@ -12,19 +12,17 @@ function _gw_remove_one -a wt branch why -d 'Remove worktree $wt and delete its 
     # so a refusal at this point means something appeared since that check, and
     # forcing past it would delete work nobody has seen. `gwr --force` is the
     # deliberate way to do that.
-    set -l out (git -C $main worktree remove $wt 2>&1)
-    if test $status -ne 0
+    if not _gw_run "removing $branch — $why" git -C $main worktree remove $wt
         set -l dirty (git -C $wt status --porcelain 2>/dev/null)
         if set -q dirty[1]
             _gw_say warn "$wt has work in it after all; leaving it"
-        else if string match --quiet '*submodule*' -- "$out"
+        else if string match --quiet '*submodule*' -- "$_gw_reply"
             _gw_say warn "left $wt alone; it holds submodules, and --force would delete their git directories"
         else
             _gw_say warn "left $wt alone; remove it deliberately with: gwr --force $wt"
         end
         return 1
     end
-    echo (set_color green)"[✓]"(set_color normal)" removed $branch — $why" >&2
 
     _gw_prune_upto $wt $main
 
