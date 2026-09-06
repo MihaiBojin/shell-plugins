@@ -26,6 +26,24 @@ bad()  { (( FAIL++ )); print -ru2 -- "  FAIL  $1"; [[ -n ${2-} ]] && print -ru2 
 eq()   { [[ $2 == $3 ]] && ok "$1" || bad "$1" "expected [$2], got [$3]" }
 has()  { [[ $3 == *$2* ]] && ok "$1" || bad "$1" "[$3] does not contain [$2]" }
 group(){ print -r -- ""; print -r -- "$1" }
+skip() { print -r  -- "  skip  $1" }
+
+# A real pty, so a picker gated on `[[ -t 0 ]]` takes its fzf path. python3 is
+# on both CI runners and is only ever used here; without it the assertion that
+# needs a terminal is skipped rather than passing for the wrong reason.
+have_tty_runner() { (( $+commands[python3] )) }
+
+with_tty() {
+  local dir=$1 body=$2
+  python3 -c '
+import pty, sys, os
+def rd(fd):
+    return os.read(fd, 1024)
+pty.spawn([sys.argv[1], "-f", "-c", sys.argv[2]], rd)
+' zsh "source ${(q)ROOT}/zsh/plugins/git-alias/git-alias.plugin.zsh
+cd ${(q)dir} || exit 1
+$body" >/dev/null 2>&1
+}
 
 cleanup() { local s; for s in $SANDBOXES; do rm -rf $s; done }
 trap cleanup EXIT
@@ -95,6 +113,35 @@ group 'gb'
 eq 'gb --list is git branch' "$(git branch)" "$(gb --list)"
 gb -h 2>/dev/null >/dev/null
 eq 'gb -h exits 0' 0 $?
+
+group 'the branch picker wants a terminal'
+
+# fzf with a redirected stdin draws its full-screen UI over the terminal and
+# waits for a key that cannot arrive, so the picker reaches for it only when
+# there is one. The worktree pickers ask the same question.
+cd $bs
+git branch -q pick/one main 2>/dev/null
+git branch -q pick/two main 2>/dev/null
+
+tfake=$(mktemp -d); SANDBOXES+=( $tfake )
+print -r -- '#!/bin/sh
+echo ran >> "$TFZF_MARKER"
+head -1' > $tfake/fzf
+chmod +x $tfake/fzf
+export TFZF_DIR=$tfake TFZF_MARKER=$tfake/marker
+
+( path=( $TFZF_DIR $path ); _git_alias_branch_pick 'b>' '' </dev/null >/dev/null 2>&1 )
+eq 'the branch picker gives up rather than opening fzf blind' 1 $?
+eq 'and never ran it' 0 "$(grep -c . $TFZF_MARKER 2>/dev/null || print 0)"
+
+if have_tty_runner; then
+  rm -f $TFZF_MARKER
+  with_tty $bs 'path=( $TFZF_DIR $path )
+    _git_alias_branch_pick "b>" "" >/dev/null 2>&1'
+  eq 'with a terminal it reaches for it' 1 "$(grep -c . $TFZF_MARKER 2>/dev/null || print 0)"
+else
+  skip 'with a terminal it reaches for it (no python3 for a pty)'
+fi
 
 cd $ROOT
 print -r -- ""
