@@ -1067,6 +1067,75 @@ else
   skip "with a terminal they both reach for it (no python3 for a pty)"
 fi
 
+#
+# 13. How much gwa asks the remote.
+#
+group "fetch scope"
+
+sb=$(fixture) || exit 1; repo=$sb/parent/demo
+
+# A branch that exists only on the remote, which is the case the default is for.
+out=$(in_repo $repo 'git push -q origin main:theirs
+  git branch -q -D -r origin/theirs 2>/dev/null
+  gwa theirs 2>&1
+  print -r -- "tracks=$(git -C "$(_gw_dest theirs)" rev-parse --abbrev-ref "theirs@{upstream}" 2>/dev/null)"')
+has "the default asks the remote about NAME" "already has 'theirs'" "$out"
+eq "and the branch tracks theirs rather than forking" "tracks=origin/theirs" "${${(f)out}[-1]}"
+
+# ls-remote matches the tail of a ref path, so a bare name must not be answered
+# for by a nested branch that ends with it.
+out=$(in_repo $repo 'git push -q origin main:feat/login
+  git branch -q -D -r origin/feat/login 2>/dev/null
+  gwa login 2>&1')
+hasnt "a nested branch does not answer for a bare name" "already has 'login'" "$out"
+hasnt "so nothing is fetched that is not there" "could not fetch" "$out"
+
+out=$(in_repo $repo '_gw_remote_has_branch origin feat/login; print -r -- "nested=$?"
+  _gw_remote_has_branch origin login; print -r -- "bare=$?"
+  _gw_remote_has_branch origin main; print -r -- "main=$?"')
+has "the probe finds the nested branch" "nested=0" "$out"
+has "and not the bare name it ends with" "bare=1" "$out"
+has "and still finds an ordinary one" "main=0" "$out"
+
+# `fetch yes` is how to decline the round trip.
+out=$(in_repo $repo 'zstyle ":git-worktree:" fetch yes
+  git push -q origin main:mine
+  git branch -q -D -r origin/mine 2>/dev/null
+  gwa mine 2>&1')
+hasnt "fetch yes asks the remote nothing about NAME" "already has" "$out"
+
+out=$(in_repo $repo 'zstyle ":git-worktree:" fetch no
+  gwa offline/one 2>&1')
+hasnt "and fetch no stays off the network entirely" "fetching" "$out"
+
+# The same answer, recorded where the Fish plugin and the origin CLI can read
+# it too.
+out=$(in_repo $repo 'git config git-worktree-plugin.fetch no
+  gwa keyed/one 2>&1')
+hasnt "git-worktree-plugin.fetch no keeps gwa offline" "fetching" "$out"
+
+out=$(in_repo $repo 'git config git-worktree-plugin.fetch no
+  zstyle ":git-worktree:" fetch always
+  gwa keyed/two 2>&1')
+has "and the zstyle outranks the key" "fetching" "$out"
+
+out=$(in_repo $repo 'git config git-worktree-plugin.fetch no
+  gwr --all 2>&1')
+hasnt "the sweep reads the same key" "fetching" "$out"
+
+out=$(in_repo $repo 'git config --unset git-worktree-plugin.fetch 2>/dev/null
+  print -r -- "$(_gw_fetch_policy always)"
+  git config git-worktree-plugin.fetch yes
+  print -r -- "$(_gw_fetch_policy always)"')
+eq "the policy falls back when nothing says" "always" "${${(f)out}[1]}"
+eq "and reads the key when something does" "yes" "${${(f)out}[2]}"
+
+# A remote that cannot be reached is not an answer. The command's own error
+# text lands where its output would, so status has to be read before output.
+out=$(in_repo $repo 'git remote set-url origin /no/such/remote.git
+  _gw_remote_has_branch origin main; print -r -- "rc=$?"')
+has "a remote it cannot reach is not a yes" "rc=1" "$out"
+
 print -r -- ""
 print -r -- "git-worktree: $PASS passed, $FAIL failed"
 (( FAIL == 0 ))

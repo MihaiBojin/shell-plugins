@@ -71,7 +71,7 @@ gw — git worktree helpers
       -l, --list           print them instead, one per line: mark, branch, path
   gwa [NAME] [BASE]        add a worktree for branch NAME (based on BASE), and cd into it
       (no NAME)            pick a branch, or type a new name, with fzf
-      --fetch              also ask the remote whether NAME exists there already
+      --fetch              ask the remote whether NAME exists there already (the default)
       --no-fetch           stay offline
   gwm NEW                  rename this worktree's branch to NEW and move it to match
   gwr [PATH|QUERY]         remove a worktree whose branch is finished, and the branch
@@ -129,7 +129,7 @@ the picker degrades to a numbered list.
 gwa fix-login              # branch off the repo's default branch
 gwa fix-login release/2.x  # branch off something else
 gwa feature/oauth          # slashes are fine: .../oauth nests under .../feature
-gwa --fetch their-branch   # check the remote for the name before branching
+gwa --fetch their-branch   # check the remote for the name, whatever the config says
 gwa --no-fetch fix-login   # stay offline
 ```
 
@@ -244,15 +244,16 @@ the one result line per step.
 
 | Mode | What happens |
 |------|--------------|
-| `--no-fetch` | Nothing. Everything resolves from local refs. |
-| default | Fetches the single base branch (`git fetch origin main`), best-effort: a failure warns and falls back to your local copy. |
-| `--fetch` | The above, plus one `git ls-remote` to check whether `NAME` itself exists on the remote. |
+| `--no-fetch`, `zstyle ':git-worktree:' fetch no`, or `git config git-worktree-plugin.fetch no` | Nothing. Everything resolves from local refs. |
+| `zstyle ':git-worktree:' fetch yes` | Fetches the single base branch (`git fetch origin main`), best-effort: a failure warns and falls back to your local copy. |
+| default, or `--fetch` | The above, plus one `git ls-remote` to check whether `NAME` itself exists on the remote. |
 
-The default never checks `NAME`, so if a colleague pushed `their-branch` since
-your last fetch, plain `gwa their-branch` won't see it and will fork a *second,
-divergent* branch of that name off the base. `--fetch` is the fix: it costs one
-extra round trip, which is why it isn't the default. Make it the default with
-`zstyle ':git-worktree:' fetch always`.
+If a colleague pushed `their-branch` since your last fetch, `gwa their-branch`
+finds it and checks it out tracking `origin/their-branch`. The `ls-remote` that
+answers costs one ref-advertisement round trip, filtered server-side under
+protocol v2, so it stays cheap on a repository with many refs. `fetch yes`
+declines it, at the price of forking a *second, divergent* branch of that name
+off the base whenever the remote already had one.
 
 Nothing here runs at shell startup. The network is only ever touched by an
 explicit `gwa`.
@@ -572,14 +573,24 @@ completions, and the two git config keys.
 Add to `.zshrc` before the plugin loads (all styles are read at call time):
 
 ```zsh
-zstyle ':git-worktree:' fetch no                 # never touch the network (default: yes)
-zstyle ':git-worktree:' fetch always             # always check NAME on the remote, as if --fetch
+zstyle ':git-worktree:' fetch no                 # never touch the network
+zstyle ':git-worktree:' fetch yes                # base branch only; do not check NAME on the remote
 zstyle ':git-worktree:' remote upstream          # force a remote (default: resolved per repo, see above)
 zstyle ':git-worktree:' spinner ascii            # |/-\ instead of braille (default: braille in a UTF-8 locale)
 zstyle ':git-worktree:' spinner no               # result lines only, no animation
 ```
 
 `gwa --fetch` / `--no-fetch` override the `fetch` style for a single call.
+
+The network policy is also readable from git config, which is how the Fish
+plugin and the companion `origin` CLI see the same answer:
+
+```zsh
+git config git-worktree-plugin.fetch no          # this repository stays offline
+```
+
+The style wins where both are set, because it is how a preference is stated for
+every repository at once. The default, with neither set, is `always`.
 
 Per-repository, in git config rather than zstyle:
 

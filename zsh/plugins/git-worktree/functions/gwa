@@ -123,12 +123,12 @@ if existing=$(_gw_worktree_of_branch "$name"); then
 fi
 
 # none: stay offline. base: refresh the branch we are about to fork from.
-# full: also ask the remote whether NAME itself already exists.
+# full, the default: also ask the remote whether NAME itself already exists.
 local mode
 if [[ -n $override ]]; then
   mode=$override
 else
-  zstyle -s ':git-worktree:' fetch mode || mode=yes
+  mode=$(_gw_fetch_policy always)
 fi
 case $mode in
   no|false|off|0) mode=none ;;
@@ -171,9 +171,9 @@ if (( online )) && [[ -n $remote && $start == refs/remotes/$remote/* ]]; then
     _gw_warn "using the local copy of $start_disp"
 fi
 
-# --fetch: NAME may exist on the remote without us knowing yet. Checking costs
-# a round trip, so it is opt-in; skipping it would fork a second, divergent
-# branch of the same name off the base.
+# NAME may exist on the remote without us knowing yet. Not asking forks a
+# second, divergent branch of the same name off the base, which is worth one
+# ref-advertisement round trip; `fetch yes` is how to decline it.
 if [[ $mode == full && -n $remote ]] &&
    ! git show-ref --verify --quiet "refs/heads/$name" 2>/dev/null &&
    ! git show-ref --verify --quiet "refs/remotes/$remote/$name" 2>/dev/null; then

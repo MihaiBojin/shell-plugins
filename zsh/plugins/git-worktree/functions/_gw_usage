@@ -9,7 +9,7 @@ print -ru$fd -- "  ${_GW_CYAN}gwl${_GW_RESET} [QUERY]              pick one of t
 print -ru$fd -- "      -l, --list           print them instead, one per line: mark, branch, path"
 print -ru$fd -- "  ${_GW_CYAN}gwa${_GW_RESET} [NAME] [BASE]        add a worktree for branch NAME (based on BASE), and cd into it"
 print -ru$fd -- "      (no NAME)            pick a branch, or type a new name, with fzf"
-print -ru$fd -- "      --fetch              also ask the remote whether NAME exists there already"
+print -ru$fd -- "      --fetch              ask the remote whether NAME exists there already (the default)"
 print -ru$fd -- "      --no-fetch           stay offline"
 print -ru$fd -- "  ${_GW_CYAN}gwm${_GW_RESET} NEW                  rename this worktree's branch to NEW and move it to match"
 print -ru$fd -- "  ${_GW_CYAN}gwr${_GW_RESET} [PATH|QUERY]         remove a worktree whose branch is finished, and the branch"

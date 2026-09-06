@@ -16,7 +16,7 @@ function gw -d 'git worktree helpers: gwl, gwa, gwr'
     echo '      -l, --list           print them instead, one per line: mark, branch, path'
     echo '  gwa [NAME] [BASE]        add a worktree for branch NAME (based on BASE), and cd into it'
     echo '      (no NAME)            pick a branch, or type a new name, with fzf'
-    echo '      --fetch              also ask the remote whether NAME exists there already'
+    echo '      --fetch              ask the remote whether NAME exists there already (the default)'
     echo '      --no-fetch           stay offline'
     echo '  gwm NEW                  rename this worktree'\''s branch to NEW and move it to match'
     echo '  gwr [PATH|QUERY]         remove a worktree whose branch is finished, and the branch'
@@ -40,7 +40,8 @@ function gw -d 'git worktree helpers: gwl, gwa, gwr'
     end
     echo
     echo 'configure with global variables, e.g. in conf.d/:'
-    echo '  set -g git_worktree_fetch no|yes|always     network policy for gwa (default: yes)'
+    echo '  set -g git_worktree_fetch no|yes|always     network policy for gwa (default: always)'
+    echo '  git config git-worktree-plugin.fetch no    the same, per repository, shared with origin'
     echo '  set -g git_worktree_remote NAME             force a remote (default: resolved per repo)'
     echo '  set -g git_worktree_forge no                never ask GitHub/GitLab'
 end

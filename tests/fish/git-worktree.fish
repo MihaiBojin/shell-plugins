@@ -974,6 +974,90 @@ eq 'the preview field is a real directory on every line' 0 $bad
 set -l src (string join ' ' (cat $ROOT/functions/_gw_pick.fish))
 has 'the preview reads the last field' '{-1}' (string match -r -- "--preview='[^']*'" $src)
 
+# ------------------------------------------------------------- fetch scope
+group 'fetch scope'
+
+set -l rootf (fixture)
+set -l repof $rootf/parent/demo
+cd $repof
+
+# A branch that exists only on the remote, which is the case the default is for.
+git push -q origin main:theirs
+git branch -q -D -r origin/theirs 2>/dev/null
+set -l outf (gwa theirs 2>&1 | string collect)
+has 'the default asks the remote about NAME' "already has 'theirs'" "$outf"
+cd $repof
+eq 'and the branch tracks theirs rather than forking' origin/theirs \
+    (git -C $rootf/parent/.worktrees/theirs/demo rev-parse --abbrev-ref 'theirs@{upstream}' 2>/dev/null)
+
+# ls-remote matches the tail of a ref path, so a bare name must not be answered
+# for by a nested branch that ends with it.
+cd $repof
+git push -q origin main:feat/login
+git branch -q -D -r origin/feat/login 2>/dev/null
+set outf (gwa login 2>&1 | string collect)
+hasnt 'a nested branch does not answer for a bare name' "already has 'login'" "$outf"
+hasnt 'so nothing is fetched that is not there' 'could not fetch' "$outf"
+
+cd $repof
+_gw_remote_has_branch origin feat/login
+eq 'the probe finds the nested branch' 0 $status
+_gw_remote_has_branch origin login
+eq 'and not the bare name it ends with' 1 $status
+_gw_remote_has_branch origin main
+eq 'and still finds an ordinary one' 0 $status
+
+# `git_worktree_fetch yes` is how to decline the round trip.
+cd $repof
+git push -q origin main:mine
+git branch -q -D -r origin/mine 2>/dev/null
+begin
+    set -lx git_worktree_fetch yes
+    set outf (gwa mine 2>&1 | string collect)
+end
+hasnt 'git_worktree_fetch yes asks the remote nothing about NAME' 'already has' "$outf"
+
+cd $repof
+begin
+    set -lx git_worktree_fetch no
+    set outf (gwa offline/one 2>&1 | string collect)
+end
+hasnt 'and no stays off the network entirely' fetching "$outf"
+
+# The same answer, recorded where the Zsh plugin and the origin CLI can read
+# it too.
+cd $repof
+git config git-worktree-plugin.fetch no
+set outf (gwa keyed/one 2>&1 | string collect)
+hasnt 'git-worktree-plugin.fetch no keeps gwa offline' fetching "$outf"
+
+cd $repof
+begin
+    set -lx git_worktree_fetch always
+    set outf (gwa keyed/two 2>&1 | string collect)
+end
+has 'and git_worktree_fetch outranks the key' fetching "$outf"
+
+cd $repof
+set outf (gwr --all 2>&1 | string collect)
+hasnt 'the sweep reads the same key' fetching "$outf"
+
+cd $repof
+eq 'the policy reads the key when something says' yes (begin
+    git config git-worktree-plugin.fetch yes
+    _gw_fetch_policy always
+end)
+git config --unset git-worktree-plugin.fetch
+eq 'and falls back when nothing does' always (_gw_fetch_policy always)
+
+# A remote that cannot be reached is not an answer. The command's own error
+# text lands in $_gw_reply where its output would, so the status has to be read
+# before the output.
+cd $repof
+git remote set-url origin /no/such/remote.git
+_gw_remote_has_branch origin main
+eq 'a remote it cannot reach is not a yes' 1 $status
+
 cd /
 cleanup
 echo

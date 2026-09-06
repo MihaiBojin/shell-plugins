@@ -24,8 +24,7 @@ function gwr -d 'Remove a worktree whose branch is finished, and the branch with
         # decides what it reaps. Same policy as gwa, minus its `full` step:
         # there is no NAME to look for on the remote here, only the head
         # branch to keep current.
-        set -l mode base
-        set -q git_worktree_fetch; and set mode $git_worktree_fetch
+        set -l mode (_gw_fetch_policy yes)
         set -q _flag_fetch; and set mode always
         set -q _flag_no_fetch; and set mode no
         set -l online 1

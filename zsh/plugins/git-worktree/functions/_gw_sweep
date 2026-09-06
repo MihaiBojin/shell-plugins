@@ -60,7 +60,7 @@ local mode
 if [[ -n $override ]]; then
   mode=$override
 else
-  zstyle -s ':git-worktree:' fetch mode || mode=yes
+  mode=$(_gw_fetch_policy yes)
 fi
 integer online=1
 case $mode in
