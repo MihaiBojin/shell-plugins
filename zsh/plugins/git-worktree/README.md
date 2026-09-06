@@ -528,17 +528,18 @@ layout, same commands, same three checks for what counts as finished, same
 refusals, and the same per-repository git config keys — so the two shells agree
 about a repository without either of them writing anything the other reads.
 
-It is a reimplementation, not a translation, and about two thirds the size:
-roughly 1150 lines across 28 files against 1740 across 47. Four things account
-for most of the difference, and each is a deliberate omission rather than an
-oversight.
+It is a reimplementation, not a translation, and a little smaller: 1832 lines
+across 37 files against 2090 across 46. What is left differs in three places,
+and each is a deliberate omission rather than an oversight.
 
 | Zsh | Fish | Why |
 |---|---|---|
-| a spinner with a ten-second "still waiting" hint | one line per step, printed before it runs | the spinner is 120 lines of presentation, and Fish's commands are used the same way without it |
 | asks which remote when several are plausible, and remembers the answer | resolves the same ladder, falls back to `origin` and then to the first remote | a picker that stops to ask a second question is worse than a wrong default you can override with one config key |
-| asks which branch is the head branch, listing 25, and records the answer | says it could not work one out and prints `git remote set-head <remote> --auto` | the same reason |
+| asks which branch is the head branch, listing 25, and records the answer | climbs the same ladder and warns when the answer it reached was a guess | the same reason; only when the ladder runs out does it give up and print `git remote set-head <remote> --auto` |
 | `zstyle ':git-worktree:' …` | `set -g git_worktree_…` | Fish has no zstyle, and a global variable is what its own configuration looks like |
+
+Both shells run anything that can reach the network behind a spinner, and both
+capture its output and show it only on failure.
 
 Fish gets the same completions, in the repository-root `completions/` that
 Fisher installs: branch names where a branch is wanted, this repository's

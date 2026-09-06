@@ -39,7 +39,7 @@ function _gw_head_branch -a remote online repo -d 'The full ref this repository 
         # answer goes through a variable.
         set -l tracking (git -C $repo for-each-ref --count=1 --format='%(refname)' refs/remotes/$remote 2>/dev/null)
         if test "$online" = 1; and set -q tracking[1]
-            if git -C $repo remote set-head $remote --auto >/dev/null 2>&1
+            if _gw_run "asking $remote for its default branch" git -C $repo remote set-head $remote --auto
                 set symref (git -C $repo symbolic-ref --quiet refs/remotes/$remote/HEAD 2>/dev/null)
                 if test -n "$symref"; and git -C $repo show-ref --verify --quiet $symref
                     echo $symref

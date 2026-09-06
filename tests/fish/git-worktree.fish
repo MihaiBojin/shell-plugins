@@ -356,7 +356,7 @@ git worktree add -q $root2/parent/.worktrees/ordinary/demo ordinary 2>/dev/null
 git worktree add -q $root2/parent/.worktrees/unmerged/demo unmerged 2>/dev/null
 
 set out (echo y | gwr $root2/parent/.worktrees/ordinary/demo 2>&1)
-has 'a merged branch is removed' 'removed ordinary' "$out"
+has 'a merged branch is removed' 'removing ordinary — merged into main' "$out"
 has 'and the branch is deleted' 'deleted branch ordinary' "$out"
 has 'with the way back printed' 'restore: git branch ordinary' "$out"
 eq 'the checkout is gone' 0 (count (path filter -d $root2/parent/.worktrees/ordinary/demo 2>/dev/null))
@@ -430,7 +430,7 @@ has 'a dirty worktree is skipped' 'uncommitted changes' "$out"
 rm $root3/parent/.worktrees/squashed/demo/scratch.txt
 
 set out (gwr --all --yes 2>&1)
-has '--yes removes the finished one' 'removed squashed' "$out"
+has '--yes removes the finished one' 'removing squashed — squash-merged into main' "$out"
 eq 'and its checkout is gone' 0 (count (path filter -d $root3/parent/.worktrees/squashed/demo 2>/dev/null))
 eq 'the unfinished one stays' 1 (count (path filter -d $root3/parent/.worktrees/keeper/demo))
 if git -C $repo3 show-ref --verify --quiet refs/heads/keeper
@@ -732,6 +732,37 @@ git -C $repok config git-worktree-plugin.worktreeRoot $rootk/elsewhere
 set -g git_worktree_subdir .wt
 eq 'neither the retired git key nor a variable moves the root' "$rootk/parent/.worktrees" (_gw_wt_dir)
 set -e git_worktree_subdir
+
+# ----------------------------------------------- _gw_run captures its command
+group '_gw_run captures its command'
+
+# Anything that can reach the network runs through here, so a slow fetch looks
+# like work rather than a hang. The half that matters is the capture: git's
+# progress used to arrive in the middle of a command's own output.
+_gw_run 'a command that works' git --version
+eq 'the status is passed through' 0 $status
+has 'and the output lands in $_gw_reply' 'git version' "$_gw_reply"
+
+set -l outok (_gw_run 'quiet on success' git --version 2>&1)
+hasnt 'a success does not print what the command said' 'git version' "$outok"
+has 'it prints a result line instead' 'quiet on success' "$outok"
+
+set -l outbad (_gw_run 'a command that fails' git nosuchsubcommand 2>&1)
+set -l rcbad $status
+eq 'a failure passes its status through' 1 $rcbad
+has 'and a failure does print what the command said' 'not a git command' "$outbad"
+
+# The drift this closes: `git worktree add` reports its progress on stderr, and
+# Fish used to let it through into gwa's own output where Zsh collected it.
+set -l rootg (path resolve (mktemp -d) | string collect)
+set -ga SANDBOXES $rootg
+git init -q --initial-branch=main $rootg/parent/demo
+git -C $rootg/parent/demo commit -q --allow-empty -m base
+cd $rootg/parent/demo
+set -l outg (gwa --no-fetch feature 2>&1)
+hasnt 'gwa no longer leaks git worktree add progress' 'Preparing worktree' "$outg"
+has 'and says what it did instead' "creating 'feature'" "$outg"
+cd $rootg/parent/demo
 
 # ------------------------------------------- a newline in a path is carried whole
 group 'a newline in a path is carried whole'
