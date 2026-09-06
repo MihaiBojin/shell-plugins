@@ -1130,6 +1130,12 @@ out=$(in_repo $repo 'git config --unset git-worktree-plugin.fetch 2>/dev/null
 eq "the policy falls back when nothing says" "always" "${${(f)out}[1]}"
 eq "and reads the key when something does" "yes" "${${(f)out}[2]}"
 
+# A remote that cannot be reached is not an answer. The command's own error
+# text lands where its output would, so status has to be read before output.
+out=$(in_repo $repo 'git remote set-url origin /no/such/remote.git
+  _gw_remote_has_branch origin main; print -r -- "rc=$?"')
+has "a remote it cannot reach is not a yes" "rc=1" "$out"
+
 print -r -- ""
 print -r -- "git-worktree: $PASS passed, $FAIL failed"
 (( FAIL == 0 ))

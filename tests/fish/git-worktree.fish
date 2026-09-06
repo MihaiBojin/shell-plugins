@@ -1050,6 +1050,14 @@ end)
 git config --unset git-worktree-plugin.fetch
 eq 'and falls back when nothing does' always (_gw_fetch_policy always)
 
+# A remote that cannot be reached is not an answer. The command's own error
+# text lands in $_gw_reply where its output would, so the status has to be read
+# before the output.
+cd $repof
+git remote set-url origin /no/such/remote.git
+_gw_remote_has_branch origin main
+eq 'a remote it cannot reach is not a yes' 1 $status
+
 cd /
 cleanup
 echo
