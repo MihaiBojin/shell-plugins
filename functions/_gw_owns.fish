@@ -17,8 +17,8 @@ function _gw_owns -a candidate -d 'Does this repository own the worktree at $can
     set -l ours (git rev-parse --path-format=absolute --git-common-dir 2>/dev/null); or return 0
     test -n "$ours"; or return 0
 
-    test (path resolve $theirs) = (path resolve $ours); and return 0
+    test (path resolve $theirs | string collect) = (path resolve $ours | string collect); and return 0
 
-    set -g _gw_reply (path dirname (path resolve $theirs))
+    set -g _gw_reply (path dirname (path resolve $theirs | string collect) | string collect)
     return 1
 end

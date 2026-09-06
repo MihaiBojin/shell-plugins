@@ -1,4 +1,6 @@
-# The branch new worktrees are based on when no BASE was given.
+# The full ref new worktrees are based on when no BASE was given, e.g.
+# refs/remotes/origin/main. Full, never `origin/main`: the answer is used as a
+# revision, and a bare name is resolved as a tag first — see _gw_full_ref.
 #
 #   $1 remote   $2 may we use the network   $3 may we ask the user
 #   $4 the repository to ask (default: $PWD)
@@ -20,23 +22,23 @@ local stated
 stated=$(git -C "$repo" config --get git-worktree-plugin.headBranch 2>/dev/null) || stated=''
 if [[ -n $stated ]]; then
   if [[ -n $remote ]] && git -C "$repo" show-ref --verify --quiet "refs/remotes/$remote/$stated" 2>/dev/null; then
-    print -r -- "$remote/$stated"
+    _gw_full_ref "$remote/$stated" "$repo"
   else
-    print -r -- "$stated"
+    _gw_full_ref "$stated" "$repo"
   fi
   return 0
 fi
 
 # 1. The repository's own answer, refreshed from the server if allowed.
 if [[ -n $remote ]]; then
-  ref=$(_gw_remote_head "$remote" "$repo") && { print -r -- "$ref"; return 0 }
+  ref=$(_gw_remote_head "$remote" "$repo") && { _gw_full_ref "$ref" "$repo"; return 0 }
   # set-head can only point at a remote-tracking ref, so don't spend a round
   # trip (or print its error) when the repository has none.
   if (( online )) &&
      [[ -n $(git -C "$repo" for-each-ref --count=1 --format='%(refname)' "refs/remotes/$remote" 2>/dev/null) ]] &&
      _gw_run "asking $remote for its default branch" \
        git -C "$repo" remote set-head "$remote" --auto; then
-    ref=$(_gw_remote_head "$remote" "$repo") && { print -r -- "$ref"; return 0 }
+    ref=$(_gw_remote_head "$remote" "$repo") && { _gw_full_ref "$ref" "$repo"; return 0 }
   fi
 fi
 
@@ -52,7 +54,7 @@ fi
 (( $#candidates )) || for b in main master trunk; do
   git -C "$repo" show-ref --verify --quiet "refs/heads/$b" 2>/dev/null && candidates+=( "$b" )
 done
-(( $#candidates == 1 )) && { print -r -- ${candidates[1]}; return 0 }
+(( $#candidates == 1 )) && { _gw_full_ref "${candidates[1]}" "$repo"; return 0 }
 
 # 3. Still ambiguous. Ask rather than guess, then write the answer to
 #    <remote>/HEAD, where git itself — and every other tool — will find it.
@@ -80,7 +82,7 @@ if (( interactive )); then
      git -C "$repo" symbolic-ref "refs/remotes/$remote/HEAD" "refs/remotes/$chosen" 2>/dev/null; then
     _gw_info "recorded $remote/HEAD -> $chosen  (undo: git -C "$repo" symbolic-ref -d refs/remotes/$remote/HEAD)"
   fi
-  print -r -- "$chosen"
+  _gw_full_ref "$chosen" "$repo"
   return 0
 fi
 
@@ -88,4 +90,4 @@ fi
 (( $#candidates )) || return 1
 (( $#candidates > 1 )) && _gw_warn \
   "${remote:+$remote/HEAD is unset and }${(j:, :)candidates} all exist — guessing ${candidates[1]}${remote:+; settle it with: git -C "$repo" remote set-head ${(q)remote} --auto}"
-print -r -- ${candidates[1]}
+_gw_full_ref "${candidates[1]}" "$repo"

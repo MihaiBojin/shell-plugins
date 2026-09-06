@@ -34,7 +34,7 @@ function gwm -d "Rename this worktree's branch and move its checkout to match"
         return 2
     end
 
-    set -l main (_gw_main_worktree)
+    set -l main (_gw_main_worktree | string collect)
     if test -z "$main"
         _gw_say err 'cannot locate this repository main worktree'
         return 1
@@ -42,8 +42,8 @@ function gwm -d "Rename this worktree's branch and move its checkout to match"
 
     set -l us (printf '\x1f')
     set -l records (_gw_records | string split0)
-    set -l cwd (path resolve $PWD)
-    set -l mainr (path resolve $main)
+    set -l cwd (path resolve $PWD | string collect)
+    set -l mainr (path resolve $main | string collect)
 
     # The worktree you are standing in — found by asking which record contains
     # $PWD, rather than assuming $PWD is its root — or one you pick. The main
@@ -52,7 +52,7 @@ function gwm -d "Rename this worktree's branch and move its checkout to match"
     set -l src ''
     for record in $records
         set -l fields (string split $us -- $record)
-        set -l here (path resolve $fields[1])
+        set -l here (path resolve $fields[1] | string collect)
         test "$here" = "$mainr"; and continue
         if test "$cwd" = "$here"; or string match --quiet -- "$here/*" $cwd
             set src $fields[1]
@@ -67,7 +67,7 @@ function gwm -d "Rename this worktree's branch and move its checkout to match"
         _gw_pick 'move>' ''; or return 1
         set src $_gw_reply
     end
-    if test (path resolve $src) = "$mainr"
+    if test (path resolve $src | string collect) = "$mainr"
         _gw_say err "refusing to move the main worktree: $src"
         return 1
     end
@@ -77,7 +77,7 @@ function gwm -d "Rename this worktree's branch and move its checkout to match"
     set -l flags ''
     for record in $records
         set -l fields (string split $us -- $record)
-        test (path resolve $fields[1]) = (path resolve $src); or continue
+        test (path resolve $fields[1] | string collect) = (path resolve $src | string collect); or continue
         set branch $fields[3]
         set flags $fields[4]
         break
@@ -101,7 +101,7 @@ function gwm -d "Rename this worktree's branch and move its checkout to match"
         return 1
     end
 
-    set -l dest (_gw_dest $new)
+    set -l dest (_gw_dest $new | string collect)
     if test -z "$dest"
         _gw_say err "cannot work out where $new would go"
         return 1
@@ -113,9 +113,9 @@ function gwm -d "Rename this worktree's branch and move its checkout to match"
         _gw_say err "$dest already exists"
         return 1
     end
-    set -l up (path dirname $dest)
+    set -l up (path dirname $dest | string collect)
     while not test -e "$up"; and string match --quiet '*/*' -- $up
-        set up (path dirname $up)
+        set up (path dirname $up | string collect)
     end
     if test -e "$up/.git"; and not _gw_owns $up
         _gw_say err "$up is a worktree of $_gw_reply — '$new' would nest inside it"
@@ -144,13 +144,13 @@ function gwm -d "Rename this worktree's branch and move its checkout to match"
         return 1
     end
 
-    if not mkdir -p (path dirname $dest)
-        _gw_say err "could not create "(path dirname $dest)
+    if not mkdir -p (path dirname $dest | string collect)
+        _gw_say err "could not create "(path dirname $dest | string collect)
         _gw_say warn "the branch is now $new; its worktree is still at $src"
         return 1
     end
 
-    _gw_say info "moving "(path basename $src)
+    _gw_say info "moving "(path basename $src | string collect)
     if not git -C $main worktree move $src $dest
         _gw_say err "the branch is now $new; its worktree is still at $src"
         echo "  finish it with: git -C $main worktree move $src $dest" >&2
@@ -160,7 +160,7 @@ function gwm -d "Rename this worktree's branch and move its checkout to match"
     _gw_prune_upto $src $main
 
     # Follow it, if that is where we were standing.
-    if test "$cwd" = (path resolve $src); or string match --quiet -- (path resolve $src)"/*" $cwd
+    if test "$cwd" = (path resolve $src | string collect); or string match --quiet -- (path resolve $src | string collect)"/*" $cwd
         cd $dest
     end
     _gw_say info "$new is at $dest"

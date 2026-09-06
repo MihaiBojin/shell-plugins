@@ -8,7 +8,7 @@ function _gw_forge_state -a branch repo -d 'What the forge says about the reques
     test -n "$repo"; or set repo $PWD
     set -g _gw_reply ''
 
-    set -l key (path resolve $repo)
+    set -l key (path resolve $repo | string collect)
     if not set -q _gw_forge_cache_key; or test "$_gw_forge_cache_key" != "$key"
         set -g _gw_forge_cache_key $key
         set -g _gw_forge_cache

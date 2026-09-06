@@ -38,11 +38,16 @@ if (( sweep )); then
 fi
 
 local -a force pos
-integer use_forge=1 forced=0
+integer use_forge=1 forced=0 delete_ignored=0
 while (( $# )); do
   case $1 in
     -h|--help)        _gw_usage; return 0 ;;
     -f|--force)       forced=1; force=( --force ); shift ;;
+    # Its own flag, not part of --force. --force permits removing a checkout
+    # whose branch is unfinished, which is recoverable — the branch stays and
+    # `gwa NAME` brings the checkout back. This permits deleting files no ref
+    # has ever pointed at, which nothing brings back.
+    --delete-ignored) delete_ignored=1; shift ;;
     --no-forge)       use_forge=0; shift ;;
     --)               shift; pos+=( "$@" ); break ;;
     -*)               _gw_err "unknown option: $1"; return 2 ;;
@@ -113,8 +118,11 @@ if [[ -z $reason ]]; then
     if [[ -z $head_ref ]]; then
       reason='there is no head branch to compare it against'
     else
-      head_name=$head_ref
-      [[ -n $remote && $head_ref == $remote/* ]] && head_name=${head_ref#$remote/}
+      # The ref is what the merge questions are asked about; the name is what
+      # the messages say and what "is it the head branch?" compares against.
+      head_name=${head_ref#refs/remotes/}
+      head_name=${head_name#refs/heads/}
+      [[ -n $remote && $head_name == $remote/* ]] && head_name=${head_name#$remote/}
       if (( use_forge )); then
         local kind
         if kind=$(_gw_forge_kind "$remote" "$main"); then
@@ -168,6 +176,31 @@ if (( forced )) && gitdir=$(git -C "$dest" rev-parse --absolute-git-dir 2>/dev/n
   return 1
 fi
 
+# Gitignored files are the one loss nothing here can undo. `git worktree
+# remove` deletes them without --force and without a word, and every refusal
+# above read this checkout as clean because `git status --porcelain` does not
+# report them. So they are listed before the question, and the question is
+# asked even when everything else about the removal is routine.
+local -a ignored
+local ign_word ign_them p
+integer n_ignored=0
+if (( ! delete_ignored )); then
+  ignored=( ${(f)"$(_gw_ignored_paths "$dest")"} )
+  n_ignored=$#ignored
+fi
+ign_word="ignored paths"; ign_them=them
+(( n_ignored == 1 )) && { ign_word="ignored path"; ign_them=it }
+
+# No terminal is not a licence to guess. --yes would not answer this either:
+# it means "do not ask about anything git could put back", and this is the one
+# thing it could not.
+if (( n_ignored )) && [[ ! -t 0 ]]; then
+  _gw_err "not removing $dest — it holds $n_ignored $ign_word and there is no terminal to ask on"
+  for p in $ignored; do print -ru2 -- "      $p"; done
+  print -ru2 -- "  ${_GW_DIM}nothing tracks ${ign_them} and nothing restores ${ign_them}; pass --delete-ignored if you mean it${_GW_RESET}"
+  return 1
+fi
+
 print -ru2 -- "Remove worktree ${_GW_BOLD}${dest}${_GW_RESET}"
 if (( delete_branch )); then
   print -ru2 -- "  branch ${_GW_CYAN}${branch}${_GW_RESET} — ${why}; ${_GW_BOLD}it will be deleted${_GW_RESET}"
@@ -176,10 +209,16 @@ elif [[ -n $branch ]]; then
 fi
 (( forced )) && [[ -n $reason ]] &&
   print -ru2 -- "  ${_GW_RED}--force: removing it anyway${_GW_RESET}"
-
+if (( n_ignored )); then
+  print -ru2 -- "  ${_GW_RED}${n_ignored} ${ign_word}${_GW_RESET} — nothing tracks ${ign_them}, and nothing restores ${ign_them}:"
+  for p in $ignored; do print -ru2 -- "      $p"; done
+fi
 
 local rc=0
-if _gw_confirm "Proceed?"; then
+local question="Proceed?"
+(( n_ignored )) &&
+  question="Delete ${n_ignored} ${ign_word} along with the worktree?"
+if _gw_confirm "$question"; then
   # Step out before deleting the directory we may be standing in.
   local cwd=${PWD:A}
   [[ $cwd == ${dest:A} || $cwd == ${dest:A}/* ]] && cd -- "$main"

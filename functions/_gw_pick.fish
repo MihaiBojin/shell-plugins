@@ -13,7 +13,7 @@ function _gw_pick -a prompt query -d 'Pick one of the worktrees here, leaving it
 
     set -l lines
     set -l paths
-    set -l cwd (path resolve $PWD)
+    set -l cwd (path resolve $PWD | string collect)
     for record in $records
         set -l fields (string split $us -- $record)
         set -l wt $fields[1]
@@ -28,7 +28,7 @@ function _gw_pick -a prompt query -d 'Pick one of the worktrees here, leaving it
                 set branch '?'
             end
         end
-        set -l here (path resolve $wt)
+        set -l here (path resolve $wt | string collect)
         set -l mark ' '
         if test "$cwd" = "$here"; or string match --quiet -- "$here/*" $cwd
             set mark '*'

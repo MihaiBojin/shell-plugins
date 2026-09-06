@@ -28,7 +28,7 @@ function _gw_records -a dir -d 'Every worktree of this repository, NUL-separated
         test -n "$wt"; or return 0
         # A worktree listed twice under different spellings of the same
         # directory is still one worktree.
-        set -l key (path resolve $wt)
+        set -l key (path resolve $wt | string collect)
         contains -- $key $seen; and return 0
         set -a seen $key
         # Concatenated rather than joined through a command substitution: a

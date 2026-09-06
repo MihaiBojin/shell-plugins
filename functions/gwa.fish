@@ -31,12 +31,12 @@ function gwa -d 'Add a worktree for a branch beside the repository, and cd into 
         return 2
     end
 
-    set -l dest (_gw_dest $name)
+    set -l dest (_gw_dest $name | string collect)
     if test -z "$dest"
         _gw_say err 'cannot locate this repository main worktree'
         return 1
     end
-    set -l wtdir (_gw_wt_dir)
+    set -l wtdir (_gw_wt_dir | string collect)
     set -l remote (_gw_remote)
 
     # Is this directory already spoken for, and by whom? Three positions of the
@@ -56,7 +56,7 @@ function gwa -d 'Add a worktree for a branch beside the repository, and cd into 
         set -l occupant ''
         for record in (_gw_records | string split0)
             set -l fields (string split (printf '\x1f') -- $record)
-            test (path resolve $fields[1]) = (path resolve $dest); or continue
+            test (path resolve $fields[1] | string collect) = (path resolve $dest | string collect); or continue
             set occupant $fields[3]
             break
         end
@@ -74,14 +74,14 @@ function gwa -d 'Add a worktree for a branch beside the repository, and cd into 
     # <root>/fix/login, which is exactly where branch `fix/login` puts its
     # repositories. Neither can have it, and git's own message for either
     # collision says only "already exists".
-    set -l ancestor (path dirname $dest)
+    set -l ancestor (path dirname $dest | string collect)
     while test -n "$wtdir"; and string match --quiet -- "$wtdir/*" $ancestor
         if test -e "$ancestor/.git"
             if _gw_owns $ancestor
                 set -l owner ''
                 for record in (_gw_records | string split0)
                     set -l fields (string split (printf '\x1f') -- $record)
-                    test (path resolve $fields[1]) = (path resolve $ancestor); or continue
+                    test (path resolve $fields[1] | string collect) = (path resolve $ancestor | string collect); or continue
                     set owner $fields[3]
                     break
                 end
@@ -96,7 +96,7 @@ function gwa -d 'Add a worktree for a branch beside the repository, and cd into 
             _gw_say err 'pick a branch name that is not a prefix of it, or move that worktree'
             return 1
         end
-        set ancestor (path dirname $ancestor)
+        set ancestor (path dirname $ancestor | string collect)
     end
 
     if test -d "$dest"
@@ -139,13 +139,15 @@ function gwa -d 'Add a worktree for a branch beside the repository, and cd into 
     set -l start
     if test -n "$base"
         if test -n "$remote"; and git show-ref --verify --quiet refs/remotes/$remote/$base
-            set start $remote/$base
+            set start refs/remotes/$remote/$base
         else if git rev-parse --verify --quiet $base^{commit} >/dev/null
+            # An explicit BASE is whatever the person named — a tag here is
+            # deliberate.
             set start $base
         else if test "$online" = 1; and test -n "$remote"
             _gw_say info "fetching $remote/$base"
             if git fetch --quiet $remote $base
-                set start $remote/$base
+                set start refs/remotes/$remote/$base
                 git show-ref --verify --quiet refs/remotes/$remote/$base; or set start FETCH_HEAD
             else
                 _gw_say err "unknown base: $base"
@@ -164,10 +166,13 @@ function gwa -d 'Add a worktree for a branch beside the repository, and cd into 
         end
     end
 
-    if test "$online" = 1; and test -n "$remote"; and string match --quiet -- "$remote/*" $start
-        _gw_say info "fetching $start"
-        git fetch --quiet $remote (string replace "$remote/" '' -- $start)
-        or _gw_say warn "using the local copy of $start"
+    # refs/remotes/origin/main is what git is handed; origin/main is what is said.
+    set -l start_disp (string replace -r '^refs/(remotes|heads)/' '' -- $start)
+
+    if test "$online" = 1; and test -n "$remote"; and string match --quiet -- "refs/remotes/$remote/*" $start
+        _gw_say info "fetching $start_disp"
+        git fetch --quiet $remote (string replace -- "refs/remotes/$remote/" '' $start)
+        or _gw_say warn "using the local copy of $start_disp"
     end
 
     # --fetch: NAME may exist on the remote without us knowing yet. Checking
@@ -186,11 +191,11 @@ function gwa -d 'Add a worktree for a branch beside the repository, and cd into 
 
     # A .worktrees/ beside the repo is untracked junk if the parent is itself
     # inside a working tree, and `git clean -xdff` there would delete it.
-    if not test -d "$wtdir"; and git -C (path dirname $wtdir) rev-parse --is-inside-work-tree >/dev/null 2>&1
-        _gw_say warn (path dirname $wtdir)" is inside a git working tree — add "(path basename $wtdir)"/ to its .gitignore"
+    if not test -d "$wtdir"; and git -C (path dirname $wtdir | string collect) rev-parse --is-inside-work-tree >/dev/null 2>&1
+        _gw_say warn (path dirname $wtdir | string collect)" is inside a git working tree — add "(path basename $wtdir | string collect)"/ to its .gitignore"
     end
 
-    mkdir -p (path dirname $dest); or return 1
+    mkdir -p (path dirname $dest | string collect); or return 1
 
     set -l label
     set -l add
@@ -201,13 +206,13 @@ function gwa -d 'Add a worktree for a branch beside the repository, and cd into 
         set label "checking out '$name' tracking $remote/$name"
         set add git worktree add --track -b $name $dest $remote/$name
     else
-        set label "creating '$name' from $start"
+        set label "creating '$name' from $start_disp"
         set add git worktree add --no-track -b $name $dest $start
     end
 
     _gw_say info $label
     if not $add
-        _gw_prune_upto $dest (_gw_main_worktree)
+        _gw_prune_upto $dest (_gw_main_worktree | string collect)
         return 1
     end
     _gw_say info $dest

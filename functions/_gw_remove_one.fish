@@ -1,7 +1,7 @@
 function _gw_remove_one -a wt branch why -d 'Remove worktree $wt and delete its finished branch'
     # Order matters: the worktree goes first, because git will not delete a
     # branch that is checked out somewhere.
-    set -l main (_gw_main_worktree $wt); or set main (_gw_main_worktree)
+    set -l main (_gw_main_worktree $wt | string collect); or set main (_gw_main_worktree | string collect)
     if test -z "$main"
         _gw_say err "cannot locate the main worktree for $wt"
         return 1

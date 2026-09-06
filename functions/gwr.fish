@@ -1,5 +1,5 @@
 function gwr -d 'Remove a worktree whose branch is finished, and the branch with it'
-    argparse --name=gw h/help f/force no-forge fetch no-fetch n/dry-run all y/yes 'branch=' -- $argv
+    argparse --name=gw h/help f/force delete-ignored no-forge fetch no-fetch n/dry-run all y/yes 'branch=' -- $argv
     or return 2
     if set -q _flag_help
         gw >&2
@@ -51,7 +51,10 @@ function gwr -d 'Remove a worktree whose branch is finished, and the branch with
         set -q _flag_yes; and set go 1
         set -q _flag_dry_run; and set go 0
 
-        _gw_sweep $go $use_forge "$_flag_branch" $online
+        set -l delete_ignored 0
+        set -q _flag_delete_ignored; and set delete_ignored 1
+
+        _gw_sweep $go $use_forge "$_flag_branch" $online $delete_ignored
         return $status
     end
 
@@ -77,7 +80,7 @@ function gwr -d 'Remove a worktree whose branch is finished, and the branch with
     # not standing in.
     set -l wt
     if test -n "$argv[1]" -a -d "$argv[1]"
-        set wt (path resolve $argv[1])
+        set wt (path resolve $argv[1] | string collect)
     else
         if not git rev-parse --git-dir >/dev/null 2>&1
             _gw_say err 'not inside a git repository'
@@ -87,7 +90,7 @@ function gwr -d 'Remove a worktree whose branch is finished, and the branch with
         set wt $_gw_reply
     end
 
-    set -l main (_gw_main_worktree $wt)
+    set -l main (_gw_main_worktree $wt | string collect)
     if test -z "$main"
         _gw_say err "not a git worktree: $wt"
         return 1
@@ -96,7 +99,7 @@ function gwr -d 'Remove a worktree whose branch is finished, and the branch with
     # Before anything --force could reach: git cannot remove a main worktree at
     # all, so offering a way to force past this would be offering something
     # that does not exist.
-    if test (path resolve $wt) = (path resolve $main)
+    if test (path resolve $wt | string collect) = (path resolve $main | string collect)
         _gw_say err "refusing to remove the main worktree: $wt"
         return 1
     end
@@ -108,17 +111,24 @@ function gwr -d 'Remove a worktree whose branch is finished, and the branch with
     set -l us (printf '\x1f')
     for record in (_gw_records $wt | string split0)
         set -l fields (string split $us -- $record)
-        test (path resolve $fields[1]) = "$wt"; or continue
+        test (path resolve $fields[1] | string collect) = "$wt"; or continue
         set branch $fields[3]
         set flags $fields[4]
         break
     end
 
     set -l remote (_gw_remote $main)
+    # The ref is what every merge question is asked about; the name is what the
+    # messages say and what "is it the head branch?" compares against. The
+    # remote is stripped literally, not as a regex: a remote may be named with
+    # characters a regex reads as operators.
     set -l head_ref (_gw_head_branch "$remote" 0 $main)
-    set -l head_name (string replace -r "^$remote/" '' -- "$head_ref")
+    set -l head_name (string replace -r '^refs/(remotes|heads)/' '' -- "$head_ref")
+    if test -n "$remote"; and string match --quiet -- "$remote/*" "$head_name"
+        set head_name (string replace -- "$remote/" '' "$head_name")
+    end
 
-    _gw_clean_refusal $wt "$branch" "$flags" (path resolve $PWD) $main "$head_name"
+    _gw_clean_refusal $wt "$branch" "$flags" (path resolve $PWD | string collect) $main "$head_name"
     set -l refusal $_gw_reply
 
     # Locked is never worked around: you locked it deliberately, and git itself
@@ -133,6 +143,35 @@ function gwr -d 'Remove a worktree whose branch is finished, and the branch with
         echo "  it $refusal" >&2
         echo "  remove it anyway with:" >&2
         echo "    gwr --force $wt   (the branch is kept)" >&2
+        return 1
+    end
+
+    # Gitignored files are the one loss nothing here can undo. `git worktree
+    # remove` deletes them without --force and without a word, and every
+    # refusal above read this checkout as clean because `git status
+    # --porcelain` does not report them. So they get their own flag, their own
+    # listing and their own question.
+    set -l delete_ignored 0
+    set -q _flag_delete_ignored; and set delete_ignored 1
+    set -l ignored
+    test $delete_ignored = 0; and set ignored (_gw_ignored_paths $wt)
+    set -l n_ignored (count $ignored)
+    set -l ign_word 'ignored paths'
+    set -l ign_them them
+    if test $n_ignored -eq 1
+        set ign_word 'ignored path'
+        set ign_them it
+    end
+
+    # No terminal is not a licence to guess. --yes would not answer this
+    # either: it means "do not stop to ask about anything git could put back",
+    # and this is the one thing it could not.
+    if test $n_ignored -gt 0; and not isatty stdin
+        _gw_say err "not removing $wt — it holds $n_ignored $ign_word and there is no terminal to ask on"
+        for p in $ignored
+            echo "      $p" >&2
+        end
+        _gw_say err "  nothing tracks $ign_them and nothing restores $ign_them; pass --delete-ignored if you mean it"
         return 1
     end
 
@@ -157,13 +196,25 @@ function gwr -d 'Remove a worktree whose branch is finished, and the branch with
         # git refuses to remove a main worktree anyway, for a better reason
         # than this one would give.
         set -l gitdir ''
-        test (path resolve $wt) != (path resolve $main)
-        and set gitdir (git -C $wt rev-parse --absolute-git-dir 2>/dev/null)
+        test (path resolve $wt | string collect) != (path resolve $main | string collect)
+        and set gitdir (git -C $wt rev-parse --absolute-git-dir 2>/dev/null | string collect)
         if test -n "$gitdir"; and test -d "$gitdir/modules"
             _gw_say err "$wt holds submodule git directories — --force would delete them with it"
             echo "  push the submodules' commits somewhere first, then:" >&2
             echo "    git -C $main worktree remove --force $wt" >&2
             return 1
+        end
+
+        if test $n_ignored -gt 0
+            echo "  $n_ignored $ign_word — nothing tracks $ign_them, and nothing restores $ign_them:" >&2
+            for p in $ignored
+                echo "      $p" >&2
+            end
+            read --local --prompt-str="Delete those $n_ignored $ign_word along with the worktree? [y/N] " ianswer
+            if not string match --quiet --regex '^[Yy]' -- "$ianswer"
+                _gw_say info 'left alone'
+                return 1
+            end
         end
 
         set -l out (git -C $main worktree remove --force $wt 2>&1)
@@ -194,7 +245,15 @@ function gwr -d 'Remove a worktree whose branch is finished, and the branch with
 
     echo "Remove worktree $wt" >&2
     echo "  branch $branch — $why; it will be deleted" >&2
-    read --local --prompt-str='Proceed? [y/N] ' answer
+    set -l question 'Proceed? [y/N] '
+    if test $n_ignored -gt 0
+        echo "  $n_ignored $ign_word — nothing tracks $ign_them, and nothing restores $ign_them:" >&2
+        for p in $ignored
+            echo "      $p" >&2
+        end
+        set question "Delete those $n_ignored $ign_word along with the worktree? [y/N] "
+    end
+    read --local --prompt-str=$question answer
     if not string match --quiet --regex '^[Yy]' -- "$answer"
         _gw_say info 'left alone'
         return 1
