@@ -81,7 +81,7 @@ function gwr -d 'Remove a worktree whose branch is finished, and the branch with
         set head_name (string replace -- "$remote/" '' "$head_name")
     end
 
-    _gw_clean_refusal $wt "$branch" "$flags" (path resolve $PWD | string collect) $main "$head_name"
+    _gw_clean_refusal $wt "$branch" "$flags" $main "$head_name"
     set -l refusal $_gw_reply
 
     # Locked is never worked around: you locked it deliberately, and git itself
@@ -181,6 +181,11 @@ function gwr -d 'Remove a worktree whose branch is finished, and the branch with
             return 1
         end
 
+        # Step out before deleting the directory we may be standing in. After
+        # the confirmation, never before it: answering no should leave you
+        # where you were.
+        _gw_step_out $wt $main
+
         if not _gw_run "removing $wt" git -C $main worktree remove --force $wt
             return 1
         end
@@ -221,6 +226,7 @@ function gwr -d 'Remove a worktree whose branch is finished, and the branch with
         return 1
     end
 
+    _gw_step_out $wt $main
     _gw_remove_one $wt "$branch" "$why"
     set -l rc $status
     _gw_suggest_prune $main

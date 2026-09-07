@@ -409,6 +409,24 @@ echo y | _gw_confirm 'q?'
 eq 'and takes yes' 0 $status
 echo n | _gw_confirm 'q?'
 eq 'and no' 1 $status
+# --------------------------------------- gwr steps out of what it is removing
+group 'gwr steps out of what it is removing'
+
+# Standing inside the worktree you are removing used to be a refusal in Fish and
+# a step-out in Zsh. It is a step-out in both now: the directory goes, and the
+# shell is left in the main worktree rather than in a path that no longer exists.
+set -l roots (fixture_full)
+set -l repos $roots/parent/demo
+set -l wts $roots/parent/.worktrees/squashed/demo
+
+cd $wts
+set out (echo y | gwr --no-forge $wts 2>&1 | string collect)
+has 'it removes the one you are standing in' 'removing squashed' "$out"
+hasnt 'rather than refusing' 'standing in' "$out"
+eq 'and the checkout is gone' 0 (count (path filter -d $wts 2>/dev/null))
+eq 'and you are left in the main worktree' (path resolve $repos | string collect) (path resolve $PWD | string collect)
+
+cd $repos
 
 # ------------------------------------------------------------- the sweep is gone
 group 'the sweep is gone'
