@@ -40,8 +40,8 @@ directory: branch `fix` in a repository called `login` occupies
 The path is derived from the **main checkout**, so it is the same whether you
 run a command from the repository or from inside one of its worktrees.
 
-`gwl` and `gwr --all` operate on the repository you are standing in, and error
-out when there isn't one; there is no cross-repository listing. `gwr` given an
+`gwl` operates on the repository you are standing in, and errors out when
+there isn't one; there is no cross-repository listing. `gwr` given an
 explicit path works on whichever repository that path belongs to, and asks
 every question — which remote, which head branch, is this branch finished — of
 *that* repository rather than of the shell's.
@@ -59,7 +59,6 @@ this repository — see [The Fish commands](#the-fish-commands) for what differs
 | `gwa NAME [BASE]` | Create a worktree on branch `NAME`, based on `BASE`, and `cd` into it |
 | `gwa` | Pick a branch to make one for — including one that only exists on the remote |
 | `gwr [PATH\|QUERY]` | Remove a worktree whose branch is finished, and the branch with it |
-| `gwr --all [--yes]` | The same, to every finished worktree at once |
 | `gwm NEW` | Rename this worktree's branch to `NEW` and move its checkout to match |
 
 ### `gw` / `gwh` — help
@@ -77,12 +76,6 @@ gw — git worktree helpers
   gwr [PATH|QUERY]         remove a worktree whose branch is finished, and the branch
       -f, --force          remove it even when it is not; the branch is kept
       --no-forge           decide from git alone; never ask GitHub/GitLab
-      --all                do it to every finished worktree; a dry run without --yes
-        -y, --yes          go through with it
-        -n, --dry-run      say what would go and stop; wins over --yes
-        --branch NAME      consider only this branch
-        --fetch            refresh the head branch first (the default)
-        --no-fetch         decide offline: no fetch, and no forge either
   gw,  gwh                 this help
 
 worktrees live beside their repository, at
@@ -347,8 +340,8 @@ gwr ~/.worktrees/fix-login/repo
 gwr --force <path>         # remove it even when it is not finished
 ```
 
-One worktree you named, or with `--all` every one that qualifies: same
-predicate, same refusals either way.
+One worktree, named or picked. `origin prune` asks the same question of every
+worktree at once, with the same predicate and the same refusals.
 
 | State | Worktree | Branch |
 |---|---|---|
@@ -380,7 +373,7 @@ Proceed? [y/N] y
 gw: deleted branch fix-login (squash-merged into main)
 ```
 
-**`--force` never deletes a branch**, here or in `gwr --all`. It overrides the
+**`--force` never deletes a branch.** It overrides the
 refusal to remove a *checkout*, which is recoverable — the branch still exists
 and `gwa NAME` brings the worktree back.
 
@@ -434,84 +427,21 @@ proceed. If it cannot work one out, the worktree is refused and it says so. The
 forge check does reach the network; `--no-forge`, or
 `zstyle ':git-worktree:' forge no`, turns it off.
 
-### `gwr --all` — sweep up what is finished
+### Sweeping up what is finished
 
-```zsh
-gwr --all                      # say what would go, and what would not, and why
-gwr --all --yes                # go through with it
-gwr --all --branch fix-login   # consider that one branch and no other
-gwr --all --no-forge           # decide from git alone, but still refresh the head branch
-gwr --all --no-fetch           # touch nothing at all: no fetch, and no forge either
-```
+`gwr --all` is gone. `origin prune` fetches with `--prune`, prunes git's own
+worktree bookkeeping, and then says which worktrees are finished and why, on the
+same evidence a single `gwr` uses. It reports and stops; `--yes` is what makes it
+act.
 
-Same predicate and same refusals as a plain `gwr`; the difference is that
-nothing stops to ask about each worktree. So it does nothing until asked twice:
-the plain run is a dry run, and the dry run is the confirmation.
-
-```
-  skip         main — is the worktree you are standing in
-  skip         dirty — has uncommitted changes
-  would remove ordinary — merged into main
-  would remove squashed — squash-merged into main
-  skip         unmerged — not merged into main
-gw: 2 to remove, 3 left alone — re-run with --yes to do it
-```
-
-Every line has a reason, including the ones that stay.
-
-#### What counts as finished
-
-Three checks, in order. Any one of them qualifies a branch:
-
-1. **git can see the merge** — `git merge-base --is-ancestor`. The ordinary case.
-2. **The change is already upstream, though git cannot see it.** A squash
-   rewrites a branch's commits into one, so git sees a branch whose commits
-   appear nowhere in the head branch — the same shape as a branch nobody ever
-   merged. Reaping on that reading loses work; refusing on it means never
-   reaping anything. So the question changes: replay the branch's tree as a
-   single commit on the merge base, and let `git cherry` say whether that patch
-   is upstream. It compares content, which is what a squash preserves. A branch
-   whose tree already *is* the head branch's tree short-circuits to yes.
-3. **The forge says so** — a pull or merge request in state `MERGED` or
-   `CLOSED`. One `gh`/`glab` call for the whole repository, never one per
-   branch, and skipped entirely without the CLI, without authentication, or
-   under `--no-forge`. A branch qualified only this way is still kept if it has
-   commits its upstream has not got — a merged request says nothing about work
-   pushed after it — or if it has no upstream at all, which is the normal state
-   for a branch `gwa` made, since those are created with `--no-track`.
-
-Everything but the third works offline. Nothing here asks a language model
-anything — the judgement is these three checks and the refusals below.
-
-#### What it refuses
-
-Skipped, with the reason printed, and never worked around:
-
-| Refusal | Why |
-|---|---|
-| the worktree you are standing in | removing the ground under your feet |
-| the main worktree | it is the repository |
-| a detached HEAD | there is no branch to be finished |
-| the head branch itself | `main` is not rubbish |
-| a locked worktree | you locked it on purpose |
-| uncommitted changes | including a file you never `git add`ed |
-| a stash parked on the branch | `git stash list` still names it |
-| unpushed commits, when only the forge qualified it | see check 3 |
-| no upstream at all, when only the forge qualified it | a request cannot speak for commits nothing was pushed to |
-
-The uncommitted check is `git status --porcelain`, which counts untracked
-files and ignores gitignored ones — exactly the set that makes `git worktree
-remove` refuse. So there is no `--force` for the removal itself, and a file you
-forgot to add protects the whole worktree. `gwr --force` is the deliberate way
-past that.
+Typing any of the sweep's old flags at `gwr` — `--all`, `-y`, `-n`, `--branch`,
+`--fetch`, `--no-fetch` — is refused by name and points there.
 
 #### Deleting the branch
 
-`--all` takes no `--force`: it never removes a checkout that is not finished, and
-deleting a branch it *has* proved finished needs no permission beyond the
-`--yes` that started the run. `git branch -d` refuses a squash-merged branch,
-so `-D` follows it — reached only after check 2 proved the change is upstream,
-never for a branch that failed the checks.
+`git branch -d` refuses a squash-merged branch, so `-D` follows it — reached
+only after check 2 proved the change is upstream, never for a branch that failed
+the checks.
 
 Every deletion prints the command that puts the branch back:
 
@@ -565,8 +495,7 @@ on a fixture with one worktree per way a branch can be unfinished — the same
 shape the Zsh suite builds, so the two can be read line for line. It covers the
 layout, both collision refusals, all three finished-checks including the forge,
 every refusal (standing-in, main, detached, dirty, untracked, stashed, locked,
-submodule), `gwm`, `--force`, the sweep's fetch, both halves of `gwr --all`, the
-completions, and the two git config keys.
+submodule), `gwm`, `--force`, the completions, and the two git config keys.
 
 ## Configuration
 
@@ -662,8 +591,8 @@ which is also how to migrate worktrees created under an older layout.
   any machine that has git. Verified: the whole `gwa` → `gwl` → `gwr` cycle
   runs with nothing else on `$PATH`.
 - `fzf` is optional. Without it the pickers fall back to numbered lists.
-- `gh` or `glab` is optional, and only `gwr --all` and `gwr` use it. Without one,
-  both fall back to the two checks that need no network.
+- `gh` or `glab` is optional, and only `gwr` uses it. Without one, it falls back
+  to the two checks that need no network.
 - `sleep` only if `zsh/zselect` is unavailable, which it normally is not.
 - No platform assumptions — nothing here is macOS- or Homebrew-specific.
 

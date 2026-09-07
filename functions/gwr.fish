@@ -12,59 +12,13 @@ function gwr -d 'Remove a worktree whose branch is finished, and the branch with
         contains -- "$git_worktree_forge" no false off 0; and set use_forge 0
     end
 
-    if set -q _flag_all
-        if set -q _flag_force
-            # --all never removes a checkout that is not finished, so there is
-            # nothing for --force to override.
-            _gw_say err '--all takes no --force'
-            return 2
-        end
-
-        # The sweep decides against the head branch, so how fresh that is
-        # decides what it reaps. Same policy as gwa, minus its `full` step:
-        # there is no NAME to look for on the remote here, only the head
-        # branch to keep current.
-        set -l mode (_gw_fetch_policy yes)
-        set -q _flag_fetch; and set mode always
-        set -q _flag_no_fetch; and set mode no
-        set -l online 1
-        contains -- "$mode" no false off 0; and set online 0
-
-        # Offline means offline. The forge is the one check that needs the
-        # network, so --no-fetch turning off the fetch but leaving a call to
-        # GitHub behind would be a promise half kept.
-        test "$online" = 0; and set use_forge 0
-
-        # A branch name here is the mistake the flag exists for, and sweeping
-        # every finished worktree is much more than the person asking for one
-        # of them wanted.
-        if set -q argv[1]
-            _gw_say err "gwr --all takes no positional arguments — did you mean: gwr --all --branch $argv[1]"
-            return 2
-        end
-
-        # --dry-run wins over --yes whichever order they arrive in: between two
-        # flags that contradict each other, the one that removes nothing is the
-        # one to obey.
-        set -l go 0
-        set -q _flag_yes; and set go 1
-        set -q _flag_dry_run; and set go 0
-
-        set -l delete_ignored 0
-        set -q _flag_delete_ignored; and set delete_ignored 1
-
-        _gw_sweep $go $use_forge "$_flag_branch" $online $delete_ignored
-        return $status
-    end
-
-    # Every flag that belongs to the sweep, refused here rather than accepted
-    # and ignored. The single form never fetches — it resolves the head branch
-    # offline — and it asks about the one worktree it was given, so none of
-    # these would do anything. The forge check is the one thing that reaches
-    # the network, and --no-forge is what turns it off.
-    for flag in fetch no-fetch dry-run yes branch
+    # The sweep left, and its flags are named here rather than left to fall
+    # into a generic parse error. The single form never fetches — it resolves
+    # the head branch offline — and it asks about the one worktree it was
+    # given, so none of these would have done anything here anyway.
+    for flag in all fetch no-fetch dry-run branch
         if set -q _flag_(string replace -a -- - _ $flag)
-            _gw_say err "--$flag belongs to gwr --all"
+            _gw_say err "--$flag belonged to the sweep; that is 'origin prune' now"
             return 2
         end
     end
@@ -127,7 +81,7 @@ function gwr -d 'Remove a worktree whose branch is finished, and the branch with
         set head_name (string replace -- "$remote/" '' "$head_name")
     end
 
-    _gw_clean_refusal $wt "$branch" "$flags" (path resolve $PWD | string collect) $main "$head_name"
+    _gw_clean_refusal $wt "$branch" "$flags" $main "$head_name"
     set -l refusal $_gw_reply
 
     # Locked is never worked around: you locked it deliberately, and git itself
@@ -227,6 +181,11 @@ function gwr -d 'Remove a worktree whose branch is finished, and the branch with
             return 1
         end
 
+        # Step out before deleting the directory we may be standing in. After
+        # the confirmation, never before it: answering no should leave you
+        # where you were.
+        _gw_step_out $wt $main
+
         if not _gw_run "removing $wt" git -C $main worktree remove --force $wt
             return 1
         end
@@ -261,12 +220,18 @@ function gwr -d 'Remove a worktree whose branch is finished, and the branch with
         end
         set question "Delete those $n_ignored $ign_word along with the worktree? [y/N] "
     end
-    read --local --prompt-str=$question answer
-    if not string match --quiet --regex '^[Yy]' -- "$answer"
-        _gw_say info 'left alone'
-        return 1
+    # --yes means "do not ask about anything git could put back", so it answers
+    # the Proceed question and never the ignored-paths one: a checkout comes
+    # back with `gwa NAME`, and those files come back from nowhere.
+    if not set -q _flag_yes; or test $n_ignored -gt 0
+        read --local --prompt-str=$question answer
+        if not string match --quiet --regex '^[Yy]' -- "$answer"
+            _gw_say info 'left alone'
+            return 1
+        end
     end
 
+    _gw_step_out $wt $main
     _gw_remove_one $wt "$branch" "$why"
     set -l rc $status
     _gw_suggest_prune $main

@@ -191,119 +191,56 @@ out=$(in_repo $repo 'git push -q -u origin unmerged 2>/dev/null
 eq "and counts properly once it has one" "0 rc=0" "$out"
 
 #
-# 2. The refusals.
+# 2. The refusals, one worktree at a time.
+#
+# These were asserted through the sweep, which walked every worktree and named
+# each reason in one run. `gwr <path>` asks about one, so each reason needs its
+# own call and the message has no "<name> — " prefix in front of it.
 #
 group "refusals"
 sb=$(fixture) || exit 1; repo=$sb/parent/demo
 
-out=$(in_repo $repo 'gwr --all --no-fetch')
-has "the worktree you are standing in is refused"  "main — is the worktree you are standing in" "$out"
-has "a detached HEAD is refused"                   "(detached) — has a detached HEAD" "$out"
-has "a tracked modification is work"               "dirty — has uncommitted changes" "$out"
-has "an untracked file is work too"                "untracked — has uncommitted changes" "$out"
-has "a stash parked on the branch is work"         "stashed — has a stash entry parked on it" "$out"
-has "an unmerged branch is left alone, and says why" "unmerged — not merged into main" "$out"
+out=$(print -r -- y | in_repo $repo 'gwr --no-forge '"$sb"'/parent/.worktrees/untracked/demo; print -r -- "rc=$?"')
+has "an untracked file is work"          "has uncommitted changes" "$out"
+has "and it refuses"                     "rc=1" "$out"
 
-out=$(in_repo $sb/parent/.worktrees/unmerged/demo 'gwr --all --no-fetch')
-has "the main worktree is refused from elsewhere" "main — is the main worktree" "$out"
-has "standing inside a worktree refuses that one" "unmerged — is the worktree you are standing in" "$out"
+out=$(in_repo $repo 'gwr --no-forge '"$repo"'; print -r -- "rc=$?"')
+has "the main worktree is refused"       "refusing to remove the main worktree" "$out"
+has "and it refuses"                     "rc=1" "$out"
 
 out=$(in_repo $repo 'git worktree lock '"$sb"'/parent/.worktrees/squashed/demo
-  gwr --all --no-fetch')
-has "a locked worktree is refused" "squashed — is locked" "$out"
+gwr --no-forge '"$sb"'/parent/.worktrees/squashed/demo; print -r -- "rc=$?"')
+has "a locked worktree is refused"       "is locked" "$out"
+has "and says how to unlock it"          "worktree unlock" "$out"
 
 #
-# 3. gwr --all end to end.
+# 3. The sweep is gone; `origin prune` is what asks about every worktree.
 #
-group "gwr --all"
+group "the sweep is gone"
 sb=$(fixture) || exit 1; repo=$sb/parent/demo
 
-out=$(in_repo $repo 'gwr --all --no-fetch')
-has "the dry run says what it would remove" "would remove squashed — squash-merged into main" "$out"
-has "and what it would leave"               "skip         unmerged — not merged into main" "$out"
-has "and how to go through with it"         "re-run with --yes to do it" "$out"
+for flag in --all --dry-run -n --branch --fetch --no-fetch; do
+  out=$(in_repo $repo 'gwr '"$flag"' 2>&1; print -r -- "rc=$?"')
+  has "gwr $flag says where the sweep went" "origin prune" "$out"
+  has "gwr $flag refuses"                   "rc=2" "$out"
+done
 
-out=$(in_repo $repo 'gwr --all --no-fetch >/dev/null 2>&1; git worktree list --porcelain | grep -c "^worktree "')
-eq "a dry run removes nothing" "10" "$out"
-
-sb=$(fixture) || exit 1; repo=$sb/parent/demo
-out=$(in_repo $repo 'gwr --all --no-fetch --yes >/dev/null 2>&1
-  print -rl -- '"$sb"'/parent/.worktrees/*(N:t) | sort | tr "\n" " "')
-eq "--yes removes exactly the finished worktrees" "dirty loose stashed undone unmerged untracked " "$out"
-
-sb=$(fixture) || exit 1; repo=$sb/parent/demo
-out=$(in_repo $repo 'gwr --all --no-fetch --yes >/dev/null 2>&1; git branch --list --format="%(refname:short)" | sort | tr "\n" " "')
-eq "every finished branch goes with its worktree" \
-   "dirty main stashed undone unmerged untracked " "$out"
-
-# There is no flag to ask for: a squash-merged branch, which git itself calls
-# unmerged, goes with its worktree because check 2 proved otherwise.
-sb=$(fixture) || exit 1; repo=$sb/parent/demo
-out=$(in_repo $repo 'gwr --all --no-fetch --yes >/dev/null 2>&1
-  git branch --list --format="%(refname:short)" | sort | tr "\n" " "')
-eq "squash-merged branches go too, with no flag to ask for it" \
-   "dirty main stashed undone unmerged untracked " "$out"
-
-out=$(in_repo $repo 'gwr --all --no-fetch --yes 2>&1 | grep -c "re-run with --force"')
-eq "and nothing tells you to re-run with a flag" "0" "$out"
-
-# The escape hatch is recovery, not prevention: one line per branch, so any
-# one of them can be put back on its own.
-sb=$(fixture) || exit 1; repo=$sb/parent/demo
-out=$(in_repo $repo 'gwr --all --no-fetch --yes 2>&1 | grep -c "^    restore: git branch "')
-eq "every deleted branch prints its own way back" "3" "$out"
-
-sb=$(fixture) || exit 1; repo=$sb/parent/demo
-out=$(in_repo $repo 'local line=$(gwr --all --no-fetch --yes 2>&1 | grep "restore: git branch squashed" | head -1)
-  local before=$(git rev-parse --short squashed 2>/dev/null)
-  eval "${line#*restore: }"
-  print -r -- "gone before restore: [$before] back at: $(git rev-parse --short squashed 2>/dev/null)"')
-has "and the line it prints really does put it back" "gone before restore: [] back at: " "$out"
-
-out=$(in_repo $repo 'print -rl -- '"$sb"'/parent/.worktrees/*(N:t) | sort | tr "\n" " "')
-eq "the directories left empty over a removed worktree go with it" \
-   "dirty loose stashed undone unmerged untracked " "$out"
-
-sb=$(fixture) || exit 1; repo=$sb/parent/demo
-out=$(in_repo $repo 'gwr --all --no-fetch --branch unmerged')
-eq "--branch looks at that branch and no other" \
-   "  skip         unmerged — not merged into main
-gw: nothing is finished; 1 left alone" "$out"
-
-# --dry-run wins over --yes whichever order they arrive in, in both shells.
-out=$(in_repo $repo 'local before=$(git worktree list --porcelain | grep -c "^worktree ")
-  gwr --all --no-fetch --yes --dry-run >/dev/null 2>&1
-  local after=$(git worktree list --porcelain | grep -c "^worktree ")
-  [[ $before == $after ]] && print -r -- same || print -r -- "$before -> $after"')
-eq "--yes --dry-run removes nothing" "same" "$out"
-
-out=$(in_repo $repo 'local before=$(git worktree list --porcelain | grep -c "^worktree ")
-  gwr --all --no-fetch --dry-run --yes >/dev/null 2>&1
-  local after=$(git worktree list --porcelain | grep -c "^worktree ")
-  [[ $before == $after ]] && print -r -- same || print -r -- "$before -> $after"')
-eq "and neither does the other order" "same" "$out"
-
-out=$(in_repo $repo 'gwr --all --no-fetch --branch nosuch; print -r -- "rc=$?"')
-has "--branch on a branch with no worktree is an error" "no worktree of this repository has branch 'nosuch'" "$out"
-has "and exits non-zero" "rc=1" "$out"
-
-out=$(in_repo $repo 'gwr --all --force 2>&1; print -r -- "rc=$?"')
-has "gwr --all refuses --force, saying why" "--all takes no --force" "$out"
-has "and exits 2" "rc=2" "$out"
-
-out=$(in_repo $repo 'gwr --all extra-arg 2>&1; print -r -- "rc=$?"')
-has "a positional argument is refused, with the fix" "did you mean: gwr --all --branch extra-arg" "$out"
-
-out=$(in_repo $repo 'gwr --all --branch 2>&1; print -r -- "rc=$?"')
-has "--branch without a name is refused" "--branch needs a name" "$out"
-
-out=$(in_repo $repo 'gw' )
-has "the sweep is in the help" "--all " "$out"
+out=$(in_repo $repo 'gw')
+hasnt "and the help no longer offers it" "--all " "$out"
 
 #
 # 4. gwr — the single-target case of the same predicate.
 #
 group "gwr"
+sb=$(fixture) || exit 1; repo=$sb/parent/demo
+
+# --yes answers the Proceed question with no terminal to ask on. A checkout is
+# recoverable, which is exactly what --yes is for.
+out=$(in_repo $repo 'gwr --yes --no-forge '"$sb"'/parent/.worktrees/ordinary/demo </dev/null 2>&1; print -r -- "rc=$?"')
+hasnt "--yes asks nothing" "Proceed?" "$out"
+has "and goes through with it" "rc=0" "$out"
+eq "and the checkout is gone" "no" "$([[ -d $sb/parent/.worktrees/ordinary/demo ]] && print yes || print no)"
+
 sb=$(fixture) || exit 1; repo=$sb/parent/demo
 
 out=$(print -r -- n | in_repo $repo 'gwr '"$sb"'/parent/.worktrees/ordinary/demo')
@@ -942,11 +879,6 @@ has "and exits non-zero" "rc=1" "$out"
 eq "and the file is still there" "secret" "$(cat $wt/.env 2>/dev/null)"
 eq "and so is the worktree" "yes" "$([[ -d $wt ]] && print yes || print no)"
 
-# The sweep never prompts, so it leaves them alone and says why.
-out=$(in_repo $repo 'gwr --all --yes --no-fetch --no-forge </dev/null 2>&1')
-has "--all --yes leaves it alone too" "--delete-ignored deletes them" "$out"
-eq "so the file survives the sweep" "secret" "$(cat $wt/.env 2>/dev/null)"
-
 out=$(in_repo $repo 'print -r -- y | gwr --no-forge --delete-ignored '"$wt"' 2>&1; print -r -- "rc=$?"')
 has "--delete-ignored is the way through" "rc=0" "$out"
 eq "and then the worktree is gone" "no" "$([[ -d $wt ]] && print yes || print no)"
@@ -1130,10 +1062,6 @@ out=$(in_repo $repo 'git config git-worktree-plugin.fetch no
   zstyle ":git-worktree:" fetch always
   gwa keyed/two 2>&1')
 has "and the zstyle outranks the key" "fetching" "$out"
-
-out=$(in_repo $repo 'git config git-worktree-plugin.fetch no
-  gwr --all 2>&1')
-hasnt "the sweep reads the same key" "fetching" "$out"
 
 out=$(in_repo $repo 'git config --unset git-worktree-plugin.fetch 2>/dev/null
   print -r -- "$(_gw_fetch_policy always)"

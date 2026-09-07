@@ -1,7 +1,6 @@
 # Work in worktree $1 on branch $2 that removing the checkout would interrupt,
 # into $REPLY — empty when there is none.
 #
-# Shared by gwr and the sweep so both say the same thing about the same state.
 # Neither of these is lost by removing a worktree, strictly: uncommitted
 # changes are, but a stash lives in the repository's own refs and survives.
 # Both mean the same thing though — somebody is still working here.

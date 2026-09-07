@@ -1,6 +1,5 @@
-# Is branch $1 finished with respect to $2? The one predicate — gwr asks it
-# about the branch you named, --all asks it about every branch it walks, and
-# they differ in nothing else.
+# Is branch $1 finished with respect to $2? The one predicate, asked of the
+# branch you named.
 #
 #   $1 branch  $2 head ref  $3 head name for messages  $4 may we ask the forge
 #   $5 the repository to ask (default: $PWD)

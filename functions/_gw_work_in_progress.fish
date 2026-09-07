@@ -1,6 +1,5 @@
 function _gw_work_in_progress -a wt branch -d 'Work in $wt that removing the checkout would interrupt'
-    # Into $_gw_reply; empty when there is none. Shared by gwr and gwr --all so
-    # both say the same thing about the same state. Strictly, only the first is
+    # Into $_gw_reply; empty when there is none. Strictly, only the first is
     # lost by removing a worktree — a stash lives in the repository's own refs —
     # but both mean the same thing: somebody is still working here.
     set -g _gw_reply ''

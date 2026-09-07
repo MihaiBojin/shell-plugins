@@ -1,14 +1,9 @@
 #compdef gwr
-# Completion for `gwr [PATH|QUERY]` and `gwr --all`.
+# Completion for `gwr [PATH|QUERY]`.
 _arguments -s \
   '(-h --help)'{-h,--help}'[show usage]' \
-  '(--all)'{-f,--force}'[remove it even when the branch is unfinished; the branch is kept]' \
+  {-f,--force}'[remove it even when the branch is unfinished; the branch is kept]' \
   '--delete-ignored[also delete the gitignored files in it; nothing restores them]' \
   '--no-forge[decide from git alone; never ask GitHub/GitLab]' \
-  '(-f --force 1)--all[do it to every finished worktree]' \
-  '(-n --dry-run)'{-y,--yes}'[with --all: go through with it]' \
-  '(-y --yes)'{-n,--dry-run}'[with --all: only say what it would do (the default)]' \
-  '--branch[with --all: consider only this branch]:branch:_gw_branches' \
-  '(--no-fetch)--fetch[with --all: refresh the head branch first]' \
-  '(--fetch)--no-fetch[with --all: stay offline]' \
+  {-y,--yes}'[do not ask before removing; ignored files still ask]' \
   '1:worktree:_gw_worktree_paths'

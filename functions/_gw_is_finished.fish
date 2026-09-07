@@ -1,7 +1,6 @@
 function _gw_is_finished -a branch head_ref head_name use_forge repo -d 'Is $branch finished with respect to $head_ref?'
-    # The one predicate: gwr asks it about the branch you named, --all asks it
-    # about every branch it walks, and they differ in nothing else. $_gw_reply is
-    # the reason either way, phrased to be read after "branch <name> —".
+    # The one predicate, asked of the branch you named. $_gw_reply is the reason
+    # either way, phrased to be read after "branch <name> —".
     #
     # Three ways to qualify, in this order: git can see the merge; the change is
     # already upstream although git cannot see it (a squash); or the forge says
