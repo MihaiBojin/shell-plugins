@@ -372,6 +372,18 @@ has "so it is refused too" "rc=1" "$out"
 out=$(print -r -- y | in_repo $repo 'gwr --force '"$sb"'/parent/.worktrees/loose/demo; print -r -- "rc=$?"')
 hasnt "but --force removes it" "not removing" "$out"
 
+# --force overrides the refusal, not the question. The Fish half asks the same
+# thing, so neither shell removes uncommitted work for a caller that cannot be
+# asked.
+out=$(in_repo $repo 'gwr --force '"$sb"'/parent/.worktrees/dirty/demo </dev/null; print -r -- "rc=$?"')
+has "with no terminal --force keeps a dirty worktree" "rc=1" "$out"
+out=$(in_repo $repo 'print -rl -- '"$sb"'/parent/.worktrees/*(N:t) | grep -c "^dirty$"')
+eq "and the worktree is still there" "1" "$out"
+
+out=$(print -r -- n | in_repo $repo 'gwr --force '"$sb"'/parent/.worktrees/dirty/demo; print -r -- "rc=$?"')
+has "declining keeps it too" "rc=1" "$out"
+has "and the summary says the flag is overriding a refusal" "--force: removing it anyway" "$out"
+
 # Locked is the one refusal --force does not cover.
 sb=$(fixture) || exit 1; repo=$sb/parent/demo
 out=$(print -r -- y | in_repo $repo 'git worktree lock '"$sb"'/parent/.worktrees/ordinary/demo

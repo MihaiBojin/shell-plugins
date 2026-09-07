@@ -204,16 +204,27 @@ function gwr -d 'Remove a worktree whose branch is finished, and the branch with
             return 1
         end
 
+        # Asked here as well as on the ordinary path. --force overrides the
+        # refusal, not the question: `git worktree remove --force` deletes
+        # whatever is uncommitted in the checkout, and an unstaged edit was
+        # never hashed, so nothing restores it.
+        echo "Remove worktree $wt" >&2
+        test -n "$branch"
+        and echo "  branch $branch — $refusal; it is kept" >&2
+        test -n "$refusal"
+        and echo "  --force: removing it anyway" >&2
+
+        set -l question 'Proceed?'
         if test $n_ignored -gt 0
             echo "  $n_ignored $ign_word — nothing tracks $ign_them, and nothing restores $ign_them:" >&2
             for p in $ignored
                 echo "      $p" >&2
             end
-            read --local --prompt-str="Delete those $n_ignored $ign_word along with the worktree? [y/N] " ianswer
-            if not string match --quiet --regex '^[Yy]' -- "$ianswer"
-                _gw_say info 'left alone'
-                return 1
-            end
+            set question "Delete $n_ignored $ign_word along with the worktree?"
+        end
+        if not _gw_confirm "$question"
+            _gw_say info 'left alone'
+            return 1
         end
 
         if not _gw_run "removing $wt" git -C $main worktree remove --force $wt
