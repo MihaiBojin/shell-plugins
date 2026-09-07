@@ -219,7 +219,7 @@ has "and says how to unlock it"          "worktree unlock" "$out"
 group "the sweep is gone"
 sb=$(fixture) || exit 1; repo=$sb/parent/demo
 
-for flag in --all --yes -y --dry-run -n --branch --fetch --no-fetch; do
+for flag in --all --dry-run -n --branch --fetch --no-fetch; do
   out=$(in_repo $repo 'gwr '"$flag"' 2>&1; print -r -- "rc=$?"')
   has "gwr $flag says where the sweep went" "origin prune" "$out"
   has "gwr $flag refuses"                   "rc=2" "$out"
@@ -232,6 +232,15 @@ hasnt "and the help no longer offers it" "--all " "$out"
 # 4. gwr — the single-target case of the same predicate.
 #
 group "gwr"
+sb=$(fixture) || exit 1; repo=$sb/parent/demo
+
+# --yes answers the Proceed question with no terminal to ask on. A checkout is
+# recoverable, which is exactly what --yes is for.
+out=$(in_repo $repo 'gwr --yes --no-forge '"$sb"'/parent/.worktrees/ordinary/demo </dev/null 2>&1; print -r -- "rc=$?"')
+hasnt "--yes asks nothing" "Proceed?" "$out"
+has "and goes through with it" "rc=0" "$out"
+eq "and the checkout is gone" "no" "$([[ -d $sb/parent/.worktrees/ordinary/demo ]] && print yes || print no)"
+
 sb=$(fixture) || exit 1; repo=$sb/parent/demo
 
 out=$(print -r -- n | in_repo $repo 'gwr '"$sb"'/parent/.worktrees/ordinary/demo')

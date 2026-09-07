@@ -16,6 +16,7 @@ print -ru$fd -- "  ${_GW_CYAN}gwr${_GW_RESET} [PATH|QUERY]         remove a work
 print -ru$fd -- "      -f, --force          remove it even when it is not; the branch is kept"
 print -ru$fd -- "      --delete-ignored     also delete its gitignored files; nothing restores them"
 print -ru$fd -- "      --no-forge           decide from git alone; never ask GitHub/GitLab"
+print -ru$fd -- "      -y, --yes            do not ask before removing; ignored files still ask"
 print -ru$fd -- "  ${_GW_CYAN}gw${_GW_RESET},  ${_GW_CYAN}gwh${_GW_RESET}                 this help"
 print -ru$fd -- ""
 print -ru$fd -- "worktrees live beside their repository, at"

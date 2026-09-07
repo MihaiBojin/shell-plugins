@@ -5,4 +5,5 @@ _arguments -s \
   {-f,--force}'[remove it even when the branch is unfinished; the branch is kept]' \
   '--delete-ignored[also delete the gitignored files in it; nothing restores them]' \
   '--no-forge[decide from git alone; never ask GitHub/GitLab]' \
+  {-y,--yes}'[do not ask before removing; ignored files still ask]' \
   '1:worktree:_gw_worktree_paths'

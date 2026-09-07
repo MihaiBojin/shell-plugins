@@ -23,6 +23,7 @@ function gw -d 'git worktree helpers: gwl, gwa, gwr'
     echo '      -f, --force          remove it even when it is not; the branch is kept'
     echo '      --delete-ignored     also delete its gitignored files; nothing restores them'
     echo '      --no-forge           decide from git alone; never ask GitHub/GitLab'
+    echo '      -y, --yes            do not ask before removing; ignored files still ask'
     echo '  gw,  gwh                 this help'
     echo
     echo 'worktrees live beside their repository, at'

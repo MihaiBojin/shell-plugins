@@ -6,4 +6,5 @@ complete -c gwr -s f -l force \
 complete -c gwr -l delete-ignored \
     -d 'also delete the gitignored files in it; nothing restores them'
 complete -c gwr -l no-forge -d 'decide from git alone; never ask GitHub/GitLab'
+complete -c gwr -s y -l yes -d 'do not ask before removing; ignored files still ask'
 complete -c gwr -a '(_gw_complete_worktrees)'

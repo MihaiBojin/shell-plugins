@@ -16,7 +16,7 @@ function gwr -d 'Remove a worktree whose branch is finished, and the branch with
     # into a generic parse error. The single form never fetches — it resolves
     # the head branch offline — and it asks about the one worktree it was
     # given, so none of these would have done anything here anyway.
-    for flag in all fetch no-fetch dry-run yes branch
+    for flag in all fetch no-fetch dry-run branch
         if set -q _flag_(string replace -a -- - _ $flag)
             _gw_say err "--$flag belonged to the sweep; that is 'origin prune' now"
             return 2
@@ -220,10 +220,15 @@ function gwr -d 'Remove a worktree whose branch is finished, and the branch with
         end
         set question "Delete those $n_ignored $ign_word along with the worktree? [y/N] "
     end
-    read --local --prompt-str=$question answer
-    if not string match --quiet --regex '^[Yy]' -- "$answer"
-        _gw_say info 'left alone'
-        return 1
+    # --yes means "do not ask about anything git could put back", so it answers
+    # the Proceed question and never the ignored-paths one: a checkout comes
+    # back with `gwa NAME`, and those files come back from nowhere.
+    if not set -q _flag_yes; or test $n_ignored -gt 0
+        read --local --prompt-str=$question answer
+        if not string match --quiet --regex '^[Yy]' -- "$answer"
+            _gw_say info 'left alone'
+            return 1
+        end
     end
 
     _gw_step_out $wt $main

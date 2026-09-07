@@ -375,6 +375,14 @@ else
     bad 'the unmerged branch survives'
 end
 
+# --yes answers the Proceed question with no terminal to ask on: a checkout is
+# recoverable, so it is exactly what --yes is for.
+git worktree add -q $root2/parent/.worktrees/quiet/demo -b quiet main 2>/dev/null
+git -C $repo2 push -q origin quiet 2>/dev/null
+set out (gwr --yes --no-forge $root2/parent/.worktrees/quiet/demo 2>&1 </dev/null | string collect)
+hasnt '--yes asks nothing' 'Proceed?' "$out"
+eq 'and the checkout is gone' 0 (count (path filter -d $root2/parent/.worktrees/quiet/demo 2>/dev/null))
+
 set out (echo y | gwr --force $root2/parent/.worktrees/unmerged/demo 2>&1)
 has '--force removes the checkout' removed "$out"
 has 'and keeps the branch' 'branch unmerged kept' "$out"
@@ -452,7 +460,7 @@ git -C $repo3 checkout -q main
 git -C $repo3 push -q origin main
 
 cd $repo3
-for f in --all --yes -y --dry-run -n --branch=x --fetch --no-fetch
+for f in --all --dry-run -n --branch=x --fetch --no-fetch
     set out (gwr $f 2>&1 | string collect)
     has "gwr $f says where the sweep went" 'origin prune' "$out"
 end
@@ -749,6 +757,10 @@ echo secret >$wti/.env
 
 eq 'the checkout still reads as clean' '' (git -C $wti status --porcelain | string collect)
 eq 'and the ignored file is what git would take' .env (_gw_ignored_paths $wti)
+
+set -l outy (gwr --yes --no-forge $wti 2>&1 </dev/null | string collect)
+has '--yes does not answer this question' '--delete-ignored' "$outy"
+eq 'so the file survives --yes' secret (cat $wti/.env 2>/dev/null)
 
 set -l outi (gwr --no-forge $wti 2>&1 </dev/null | string collect)
 has 'with no terminal it refuses rather than deleting them' '--delete-ignored' "$outi"

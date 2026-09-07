@@ -17,7 +17,7 @@
 emulate -L zsh
 
 local -a force pos
-integer use_forge=1 forced=0 delete_ignored=0
+integer use_forge=1 forced=0 delete_ignored=0 assume_yes=0
 while (( $# )); do
   case $1 in
     -h|--help)        _gw_usage; return 0 ;;
@@ -28,10 +28,14 @@ while (( $# )); do
     # has ever pointed at, which nothing brings back.
     --delete-ignored) delete_ignored=1; shift ;;
     --no-forge)       use_forge=0; shift ;;
+    # "Do not ask about anything git could put back." A checkout is exactly
+    # that — the branch survives and `gwa NAME` rebuilds it — so this answers
+    # the Proceed question and nothing else.
+    -y|--yes)         assume_yes=1; shift ;;
     # The sweep left. Naming its flags rather than letting them fall into
     # "unknown option" is the difference between a reader who knows where it
     # went and one who thinks it was never there.
-    --all|-y|--yes|-n|--dry-run|--branch|--fetch|--no-fetch)
+    --all|-n|--dry-run|--branch|--fetch|--no-fetch)
                       _gw_err "$1 belonged to the sweep; that is 'origin prune' now"; return 2 ;;
     --)               shift; pos+=( "$@" ); break ;;
     -*)               _gw_err "unknown option: $1"; return 2 ;;
@@ -202,7 +206,7 @@ local rc=0
 local question="Proceed?"
 (( n_ignored )) &&
   question="Delete ${n_ignored} ${ign_word} along with the worktree?"
-if _gw_confirm "$question"; then
+if (( assume_yes && ! n_ignored )) || _gw_confirm "$question"; then
   # Step out before deleting the directory we may be standing in.
   local cwd=${PWD:A}
   [[ $cwd == ${dest:A} || $cwd == ${dest:A}/* ]] && cd -- "$main"
