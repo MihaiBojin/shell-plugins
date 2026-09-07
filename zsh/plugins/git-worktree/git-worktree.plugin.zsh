@@ -7,7 +7,6 @@
 #                                         into it
 #   gwr [--force] [PATH|QUERY]            remove a worktree whose branch is
 #                                         finished, and the branch with it
-#   gwr --all [--yes]                     the same, to every finished worktree
 #
 # Worktrees live beside the repository they belong to, at
 # <PARENT>/.worktrees/<NAME>/<REPO>. Every command works on the repository you
@@ -38,7 +37,7 @@ autoload -Uz \
   _gw_merged_reason _gw_nap _gw_owns _gw_pick _gw_pick_branch _gw_plain_list _gw_records _gw_remote \
   _gw_remote_has_branch _gw_remote_head _gw_remove_one _gw_rmdir_up \
   _gw_prune_upto _gw_run _gw_squash_merged _gw_stashes_for \
-  _gw_suggest_prune _gw_sweep _gw_unpushed_count _gw_usage _gw_warn \
+  _gw_suggest_prune _gw_unpushed_count _gw_usage _gw_warn \
   _gw_work_in_progress _gw_worktree_of_branch _gw_wt_dir
 
 alias gwh='gw'

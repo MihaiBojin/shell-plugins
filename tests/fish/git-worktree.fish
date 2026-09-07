@@ -410,8 +410,11 @@ eq 'and takes yes' 0 $status
 echo n | _gw_confirm 'q?'
 eq 'and no' 1 $status
 
-# --------------------------------------------------------------- gwr --all
-group 'gwr --all'
+# ------------------------------------------------------------- the sweep is gone
+group 'the sweep is gone'
+# `gwr --all` and its flags moved to `origin prune`. Each is refused here by
+# name rather than falling into a generic parse error, so a reader who types the
+# old thing is told where it went.
 set -l root3 (fixture)
 set -l repo3 $root3/parent/demo
 
@@ -431,39 +434,12 @@ git -C $repo3 checkout -q main
 git -C $repo3 push -q origin main
 
 cd $repo3
-git worktree add -q $root3/parent/.worktrees/squashed/demo squashed 2>/dev/null
-git worktree add -q $root3/parent/.worktrees/keeper/demo keeper 2>/dev/null
-
-set out (gwr --all 2>&1)
-has 'the dry run would remove the squashed branch' 'would remove' "$out"
-has 'and says why' squash-merged "$out"
-has 'the unfinished one is skipped with a reason' 'not merged into main' "$out"
-has 'and it tells you how to go through with it' -- '--yes' "$out"
-eq 'the dry run removes nothing' 1 (count (path filter -d $root3/parent/.worktrees/squashed/demo))
-
-group 'refusals'
-# Standing inside a worktree, so the main checkout is refused for being the
-# main checkout rather than for being underfoot.
-cd $root3/parent/.worktrees/keeper/demo
-set out (gwr --all 2>&1)
-has 'the worktree you are standing in is skipped' 'standing in' "$out"
-has 'and so is the main worktree' 'is the main worktree' "$out"
-
-cd $repo3
-echo dirty >$root3/parent/.worktrees/squashed/demo/scratch.txt
-set out (gwr --all 2>&1)
-has 'a dirty worktree is skipped' 'uncommitted changes' "$out"
-rm $root3/parent/.worktrees/squashed/demo/scratch.txt
-
-set out (gwr --all --yes 2>&1)
-has '--yes removes the finished one' 'removing squashed — squash-merged into main' "$out"
-eq 'and its checkout is gone' 0 (count (path filter -d $root3/parent/.worktrees/squashed/demo 2>/dev/null))
-eq 'the unfinished one stays' 1 (count (path filter -d $root3/parent/.worktrees/keeper/demo))
-if git -C $repo3 show-ref --verify --quiet refs/heads/keeper
-    ok 'and so does its branch'
-else
-    bad 'and so does its branch'
+for f in --all --yes -y --dry-run -n --branch=x --fetch --no-fetch
+    set out (gwr $f 2>&1 | string collect)
+    has "gwr $f says where the sweep went" 'origin prune' "$out"
 end
+set out (gw 2>&1 | string collect)
+hasnt 'and the help no longer offers it' '--all ' "$out"
 
 # --------------------------------------------------------------------- gwm
 group 'gwm'
@@ -584,93 +560,6 @@ eq 'the second is the number' 7 (string split \t -- $REPLY6)[2]
 eq 'a merged pull request finishes a branch git cannot see merged' 0 $FINISHED6
 has 'and the reason names the request' 'pull request #7 is merged' "$WHY6"
 
-# ------------------------------------------------------------ the sweep's fetch
-group 'gwr --all and the network'
-
-# The sweep judges every branch against the head branch, so it refreshes the
-# head branch first. Without that it keeps branches the remote already has.
-set -l root7 (fixture)
-set -l repo7 $root7/parent/demo
-
-git -C $repo7 checkout -q -b landed main
-echo landed >$repo7/landed.txt
-git -C $repo7 add landed.txt
-git -C $repo7 commit -q -m 'work that lands upstream'
-git -C $repo7 push -q origin landed
-git -C $repo7 checkout -q main
-git -C $repo7 worktree add -q $root7/parent/.worktrees/landed/demo landed 2>/dev/null
-
-# Merge it on the remote, behind this clone's back.
-git clone -q $root7/origin/demo.git $root7/other >/dev/null 2>&1
-git -C $root7/other merge -q --no-ff -m 'merge landed' origin/landed
-git -C $root7/other push -q origin main
-
-cd $repo7
-set out (gwr --all --no-fetch 2>&1)
-has 'offline, the sweep cannot see the merge' 'not merged into main' "$out"
-hasnt 'and says nothing about fetching' fetching "$out"
-
-set out (gwr --all 2>&1)
-has 'online, it fetches the head branch first' 'fetching origin/main' "$out"
-has 'and then sees the merge' 'would remove' "$out"
-
-set out (gwr --all --fetch 2>&1)
-has '--fetch asks for the same thing explicitly' 'fetching origin/main' "$out"
-
-set out (gwr --no-fetch $root7/parent/.worktrees/landed/demo 2>&1)
-has 'the single form has no --no-fetch and says where it belongs' '--no-fetch belongs to gwr --all' "$out"
-
-set out (gwr --dry-run $root7/parent/.worktrees/landed/demo 2>&1)
-has 'and the message names the flag that was rejected' '--dry-run belongs to gwr --all' "$out"
-
-# Every sweep flag, not just the three about the network: accepted-and-ignored
-# is the shape that let --no-fetch mean --no-forge for as long as it did.
-for f in --yes --branch=x --fetch
-    set out (gwr $f $root7/parent/.worktrees/landed/demo 2>&1)
-    has "the single form refuses $f" 'belongs to gwr --all' "$out"
-end
-
-# A branch name where --branch belongs: sweeping everything is much more than
-# the person asking about one worktree wanted.
-set out (gwr --all landed 2>&1)
-has 'a positional argument to the sweep is refused' 'takes no positional arguments' "$out"
-has 'and it names the flag that was meant' -- '--branch landed' "$out"
-eq 'and nothing is swept' 1 (count (path filter -d $root7/parent/.worktrees/landed/demo))
-
-# --no-fetch means offline, and the forge is the one check that needs the
-# network. Stand in for gh and count the calls.
-set -l fake7 (path resolve (mktemp -d))
-set -ga SANDBOXES $fake7
-echo '#!/bin/sh
-echo called >> "$GH_LOG"' >$fake7/gh
-chmod +x $fake7/gh
-git -C $repo7 remote set-url origin https://github.com/example/demo.git
-
-begin
-    set -lx PATH $fake7 $PATH
-    set -lx GH_LOG $fake7/log
-    set -e _gw_forge_cache_key
-    gwr --all --no-fetch >/dev/null 2>&1
-end
-eq '--no-fetch asks the forge nothing either' 0 (count (path filter -f $fake7/log 2>/dev/null))
-
-set out (gwr --all --no-fetch --branch nosuch 2>&1)
-set -l rc $status
-eq '--branch on a branch with no worktree is an error' 1 $rc
-has 'and says so' 'no worktree of this repository has branch' "$out"
-
-# --dry-run wins over --yes whichever order they arrive in.
-gwr --all --no-fetch --yes --dry-run >/dev/null 2>&1
-eq 'the worktree survives --yes --dry-run' 1 (count (path filter -d $root7/parent/.worktrees/landed/demo))
-gwr --all --no-fetch --dry-run --yes >/dev/null 2>&1
-eq 'and the other order too' 1 (count (path filter -d $root7/parent/.worktrees/landed/demo))
-
-begin
-    set -lx git_worktree_fetch no
-    set out (gwr --all 2>&1)
-end
-hasnt 'git_worktree_fetch no keeps the sweep offline' fetching "$out"
-
 # ------------------------------------------------------------- the picker at EOF
 group 'the picker at EOF'
 
@@ -696,32 +585,35 @@ eq 'and it names nothing' '' "$picked"
 # ------------------------------------------------- one refusal per kind
 group 'every refusal'
 
-# The Zsh suite has covered these since the plugin was written; the Fish half
-# had four of them, which is how the submodule refusal and the dead forge check
-# both shipped.
+# Asked one worktree at a time. The sweep used to walk them all in one call and
+# name each reason; `gwr <path>` asks about one, so the message carries no
+# "<name> — " prefix.
 set -l rootr (fixture_full)
 set -l repor $rootr/parent/demo
-
 cd $repor
-set out (gwr --all --no-fetch 2>&1)
-has 'the worktree you are standing in is refused' 'main — is the worktree you are standing in' "$out"
-has 'a detached HEAD is refused' 'has a detached HEAD' "$out"
-has 'a tracked modification is work' 'dirty — has uncommitted changes' "$out"
-has 'an untracked file is work too' 'untracked — has uncommitted changes' "$out"
-has 'a stash parked on the branch is work' 'stashed — has a stash entry parked on it' "$out"
-has 'an unmerged branch is left alone, and says why' 'unmerged — not merged into main' "$out"
-has 'and a squash-merged one is offered' 'squashed — squash-merged into main' "$out"
 
-cd $rootr/parent/.worktrees/unmerged/demo
-set out (gwr --all --no-fetch 2>&1)
-has 'the main worktree is refused from elsewhere' 'main — is the main worktree' "$out"
-has 'standing inside a worktree refuses that one' 'unmerged — is the worktree you are standing in' "$out"
+set out (gwr --no-forge $rootr/parent/.worktrees/dirty/demo 2>&1 </dev/null | string collect)
+has 'a tracked modification is work' 'uncommitted changes' "$out"
 
-cd $repor
+set out (gwr --no-forge $rootr/parent/.worktrees/untracked/demo 2>&1 </dev/null | string collect)
+has 'an untracked file is work too' 'uncommitted changes' "$out"
+
+set out (gwr --no-forge $rootr/parent/.worktrees/stashed/demo 2>&1 </dev/null | string collect)
+has 'a stash parked on the branch is work' 'stash entry parked on it' "$out"
+
+set out (gwr --no-forge $rootr/parent/.worktrees/unmerged/demo 2>&1 </dev/null | string collect)
+has 'an unmerged branch is left alone, and says why' 'not merged into main' "$out"
+
+set out (gwr --no-forge $rootr/parent/.worktrees/loose/demo 2>&1 </dev/null | string collect)
+has 'a detached HEAD is refused' 'detached HEAD' "$out"
+
+set out (gwr --no-forge $repor 2>&1 </dev/null | string collect)
+has 'the main worktree is refused' 'main worktree' "$out"
+
 git -C $repor worktree lock $rootr/parent/.worktrees/squashed/demo
-set out (gwr --all --no-fetch 2>&1)
-has 'a locked worktree is refused' 'squashed — is locked' "$out"
-set out (gwr --force $rootr/parent/.worktrees/squashed/demo 2>&1)
+set out (gwr --no-forge $rootr/parent/.worktrees/squashed/demo 2>&1 </dev/null | string collect)
+has 'a locked worktree is refused' 'is locked' "$out"
+set out (gwr --force $rootr/parent/.worktrees/squashed/demo 2>&1 </dev/null | string collect)
 has 'and --force does not get past a lock either' 'is locked' "$out"
 git -C $repor worktree unlock $rootr/parent/.worktrees/squashed/demo
 
@@ -846,11 +738,6 @@ has 'and names the file it would have taken' '.env' "$outi"
 eq 'and the file is still there' secret (cat $wti/.env 2>/dev/null)
 eq 'and so is the worktree' yes (test -d $wti; and echo yes; or echo no)
 
-# The sweep never prompts, so it leaves them alone and says why.
-set -l outs (gwr --all --yes --no-fetch --no-forge 2>&1 </dev/null | string collect)
-has '--all --yes leaves it alone too' '--delete-ignored deletes them' "$outs"
-eq 'so the file survives the sweep' secret (cat $wti/.env 2>/dev/null)
-
 # ------------------------------------ a tag cannot impersonate the head branch
 group 'a tag cannot impersonate the head branch'
 
@@ -939,10 +826,6 @@ has 'and offers --list' --list "$out"
 
 set out (fish --no-config -c "$comp complete -C'gwr '")
 has 'gwr completes this repository worktree paths' "$rootc/parent/.worktrees/other/demo" "$out"
-set out (fish --no-config -c "$comp complete -C'gwr --all --'")
-has 'gwr --all offers --branch' --branch "$out"
-has 'and --dry-run' --dry-run "$out"
-hasnt 'and not --force, which the sweep refuses' --force "$out"
 
 set out (fish --no-config -c "$comp complete -C'gwa '")
 eq 'gwa offers nothing for NAME, which does not exist yet' '' "$out"
@@ -1063,10 +946,6 @@ begin
     set outf (gwa keyed/two 2>&1 | string collect)
 end
 has 'and git_worktree_fetch outranks the key' fetching "$outf"
-
-cd $repof
-set outf (gwr --all 2>&1 | string collect)
-hasnt 'the sweep reads the same key' fetching "$outf"
 
 cd $repof
 eq 'the policy reads the key when something says' yes (begin

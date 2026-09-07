@@ -1,9 +1,6 @@
 # gwr [PATH|QUERY] — remove a worktree whose branch is finished, and delete the
-# branch with it. `gwr --all` does it to every finished worktree at once.
-#
-# One worktree you named, or every one that qualifies: same predicate, same
-# refusals, and the only difference is that the sweep cannot stop to ask about
-# each, so it is a dry run until told twice.
+# branch with it. One worktree, named or picked; `origin prune` is what asks the
+# same question of every worktree at once.
 #
 # Every question below is asked of $main, the repository the *target* belongs
 # to, never of $PWD. An explicit path works from anywhere, and answering "is
@@ -19,24 +16,6 @@
 # back are printed, so that is recoverable with one paste too.
 emulate -L zsh
 
-# --all is the sweep, which has its own flags and its own dry-run-until-told
-# -twice rule. Detect it first and hand everything else over: two parsers, one
-# entry point, and no flag that means different things either side of it.
-local -a rest
-integer sweep=0
-local arg
-for arg in "$@"; do
-  if [[ $arg == --all ]]; then
-    sweep=1
-  else
-    rest+=( "$arg" )
-  fi
-done
-if (( sweep )); then
-  _gw_sweep "${rest[@]}"
-  return $?
-fi
-
 local -a force pos
 integer use_forge=1 forced=0 delete_ignored=0
 while (( $# )); do
@@ -49,6 +28,11 @@ while (( $# )); do
     # has ever pointed at, which nothing brings back.
     --delete-ignored) delete_ignored=1; shift ;;
     --no-forge)       use_forge=0; shift ;;
+    # The sweep left. Naming its flags rather than letting them fall into
+    # "unknown option" is the difference between a reader who knows where it
+    # went and one who thinks it was never there.
+    --all|-y|--yes|-n|--dry-run|--branch|--fetch|--no-fetch)
+                      _gw_err "$1 belonged to the sweep; that is 'origin prune' now"; return 2 ;;
     --)               shift; pos+=( "$@" ); break ;;
     -*)               _gw_err "unknown option: $1"; return 2 ;;
     *)                pos+=( "$1" ); shift ;;

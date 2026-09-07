@@ -29,7 +29,7 @@ case $flags in
     REPLY='is locked'
     return 0 ;;
   *prunable*)
-    # Its directory is already gone; the prune at the end of the sweep clears the
+    # Its directory is already gone; `git worktree prune` clears the
     # metadata, and the branch stays, which is the conservative half.
     REPLY='is stale — its directory is gone'
     return 0 ;;
