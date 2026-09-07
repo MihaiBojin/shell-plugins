@@ -1076,6 +1076,24 @@ out=$(in_repo $repo 'git remote set-url origin /no/such/remote.git
   _gw_remote_has_branch origin main; print -r -- "rc=$?"')
 has "a remote it cannot reach is not a yes" "rc=1" "$out"
 
+#
+# The README transcribes `gw`'s output. Nothing kept the two in step, so
+# --delete-ignored was missing from it for as long as that flag has existed and
+# --yes from the day it landed. Compared here rather than trusted: the two
+# machine-specific lines are dropped, and the rest has to match exactly.
+#
+group "the README quotes the help it documents"
+
+readme=$ROOT/zsh/plugins/git-worktree/README.md
+documented=$(sed -n '/^gw — git worktree helpers$/,/^details: /p' $readme |
+  grep -vE '^ *here |^details: |^ *<PARENT>/|^$')
+actual=$(zsh -f -c "source ${ROOT}/zsh/plugins/git-worktree/git-worktree.plugin.zsh; gw" 2>&1 |
+  sed $'s/\x1b\[[0-9;]*m//g' |
+  sed -n '/^gw — git worktree helpers$/,/^details: /p' |
+  grep -vE '^ *here |^details: |^ *<PARENT>/|^$')
+
+eq "the README's help block is what gw prints" "$actual" "$documented"
+
 print -r -- ""
 print -r -- "git-worktree: $PASS passed, $FAIL failed"
 (( FAIL == 0 ))

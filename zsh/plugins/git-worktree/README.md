@@ -75,7 +75,9 @@ gw — git worktree helpers
   gwm NEW                  rename this worktree's branch to NEW and move it to match
   gwr [PATH|QUERY]         remove a worktree whose branch is finished, and the branch
       -f, --force          remove it even when it is not; the branch is kept
+      --delete-ignored     also delete its gitignored files; nothing restores them
       --no-forge           decide from git alone; never ask GitHub/GitLab
+      -y, --yes            do not ask before removing; ignored files still ask
   gw,  gwh                 this help
 
 worktrees live beside their repository, at
