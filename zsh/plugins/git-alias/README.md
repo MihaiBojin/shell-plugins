@@ -102,22 +102,46 @@ ohmyzsh/ohmyzsh path:plugins/git
 `git`. `gwip` also uses `grep`, and `gunwip` uses `grep` and `git rev-list`.
 `gh-login` and `gh-add-key` need the GitHub CLI, at the moment you run them.
 
-`gpsup`, `gcm` and `gmom` resolve the branch they need at the moment you run
-them. `gcm` and `gmom` ask the repository what its default branch is —
-`<remote>/HEAD` first, which git records at clone time from what the server
+`gpsup`, `gcm`, `gmom` and `gnb` resolve the branch they need at the moment you
+run them. `gcm`, `gmom` and `gnb` ask the repository what its default branch is
+— `<remote>/HEAD` first, which git records at clone time from what the server
 advertised, then `main`, `trunk`, `master` in that order.
 
 ## Branch commands
 
-Two of these are not aliases. `gb` and `gbd` open a picker, and there is nothing
-readable for an alias to expand to, so they are functions in both shells.
+Three of these are not aliases, so they are functions in both shells. `gb` and
+`gbd` open a picker, and there is nothing readable for an alias to expand to.
+`gnb` runs two commands and wants its argument between them.
 
 | Command | What it does |
 |---|---|
+| `gnb NAME` | Fetch every remote, then branch `NAME` off `<remote>/<default branch>` and check it out |
 | `gb [QUERY]` | Fuzzy-pick one of this repository's branches and check it out. The list is newest-commit first, search covers the name, and the preview shows the branch's recent commits |
 | `gb --list [ARG…]` | Plain `git branch`, arguments passed straight through |
 | `gbd [QUERY]` | Pick branches to delete — Tab marks more than one, Ctrl-A marks all |
 | `gbd --force` | Skip the confirmation |
+
+`gnb` starts the branch from what the server has, not from the local copy of
+the default branch, which is usually behind:
+
+```
+$ gnb feat/oauth
+git-alias: feat/oauth from origin/main at 4f2a1c0d
+```
+
+Nothing is rebased afterwards, because there is nothing to replay: a branch
+created at `origin/main` is already on top of it. The base is a full ref
+(`refs/remotes/origin/main`) rather than `origin/main`, since git resolves a
+bare name as a tag first and a repository holding a tag called `origin/main`
+would otherwise branch from the tag. `origin` is asked before `upstream`, and
+a repository with no remote copy of the branch falls back to the local one.
+
+The branch is created `--no-track`. Its upstream is deliberately not the
+default branch: with tracking, `git pull` on the new branch would merge `main`
+straight back into it.
+
+A fetch that fails warns and carries on, so an offline machine still gets a
+branch — off whatever it last saw, and the line above names the commit.
 
 `gbd` reports every branch before it deletes anything, and says which of four
 things makes the deletion safe:

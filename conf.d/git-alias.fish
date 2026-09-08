@@ -17,7 +17,8 @@
 # Not here: gwip, gunwip and gunwipall. They are loops, so they are functions in
 # both shells, and Fish autoloads them from functions/. Nor gb and gbd, which
 # open a picker — an abbreviation expands to text you can read before it runs,
-# and there is nothing readable to expand a picker to.
+# and there is nothing readable to expand a picker to. Nor gnb, which fetches
+# before it branches and wants the name in the middle of the command.
 
 if status is-interactive
     # Add, commit, amend

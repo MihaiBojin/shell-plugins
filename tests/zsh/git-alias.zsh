@@ -143,6 +143,55 @@ else
   skip 'with a terminal it reaches for it (no python3 for a pty)'
 fi
 
+group 'gnb'
+
+# A server, a clone of it, and a commit pushed after the clone. Branching from
+# the local main would miss that commit; branching from origin/main does not,
+# which is the whole point of the command.
+local server=$(mktemp -d)/server.git
+SANDBOXES+=( ${server:h} )
+git init -q --bare --initial-branch=main $server
+local seed=$(mktemp -d)/seed
+SANDBOXES+=( ${seed:h} )
+git init -q --initial-branch=main $seed
+git -C $seed commit -q --allow-empty -m base
+git -C $seed remote add origin $server
+git -C $seed push -q origin main
+
+local clone=$(mktemp -d)/clone
+SANDBOXES+=( ${clone:h} )
+git clone -q $server $clone 2>/dev/null
+
+git -C $seed commit -q --allow-empty -m ahead
+git -C $seed push -q origin main
+local tip=$(git -C $seed rev-parse HEAD)
+
+cd $clone
+local stale=$(git rev-parse main)
+
+gnb >/dev/null 2>&1
+eq 'gnb with no name exits 2' 2 $?
+gnb one two >/dev/null 2>&1
+eq 'gnb with two names exits 2' 2 $?
+gnb 'not a branch' >/dev/null 2>&1
+eq 'gnb refuses an invalid branch name' 2 $?
+gnb main >/dev/null 2>&1
+eq 'gnb refuses a name that is already a branch' 1 $?
+eq 'and leaves you where you were' main "$(_git_alias_current_branch)"
+
+gnb feat/oauth >/dev/null 2>&1
+eq 'gnb exits 0' 0 $?
+eq 'and checks the new branch out' feat/oauth "$(_git_alias_current_branch)"
+eq 'starting at what the server has' $tip "$(git rev-parse HEAD)"
+eq 'not at the local copy of the default branch' $stale "$(git rev-parse main)"
+eq 'and tracking nothing, so git pull cannot reach for main' '' "$(git config --get branch.feat/oauth.merge)"
+
+has 'a name already taken says what checks it out' 'gb feat/oauth' "$(gnb feat/oauth 2>&1 >/dev/null)"
+
+cd ${clone:h}
+gnb anything >/dev/null 2>&1
+eq 'gnb outside a repository exits 1' 1 $?
+
 cd $ROOT
 print -r -- ""
 print -r -- "  $PASS passed, $FAIL failed"

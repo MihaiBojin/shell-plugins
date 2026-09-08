@@ -339,6 +339,58 @@ end
 eq 'the numbered list drops the raw branch it used to repeat' 0 $tabs
 popd >/dev/null
 
+# --------------------------------------------------------------------- gnb
+echo
+echo 'gnb'
+
+# A server, a clone of it, and a commit pushed after the clone. Branching from
+# the local main would miss that commit; branching from origin/main does not,
+# which is the whole point of the command.
+set -l server (sandbox)/server.git
+git init -q --bare --initial-branch=main $server
+set -l seed (sandbox)/seed
+git init -q --initial-branch=main $seed
+git -C $seed commit -q --allow-empty -m base
+git -C $seed remote add origin $server
+git -C $seed push -q origin main
+
+set -l clone (sandbox)/clone
+git clone -q $server $clone 2>/dev/null
+
+git -C $seed commit -q --allow-empty -m ahead
+git -C $seed push -q origin main
+set -l tip (git -C $seed rev-parse HEAD)
+
+pushd $clone >/dev/null
+set -l stale (git rev-parse main)
+
+gnb >/dev/null 2>&1
+eq 'gnb with no name exits 2' 2 $status
+gnb one two >/dev/null 2>&1
+eq 'gnb with two names exits 2' 2 $status
+gnb 'not a branch' >/dev/null 2>&1
+eq 'gnb refuses an invalid branch name' 2 $status
+gnb main >/dev/null 2>&1
+eq 'gnb refuses a name that is already a branch' 1 $status
+eq 'and leaves you where you were' main (_git_alias_current_branch)
+
+gnb feat/oauth >/dev/null 2>&1
+eq 'gnb exits 0' 0 $status
+eq 'and checks the new branch out' feat/oauth (_git_alias_current_branch)
+eq 'starting at what the server has' $tip (git rev-parse HEAD)
+eq 'not at the local copy of the default branch' $stale (git rev-parse main)
+eq 'and tracking nothing, so git pull cannot reach for main' '' (git config --get branch.feat/oauth.merge)
+
+set -l out (gnb feat/oauth 2>&1 >/dev/null | string collect)
+has 'a name already taken says what checks it out' 'gb feat/oauth' "$out"
+popd >/dev/null
+
+set -l elsewhere (sandbox)
+pushd $elsewhere >/dev/null
+gnb anything >/dev/null 2>&1
+eq 'gnb outside a repository exits 1' 1 $status
+popd >/dev/null
+
 cleanup
 echo
 echo "  $PASS passed, $FAIL failed"
