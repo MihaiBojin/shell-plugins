@@ -8,9 +8,6 @@ function gwr -d 'Remove a worktree whose branch is finished, and the branch with
 
     set -l use_forge 1
     set -q _flag_no_forge; and set use_forge 0
-    if set -q git_worktree_forge
-        contains -- "$git_worktree_forge" no false off 0; and set use_forge 0
-    end
 
     # The sweep left, and its flags are named here rather than left to fall
     # into a generic parse error. The single form never fetches — it resolves

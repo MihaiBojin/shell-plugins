@@ -117,21 +117,10 @@ function gwa -d 'Add a worktree for a branch beside the repository, and cd into 
         return 0
     end
 
-    # none: stay offline. base: refresh the branch we are about to fork from.
-    # full, the default: also ask the remote whether NAME itself already exists.
-    set -l mode (_gw_fetch_policy always)
-    set -q _flag_fetch; and set mode always
-    set -q _flag_no_fetch; and set mode no
-    switch $mode
-        case no false off 0
-            set mode none
-        case always all
-            set mode full
-        case '*'
-            set mode base
-    end
+    # Online by default: refresh the branch we are about to fork from, and ask
+    # the remote whether NAME itself already exists. --no-fetch declines both.
     set -l online 1
-    test "$mode" = none; and set online 0
+    set -q _flag_no_fetch; and set online 0
 
     # Resolve what to branch off: a remote-tracking ref when there is one, so new
     # branches start from what the remote has rather than a stale local copy.
@@ -174,8 +163,8 @@ function gwa -d 'Add a worktree for a branch beside the repository, and cd into 
 
     # NAME may exist on the remote without us knowing yet. Not asking forks a
     # second, divergent branch of the same name off the base, which is worth
-    # one ref-advertisement round trip; `git_worktree_fetch yes` declines it.
-    if test "$mode" = full; and test -n "$remote"
+    # one ref-advertisement round trip; `--fetch` and `--no-fetch` decide it.
+    if test $online -eq 1; and test -n "$remote"
         and not git show-ref --verify --quiet refs/heads/$name
         and not git show-ref --verify --quiet refs/remotes/$remote/$name
         if _gw_remote_has_branch $remote $name

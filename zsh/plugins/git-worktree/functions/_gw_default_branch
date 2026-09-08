@@ -7,27 +7,14 @@
 #
 # <remote>/HEAD is the repository's own answer — git records it at clone time
 # from what the server advertises — so it is what tells main from master
-# without guessing. It is missing when the remote was added by hand rather than
+# without guessing, and `git remote set-head <remote> --auto` is how you write
+# it down. It is missing when the remote was added by hand rather than
 # cloned, and stale after the default branch is renamed; `remote set-head
 # --auto` re-asks the server and caches the answer, so we only pay for it once.
 # Guessing is the last resort, and says so when the guess is a coin flip.
 emulate -L zsh
 local remote=$1 online=${2:-0} interactive=${3:-0} repo=${4:-$PWD} ref b chosen
 local -a candidates
-
-# 0. An answer somebody wrote down beats anything derived.
-#    git-worktree-plugin.headBranch is the shared key: the companion `origin`
-#    plugin reads the same one, so both tools agree on the head branch.
-local stated
-stated=$(git -C "$repo" config --get git-worktree-plugin.headBranch 2>/dev/null) || stated=''
-if [[ -n $stated ]]; then
-  if [[ -n $remote ]] && git -C "$repo" show-ref --verify --quiet "refs/remotes/$remote/$stated" 2>/dev/null; then
-    _gw_full_ref "$remote/$stated" "$repo"
-  else
-    _gw_full_ref "$stated" "$repo"
-  fi
-  return 0
-fi
 
 # 1. The repository's own answer, refreshed from the server if allowed.
 if [[ -n $remote ]]; then

@@ -9,19 +9,6 @@ function _gw_head_branch -a remote online repo -d 'The full ref this repository 
     # — see _gw_full_ref.
     test -n "$repo"; or set repo $PWD
 
-    # 0. An answer somebody wrote down beats anything derived.
-    #    git-worktree-plugin.headBranch is the shared key: the companion
-    #    `origin` plugin reads the same one, so both tools agree.
-    set -l stated (git -C $repo config --get git-worktree-plugin.headBranch 2>/dev/null)
-    if test -n "$stated"
-        if test -n "$remote"; and git -C $repo show-ref --verify --quiet refs/remotes/$remote/$stated
-            _gw_full_ref $remote/$stated $repo
-        else
-            _gw_full_ref $stated $repo
-        end
-        return 0
-    end
-
     # 1. The repository's own answer, refreshed from the server if allowed.
     #    Recorded at clone time from what the server advertises, so it tells
     #    master from main without guessing. Ignored when it dangles, which is

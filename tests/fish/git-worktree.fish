@@ -646,35 +646,41 @@ git -C $repor worktree unlock $rootr/parent/.worktrees/squashed/demo
 # ------------------------------------------------------ shared configuration
 group 'shared configuration'
 
-# The two git config keys are the whole of what a repository can be told, and
-# both tools read them from the same place.
+# git's own keys are the whole of what a repository can be told, and both tools
+# read them from the same place.
 set -l rootk (fixture_full)
 set -l repok $rootk/parent/demo
 cd $repok
 
 git -C $repok remote add upstream $rootk/origin/demo.git 2>/dev/null
-git -C $repok config git-worktree-plugin.remote upstream
-eq 'git-worktree-plugin.remote picks the remote' upstream (_gw_remote)
+git -C $repok config checkout.defaultRemote upstream
+eq 'checkout.defaultRemote picks the remote' upstream (_gw_remote)
 
-# gw.remote was this plugin's own key and is no longer read: one namespace, no
-# fallback.
-git -C $repok config --unset-all git-worktree-plugin.remote
+git -C $repok config --unset-all checkout.defaultRemote
+git -C $repok config branch.main.remote upstream
+eq 'branch.<current>.remote picks it when nothing more deliberate does' upstream (_gw_remote)
+
+# gw.remote and git-worktree-plugin.remote were this plugin's own keys and are
+# no longer read: git's namespace, and no other.
+git -C $repok config --unset-all branch.main.remote
 git -C $repok config gw.remote upstream
-eq 'the retired gw.remote is ignored, not obeyed' origin (_gw_remote)
+git -C $repok config git-worktree-plugin.remote upstream
+eq 'the retired keys are ignored, not obeyed' origin (_gw_remote)
 
 git -C $repok push -q origin unmerged
 git -C $repok fetch -q origin
-git -C $repok config git-worktree-plugin.headBranch unmerged
-eq 'git-worktree-plugin.headBranch overrides the resolution' refs/remotes/origin/unmerged (_gw_head_branch origin 0 $repok)
+git -C $repok symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/unmerged
+eq '<remote>/HEAD is what decides the default branch' refs/remotes/origin/unmerged (_gw_head_branch origin 0 $repok)
 
-git -C $repok config git-worktree-plugin.headBranch trunk
-eq 'and spells a name with no remote ref under refs/heads/' refs/heads/trunk (_gw_head_branch origin 0 $repok)
+git -C $repok symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/main
+git -C $repok config git-worktree-plugin.headBranch unmerged
+eq 'the retired headBranch key is ignored, not obeyed' refs/remotes/origin/main (_gw_head_branch origin 0 $repok)
 
 # Where worktrees go is derived, not configured — the one thing both tools work
 # out for themselves so they cannot be told different answers.
 git -C $repok config git-worktree-plugin.worktreeRoot $rootk/elsewhere
 set -g git_worktree_subdir .wt
-eq 'neither the retired git key nor a variable moves the root' "$rootk/parent/.worktrees" (_gw_wt_dir)
+eq 'neither a retired git key nor a variable moves the root' "$rootk/parent/.worktrees" (_gw_wt_dir)
 set -e git_worktree_subdir
 
 # ----------------------------------------------- _gw_run captures its command
@@ -946,44 +952,24 @@ eq 'and not the bare name it ends with' 1 $status
 _gw_remote_has_branch origin main
 eq 'and still finds an ordinary one' 0 $status
 
-# `git_worktree_fetch yes` is how to decline the round trip.
+# `--no-fetch` is the only way to decline the round trip: the network policy is
+# a flag, not configuration.
 cd $repof
 git push -q origin main:mine
 git branch -q -D -r origin/mine 2>/dev/null
-begin
-    set -lx git_worktree_fetch yes
-    set outf (gwa mine 2>&1 | string collect)
-end
-hasnt 'git_worktree_fetch yes asks the remote nothing about NAME' 'already has' "$outf"
+set outf (gwa --no-fetch mine 2>&1 | string collect)
+hasnt '--no-fetch asks the remote nothing about NAME' 'already has' "$outf"
+hasnt 'and stays off the network entirely' fetching "$outf"
 
-cd $repof
-begin
-    set -lx git_worktree_fetch no
-    set outf (gwa offline/one 2>&1 | string collect)
-end
-hasnt 'and no stays off the network entirely' fetching "$outf"
-
-# The same answer, recorded where the Zsh plugin and the origin CLI can read
-# it too.
+# The retired keys are ignored rather than obeyed, so a repository carrying one
+# behaves like a repository that does not.
 cd $repof
 git config git-worktree-plugin.fetch no
-set outf (gwa keyed/one 2>&1 | string collect)
-hasnt 'git-worktree-plugin.fetch no keeps gwa offline' fetching "$outf"
-
-cd $repof
 begin
-    set -lx git_worktree_fetch always
-    set outf (gwa keyed/two 2>&1 | string collect)
+    set -lx git_worktree_fetch no
+    set outf (gwa keyed/one 2>&1 | string collect)
 end
-has 'and git_worktree_fetch outranks the key' fetching "$outf"
-
-cd $repof
-eq 'the policy reads the key when something says' yes (begin
-    git config git-worktree-plugin.fetch yes
-    _gw_fetch_policy always
-end)
-git config --unset git-worktree-plugin.fetch
-eq 'and falls back when nothing does' always (_gw_fetch_policy always)
+has 'a retired fetch setting does not keep gwa offline' fetching "$outf"
 
 # A remote that cannot be reached is not an answer. The command's own error
 # text lands in $_gw_reply where its output would, so the status has to be read
