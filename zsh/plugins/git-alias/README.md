@@ -131,8 +131,8 @@ server advertised, then any other remote's, then `main`, `trunk`, `master`.
 Every remote carries a default of its own, and they differ — a fork's `origin`
 can say `main` while its `upstream` says `develop`.
 
-The git-worktree commands climb a longer version of the same ladder, with a
-`zstyle` and a `git-worktree-plugin.remote` key that `gwa` can write: see
+The git-worktree commands climb the same ladder, and `gwa` can write
+`checkout.defaultRemote` when it has to ask: see
 [that README](../git-worktree/README.md#which-remote).
 
 ## Branch commands

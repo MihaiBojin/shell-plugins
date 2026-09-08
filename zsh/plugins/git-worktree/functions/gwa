@@ -122,21 +122,10 @@ if existing=$(_gw_worktree_of_branch "$name"); then
   return 0
 fi
 
-# none: stay offline. base: refresh the branch we are about to fork from.
-# full, the default: also ask the remote whether NAME itself already exists.
-local mode
-if [[ -n $override ]]; then
-  mode=$override
-else
-  mode=$(_gw_fetch_policy always)
-fi
-case $mode in
-  no|false|off|0) mode=none ;;
-  always|all)     mode=full ;;
-  *)              mode=base ;;
-esac
-local online=0
-[[ $mode != none ]] && online=1
+# Online by default: refresh the branch we are about to fork from, and ask the
+# remote whether NAME itself already exists. --no-fetch declines both.
+local online=1
+[[ $override == no ]] && online=0
 
 # Resolve what to branch off: a remote-tracking ref when there is one, so new
 # branches start from what the remote has rather than a stale local copy.
@@ -173,8 +162,8 @@ fi
 
 # NAME may exist on the remote without us knowing yet. Not asking forks a
 # second, divergent branch of the same name off the base, which is worth one
-# ref-advertisement round trip; `fetch yes` is how to decline it.
-if [[ $mode == full && -n $remote ]] &&
+# ref-advertisement round trip; `--no-fetch` is how to decline it.
+if (( online )) && [[ -n $remote ]] &&
    ! git show-ref --verify --quiet "refs/heads/$name" 2>/dev/null &&
    ! git show-ref --verify --quiet "refs/remotes/$remote/$name" 2>/dev/null; then
   if _gw_remote_has_branch "$remote" "$name"; then

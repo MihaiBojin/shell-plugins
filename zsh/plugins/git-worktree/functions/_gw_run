@@ -23,10 +23,9 @@ zmodload -F zsh/zselect b:zselect 2>/dev/null
 local msg=$1; shift
 local tmp rc pid i=0 hint=''
 
-# `spinner no` turns off the animation, not the result line — so the icons
-# still follow the locale rather than the animation setting.
-local style animate=1 charset=ascii
-zstyle -s ':git-worktree:' spinner style || style=yes
+# The animation goes where a terminal cannot show it; the result line does not,
+# so the icons follow the locale rather than the animation.
+local style=yes animate=1 charset=ascii
 [[ ${LC_ALL:-${LC_CTYPE:-${LANG:-}}} == *(UTF-8|utf8|UTF8) ]] && charset=unicode
 [[ $style == no ]] && animate=0
 [[ $style == ascii ]] && charset=ascii

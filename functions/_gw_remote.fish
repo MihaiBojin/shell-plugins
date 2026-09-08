@@ -5,9 +5,6 @@ function _gw_remote -a repo -d 'The remote this repository belongs to'
     # answer is, and fall back to a name rather than to a question — Fish's
     # commands here are never the interactive half of the Zsh plugin.
     #
-    # git-worktree-plugin.remote is the shared key: the Zsh plugin and the
-    # companion `origin` plugin read the same one, so a repository answers this
-    # once for all three.
     #
     # remote.pushDefault is not a rung. It names where commits go, not where
     # they come from, and the two differ in exactly the case that makes this
@@ -22,14 +19,11 @@ function _gw_remote -a repo -d 'The remote this repository belongs to'
     end
 
     set -l stated
-    set -q git_worktree_remote; and set -a stated $git_worktree_remote
-    for key in git-worktree-plugin.remote checkout.defaultRemote
-        set -l value (git -C $repo config --get $key 2>/dev/null)
-        test -n "$value"; and set -a stated $value
-    end
+    set -l value (git -C $repo config --get checkout.defaultRemote 2>/dev/null)
+    test -n "$value"; and set -a stated $value
     set -l branch (git -C $repo symbolic-ref --quiet --short HEAD 2>/dev/null)
     if test -n "$branch"
-        set -l value (git -C $repo config --get branch.$branch.remote 2>/dev/null)
+        set value (git -C $repo config --get branch.$branch.remote 2>/dev/null)
         test -n "$value"; and set -a stated $value
     end
 

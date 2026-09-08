@@ -779,15 +779,28 @@ else
 fi
 
 #
-# 5. The git config keys both tools read.
+# 5. The git config keys both tools read - git's own, and no others.
 #
 group "shared configuration"
 sb=$(fixture) || exit 1; repo=$sb/parent/demo
 
 out=$(in_repo $repo 'git remote add upstream '"$sb"'/origin/demo.git 2>/dev/null
+  git config checkout.defaultRemote upstream
+  _gw_remote')
+eq "checkout.defaultRemote picks the remote" "upstream" "$out"
+
+out=$(in_repo $repo 'git remote add upstream '"$sb"'/origin/demo.git 2>/dev/null
+  git config --unset-all checkout.defaultRemote 2>/dev/null
+  git config branch.main.remote upstream
+  _gw_remote')
+eq "branch.<current>.remote picks it when nothing more deliberate does" "upstream" "$out"
+
+out=$(in_repo $repo 'git remote add upstream '"$sb"'/origin/demo.git 2>/dev/null
+  git config --unset-all checkout.defaultRemote 2>/dev/null
+  git config --unset-all branch.main.remote 2>/dev/null
   git config git-worktree-plugin.remote upstream
   _gw_remote')
-eq "git-worktree-plugin.remote picks the remote" "upstream" "$out"
+eq "the retired git-worktree-plugin.remote is ignored, not obeyed" "origin" "$out"
 
 # gw.remote was this plugin's own key and is no longer read: one namespace,
 # no fallback. `git config --rename-section gw git-worktree-plugin` migrates.
@@ -799,13 +812,14 @@ eq "the retired gw.remote is ignored, not obeyed" "origin" "$out"
 
 out=$(in_repo $repo 'git push -q origin unmerged
   git fetch -q origin
+  git symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/unmerged
+  _gw_default_branch origin 0 0')
+eq "<remote>/HEAD is what decides the default branch" "refs/remotes/origin/unmerged" "$out"
+
+out=$(in_repo $repo 'git symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/main
   git config git-worktree-plugin.headBranch unmerged
   _gw_default_branch origin 0 0')
-eq "git-worktree-plugin.headBranch overrides the resolution" "refs/remotes/origin/unmerged" "$out"
-
-out=$(in_repo $repo 'git config git-worktree-plugin.headBranch trunk
-  _gw_default_branch origin 0 0')
-eq "and spells a name with no remote ref under refs/heads/" "refs/heads/trunk" "$out"
+eq "the retired git-worktree-plugin.headBranch is ignored, not obeyed" "refs/remotes/origin/main" "$out"
 
 #
 # Where worktrees go is derived, not configured — the one thing both tools
@@ -929,8 +943,8 @@ eq "a gitlab remote is recognised" "gitlab" "$out"
 out=$(in_repo $repo 'git remote set-url origin /somewhere/local.git; _gw_forge_kind origin; print -r -- "rc=$?"')
 eq "a remote that is neither is not guessed at" "rc=1" "$out"
 
-out=$(in_repo $repo 'zstyle ":git-worktree:" forge github; _gw_forge_kind origin')
-eq "a style overrides the URL, for self-hosted forges" "github" "$out"
+out=$(in_repo $repo 'zstyle ":git-worktree:" forge github; _gw_forge_kind origin; print -r -- "rc=$?"')
+eq "a retired style does not override the URL" "rc=1" "$out"
 
 out=$(in_repo $repo 'typeset -g _GW_FORGE_PRS=$(printf "new\tOPEN\t9\nold\tMERGED\t4\nold\tCLOSED\t2\n")
   local REPLY
@@ -1041,34 +1055,20 @@ has "the probe finds the nested branch" "nested=0" "$out"
 has "and not the bare name it ends with" "bare=1" "$out"
 has "and still finds an ordinary one" "main=0" "$out"
 
-# `fetch yes` is how to decline the round trip.
-out=$(in_repo $repo 'zstyle ":git-worktree:" fetch yes
-  git push -q origin main:mine
+# `--no-fetch` is the only way to decline the round trip: the network policy is
+# a flag, not configuration.
+out=$(in_repo $repo 'git push -q origin main:mine
   git branch -q -D -r origin/mine 2>/dev/null
-  gwa mine 2>&1')
-hasnt "fetch yes asks the remote nothing about NAME" "already has" "$out"
+  gwa --no-fetch mine 2>&1')
+hasnt "--no-fetch asks the remote nothing about NAME" "already has" "$out"
+hasnt "and stays off the network entirely" "fetching" "$out"
 
-out=$(in_repo $repo 'zstyle ":git-worktree:" fetch no
-  gwa offline/one 2>&1')
-hasnt "and fetch no stays off the network entirely" "fetching" "$out"
-
-# The same answer, recorded where the Fish plugin and the origin CLI can read
-# it too.
+# The retired keys are ignored rather than obeyed, so a repository carrying one
+# behaves like a repository that does not.
 out=$(in_repo $repo 'git config git-worktree-plugin.fetch no
+  zstyle ":git-worktree:" fetch no
   gwa keyed/one 2>&1')
-hasnt "git-worktree-plugin.fetch no keeps gwa offline" "fetching" "$out"
-
-out=$(in_repo $repo 'git config git-worktree-plugin.fetch no
-  zstyle ":git-worktree:" fetch always
-  gwa keyed/two 2>&1')
-has "and the zstyle outranks the key" "fetching" "$out"
-
-out=$(in_repo $repo 'git config --unset git-worktree-plugin.fetch 2>/dev/null
-  print -r -- "$(_gw_fetch_policy always)"
-  git config git-worktree-plugin.fetch yes
-  print -r -- "$(_gw_fetch_policy always)"')
-eq "the policy falls back when nothing says" "always" "${${(f)out}[1]}"
-eq "and reads the key when something does" "yes" "${${(f)out}[2]}"
+has "a retired fetch setting does not keep gwa offline" "fetching" "$out"
 
 # A remote that cannot be reached is not an answer. The command's own error
 # text lands where its output would, so status has to be read before output.

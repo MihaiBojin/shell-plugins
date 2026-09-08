@@ -239,14 +239,13 @@ the one result line per step.
 
 | Mode | What happens |
 |------|--------------|
-| `--no-fetch`, `zstyle ':git-worktree:' fetch no`, or `git config git-worktree-plugin.fetch no` | Nothing. Everything resolves from local refs. |
-| `zstyle ':git-worktree:' fetch yes` | Fetches the single base branch (`git fetch origin main`), best-effort: a failure warns and falls back to your local copy. |
-| default, or `--fetch` | The above, plus one `git ls-remote` to check whether `NAME` itself exists on the remote. |
+| `--no-fetch` | Nothing. Everything resolves from local refs. |
+| default, or `--fetch` | Fetches the single base branch (`git fetch origin main`), best-effort — a failure warns and falls back to your local copy — plus one `git ls-remote` to check whether `NAME` itself exists on the remote. |
 
 If a colleague pushed `their-branch` since your last fetch, `gwa their-branch`
 finds it and checks it out tracking `origin/their-branch`. The `ls-remote` that
 answers costs one ref-advertisement round trip, filtered server-side under
-protocol v2, so it stays cheap on a repository with many refs. `fetch yes`
+protocol v2, so it stays cheap on a repository with many refs. `--no-fetch`
 declines it, at the price of forking a *second, divergent* branch of that name
 off the base whenever the remote already had one.
 
@@ -259,14 +258,12 @@ explicit `gwa`.
 something else, or several with no obvious winner. So the remote is resolved by
 asking the repository, in decreasing order of how deliberate the answer is:
 
-1. `zstyle ':git-worktree:' remote <name>`
-2. `git config git-worktree-plugin.remote` — per-repo, written by the prompt below
-3. `git config checkout.defaultRemote` — git's own knob for this exact ambiguity
-4. `branch.<current>.remote` — last, because every clone sets it automatically:
-   it says where the current branch came from, not which remote the repository
-   belongs to
-5. **Exactly one remote** → that one, whatever it is named
-6. Otherwise `gwa` **asks**, and remembers the answer in `git-worktree-plugin.remote`:
+1. `git config checkout.defaultRemote` — git's own knob for this exact ambiguity
+2. `branch.<current>.remote` — second, because every clone sets it
+   automatically: it says where the current branch came from, not which remote
+   the repository belongs to
+3. **Exactly one remote** → that one, whatever it is named
+4. Otherwise `gwa` **asks**, and remembers the answer in `checkout.defaultRemote`:
 
 ```
 gw: 3 remotes and nothing says which one — pick:
@@ -288,16 +285,14 @@ from it would branch off the fork. It is read where it belongs instead —
 `gpsup` in the git-alias feature pushes to it when it is set, and falls back to
 the remote above when it is not.
 
-`gnb` climbs the same ladder, minus rungs 1, 2 and 6: no zstyle, no key of its
-own, and nothing interactive. In practice every rung that matters is one git
-already sets.
+`gnb` in the git-alias feature climbs the same ladder minus the prompt. Both
+read only keys git itself defines: neither plugin has configuration of its
+own.
 
 ### Finding the default branch
 
 `BASE` defaults to whatever the repository itself says its default branch is:
 
-0. **`git config git-worktree-plugin.headBranch`** — an answer somebody wrote
-   down beats anything derived.
 1. **`refs/remotes/<remote>/HEAD`** — git records this at clone time from what
    the server advertises. This is the real answer, and it is what distinguishes
    `master` from `main` without guessing: a clone of a `master`-default repo
@@ -436,8 +431,7 @@ so.
 Resolving the head branch is offline and never interactive here — `gwr` will
 not stop to ask which remote it is on while it is already asking whether to
 proceed. If it cannot work one out, the worktree is refused and it says so. The
-forge check does reach the network; `--no-forge`, or
-`zstyle ':git-worktree:' forge no`, turns it off.
+forge check does reach the network; `--no-forge` turns it off.
 
 ### Sweeping up what is finished
 
@@ -477,9 +471,8 @@ and each is a deliberate omission rather than an oversight.
 
 | Zsh | Fish | Why |
 |---|---|---|
-| asks which remote when several are plausible, and remembers the answer | resolves the same ladder, falls back to `origin` and then to the first remote | a picker that stops to ask a second question is worse than a wrong default you can override with one config key |
+| asks which remote when several are plausible, and remembers the answer | resolves the same ladder, falls back to `origin` and then to the first remote | a picker that stops to ask a second question is worse than a wrong default you can override with `checkout.defaultRemote` |
 | asks which branch is the head branch, listing 25, and records the answer | climbs the same ladder and warns when the answer it reached was a guess | the same reason; only when the ladder runs out does it give up and print `git remote set-head <remote> --auto` |
-| `zstyle ':git-worktree:' …` | `set -g git_worktree_…` | Fish has no zstyle, and a global variable is what its own configuration looks like |
 
 Both shells run anything that can reach the network behind a spinner, and both
 capture its output and show it only on failure.
@@ -490,16 +483,7 @@ worktree paths for `gwr`, and nothing where the argument is a name that does
 not exist yet. Fish autoloads one the first time you press Tab on that command,
 so they cost nothing at startup.
 
-Configuration, then, is three variables and the same two git config keys:
-
-```fish
-set -g git_worktree_fetch no       # never touch the network (default: yes)
-set -g git_worktree_fetch always   # always check NAME on the remote, as if --fetch
-set -g git_worktree_remote upstream
-set -g git_worktree_forge no       # decide from git alone, never ask GitHub/GitLab
-```
-
-The forge check needs `gh`, or `glab` **and** `jq` — `gh` embeds its own jq and
+There is nothing to configure, in either shell. The forge check needs `gh`, or `glab` **and** `jq` — `gh` embeds its own jq and
 `glab` does not, so the GitLab half is skipped rather than parsed by hand.
 
 `fish --no-config tests/fish/git-worktree.fish` runs against real repositories,
@@ -507,67 +491,36 @@ on a fixture with one worktree per way a branch can be unfinished — the same
 shape the Zsh suite builds, so the two can be read line for line. It covers the
 layout, both collision refusals, all three finished-checks including the forge,
 every refusal (standing-in, main, detached, dirty, untracked, stashed, locked,
-submodule), `gwm`, `--force`, the completions, and the two git config keys.
+submodule), `gwm`, `--force`, the completions, and the remote ladder.
 
 ## Configuration
 
-Add to `.zshrc` before the plugin loads (all styles are read at call time):
+There is none. Every question these commands ask is answered by a key git
+already defines, or by a flag on the command itself:
 
-```zsh
-zstyle ':git-worktree:' fetch no                 # never touch the network
-zstyle ':git-worktree:' fetch yes                # base branch only; do not check NAME on the remote
-zstyle ':git-worktree:' remote upstream          # force a remote (default: resolved per repo, see above)
-zstyle ':git-worktree:' spinner ascii            # |/-\ instead of braille (default: braille in a UTF-8 locale)
-zstyle ':git-worktree:' spinner no               # result lines only, no animation
-```
-
-`gwa --fetch` / `--no-fetch` override the `fetch` style for a single call.
-
-The network policy is also readable from git config, which is how the Fish
-plugin and the companion `origin` CLI see the same answer:
-
-```zsh
-git config git-worktree-plugin.fetch no          # this repository stays offline
-```
-
-The style wins where both are set, because it is how a preference is stated for
-every repository at once. The default, with neither set, is `always`.
-
-Per-repository, in git config rather than zstyle:
-
-```zsh
-git config git-worktree-plugin.remote upstream   # which remote this repo belongs to
-git config --unset git-worktree-plugin.remote    # forget it and ask again
-git config git-worktree-plugin.headBranch main   # override the default-branch resolution
-git remote set-head origin --auto                # (re)record the default branch
-```
-
-### Shared with the `origin` plugin
-
-Both keys live in the `git-worktree-plugin.*` namespace, which is nobody
-else's: the companion [`origin`](https://github.com/MihaiBojin/agent-plugins)
-plugin reads exactly the same two, so a repository answers "which remote" and
-"which head branch" once, for both tools. That is the entire configuration
-surface across them.
-
-| Key | Meaning |
+| Question | Answered by |
 |---|---|
-| `git-worktree-plugin.remote` | Which remote this repository belongs to |
-| `git-worktree-plugin.headBranch` | Override the default-branch resolution |
+| Which remote does this repository belong to | `checkout.defaultRemote`, then `branch.<current>.remote`, then one remote or `origin` |
+| Which branch is the default | `refs/remotes/<remote>/HEAD`, written by `git remote set-head <remote> --auto` |
+| Where a push goes | `branch.<name>.pushRemote`, then `remote.pushDefault` (git's own order) |
+| May this command reach the network | `--fetch` / `--no-fetch` |
+| Should the forge be asked | `--no-forge` |
+| Where worktrees go | Derived from the main checkout's own location |
 
-Where worktrees go is deliberately not on that list. `.worktrees` beside the
-main checkout is derived by both tools from the repository's own location, so
-there is nothing to keep in step and nothing to set on a new machine.
+`gwa` writes `checkout.defaultRemote` when it has to ask which remote, and
+`refs/remotes/<remote>/HEAD` when it has to ask which branch. Both are git's,
+so every other tool on the repository benefits from the answer, and there is
+nothing to set up on a new machine.
 
-An earlier version of this plugin wrote `gw.remote`. That key is no longer read
-at all. If a repository has one:
+Earlier versions read a `git-worktree-plugin.*` namespace, a
+`zstyle ':git-worktree:'` namespace, and `$git_worktree_*` variables. None of
+them is read any more. To clear what a repository still carries:
 
 ```zsh
-git config --rename-section gw git-worktree-plugin
+git config --remove-section git-worktree-plugin
 ```
 
-Nothing here changes where worktrees are created; `gwl` finds them through git
-wherever they sit, including any left over from an older layout.
+`gw.remote`, older still, is likewise ignored.
 
 ## Completion
 

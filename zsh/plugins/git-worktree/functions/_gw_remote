@@ -6,7 +6,7 @@
 # something else entirely, or several with no obvious winner. So ask the
 # repository what it thinks first, in decreasing order of specificity, and only
 # fall back to a name. With -i, a genuine tie asks rather than guesses, and
-# remembers the answer in the repo's own config.
+# remembers the answer in checkout.defaultRemote.
 emulate -L zsh
 local interactive=0
 [[ ${1:-} == -i ]] && { interactive=1; shift }
@@ -17,7 +17,7 @@ remotes=( ${(f)"$(git -C "$repo" remote 2>/dev/null)"} )
 (( $#remotes )) || return 1
 (( $#remotes == 1 )) && { print -r -- ${remotes[1]}; return 0 }
 
-# Deliberate settings first. remote.pushDefault is not among them: it names
+# git's own keys, and only git's. remote.pushDefault is not among them: it names
 # where commits go, not where they come from, and the two differ in exactly the
 # case that makes this question worth asking — a fork you push to, an upstream
 # you branch from. branch.<name>.remote comes last because every clone sets it
@@ -25,12 +25,6 @@ remotes=( ${(f)"$(git -C "$repo" remote 2>/dev/null)"} )
 # not which remote the repository belongs to — but it still beats a guess.
 local cand branch
 local -a stated
-# git-worktree-plugin.remote is the shared key: the companion `origin` plugin
-# reads the same one, so a repository answers this question once for both.
-# This plugin used to write gw.remote; migrate with
-#   git config --rename-section gw git-worktree-plugin
-zstyle -s ':git-worktree:' remote cand && stated+=( "$cand" )
-cand=$(git -C "$repo" config --get git-worktree-plugin.remote 2>/dev/null) && stated+=( "$cand" )
 cand=$(git -C "$repo" config --get checkout.defaultRemote 2>/dev/null) && stated+=( "$cand" )
 branch=$(git -C "$repo" symbolic-ref --quiet --short HEAD 2>/dev/null) &&
   cand=$(git -C "$repo" config --get "branch.$branch.remote" 2>/dev/null) && stated+=( "$cand" )
@@ -48,8 +42,8 @@ if (( interactive )); then
   done
   local chosen
   chosen=$(_gw_choose "$#remotes remotes and nothing says which one — pick:" "${items[@]}") || return 1
-  git -C "$repo" config git-worktree-plugin.remote "$chosen" 2>/dev/null &&
-    _gw_info "remembered: git -C "$repo" config git-worktree-plugin.remote $chosen  (undo: git -C "$repo" config --unset git-worktree-plugin.remote)"
+  git -C "$repo" config checkout.defaultRemote "$chosen" 2>/dev/null &&
+    _gw_info "remembered: git -C "$repo" config checkout.defaultRemote $chosen  (undo: git -C "$repo" config --unset checkout.defaultRemote)"
   print -r -- "$chosen"
   return 0
 fi

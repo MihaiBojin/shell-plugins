@@ -33,10 +33,4 @@ function gw -d 'git worktree helpers: gwl, gwa, gwr'
     else
         echo '  here   (not inside a git repository)'
     end
-    echo
-    echo 'configure with global variables, e.g. in conf.d/:'
-    echo '  set -g git_worktree_fetch no|yes|always     network policy for gwa (default: always)'
-    echo '  git config git-worktree-plugin.fetch no    the same, per repository, shared with origin'
-    echo '  set -g git_worktree_remote NAME             force a remote (default: resolved per repo)'
-    echo '  set -g git_worktree_forge no                never ask GitHub/GitLab'
 end

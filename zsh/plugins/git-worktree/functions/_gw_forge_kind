@@ -2,19 +2,11 @@
 # repository at $2 (default: $PWD).
 #
 # Derived from the remote URL, which is right for the hosted services and wrong
-# for anything self-hosted under its own domain — so a style overrides it:
-#
-#     zstyle ':git-worktree:' forge github     # or gitlab, or no
+# for anything self-hosted under its own domain. `--no-forge` is how you decline
+# the question per command; nothing configures the answer.
 emulate -L zsh
 
-local remote=$1 repo=${2:-$PWD} stated url
-
-if zstyle -s ':git-worktree:' forge stated; then
-  case $stated in
-    github|gitlab) print -r -- $stated; return 0 ;;
-    *)             return 1 ;;
-  esac
-fi
+local remote=$1 repo=${2:-$PWD} url
 
 [[ -n $remote ]] || return 1
 url=$(git -C "$repo" remote get-url "$remote" 2>/dev/null) || return 1
