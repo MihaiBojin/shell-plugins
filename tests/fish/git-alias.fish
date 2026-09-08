@@ -391,6 +391,59 @@ gnb anything >/dev/null 2>&1
 eq 'gnb outside a repository exits 1' 1 $status
 popd >/dev/null
 
+# ------------------------------------------------------------ remote choice
+echo
+echo 'which remote'
+
+set -l multi (sandbox)/multi
+git init -q --initial-branch=main $multi
+git -C $multi commit -q --allow-empty -m base
+set -l up (sandbox)/up.git
+set -l fork (sandbox)/fork.git
+git init -q --bare --initial-branch=develop $up
+git init -q --bare --initial-branch=main $fork
+
+pushd $multi >/dev/null
+git remote add upstream $up
+git push -q upstream main:develop
+eq 'one remote needs no configuration at all' upstream (_git_alias_remote)
+
+git remote add fork $fork
+git push -q fork main
+git fetch -q --all
+git remote set-head upstream --auto >/dev/null 2>&1
+git remote set-head fork --auto >/dev/null 2>&1
+
+# Neither is called origin, and nothing has been configured yet.
+git config --unset branch.main.remote 2>/dev/null
+eq 'with two remotes and nothing said, the first is taken' (git remote | head -1) (_git_alias_remote)
+
+git config checkout.defaultRemote upstream
+eq 'checkout.defaultRemote decides' upstream (_git_alias_remote)
+git config --unset checkout.defaultRemote
+
+git config branch.main.remote fork
+eq 'branch.<current>.remote decides' fork (_git_alias_remote)
+
+# remote.pushDefault is the push target and must not move the base.
+git config remote.pushDefault upstream
+eq 'remote.pushDefault does not decide the base' fork (_git_alias_remote)
+eq 'but it does decide the push target' upstream (_git_alias_push_remote)
+git config --unset remote.pushDefault
+eq 'unset, the push target is the base remote' fork (_git_alias_push_remote)
+
+eq 'the default branch comes from that remote' main (_git_alias_main_branch)
+eq 'and each remote advertises its own' develop (_git_alias_main_branch upstream)
+
+gnb feat/from-fork >/dev/null 2>&1
+eq 'gnb branches off the resolved remote' (git rev-parse refs/remotes/fork/main) (git rev-parse HEAD)
+git checkout -q main
+
+git config branch.main.remote upstream
+gnb feat/from-upstream >/dev/null 2>&1
+eq 'and follows the configuration when it changes' (git rev-parse refs/remotes/upstream/develop) (git rev-parse HEAD)
+popd >/dev/null
+
 cleanup
 echo
 echo "  $PASS passed, $FAIL failed"

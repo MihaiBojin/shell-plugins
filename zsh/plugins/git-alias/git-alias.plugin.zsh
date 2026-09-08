@@ -26,6 +26,7 @@ unfunction gunwipall 2>/dev/null
 
 autoload -Uz gwip gunwipall gb gbd gnb \
   _git_alias_current_branch _git_alias_main_branch \
+  _git_alias_remote _git_alias_push_remote \
   _git_alias_say _git_alias_branch_pick _git_alias_branch_state
 
 # Add, commit, amend
@@ -59,8 +60,11 @@ alias gcpc='git cherry-pick --continue'
 alias gcpa='git cherry-pick --abort'
 
 # Push. gpsup is the first push of a new branch; the rest is the usual one.
+# The remote is remote.pushDefault when it is set, which is what makes a fork
+# checkout work: branch from upstream, push to the fork. Unset, it falls back to
+# the remote the repository belongs to.
 alias gp='git push'
-alias gpsup='git push --set-upstream origin $(_git_alias_current_branch)'
+alias gpsup='git push --set-upstream $(_git_alias_push_remote) $(_git_alias_current_branch)'
 
 # Merge the default branch in, whatever it is called here
 alias gmom='git merge origin/$(_git_alias_main_branch)'

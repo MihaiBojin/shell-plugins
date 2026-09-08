@@ -1,0 +1,15 @@
+# The remote a push goes to.
+#
+# remote.pushDefault is git's answer to "where do my commits go", and it is the
+# whole reason a fork checkout works: branch from upstream, push to the fork.
+# Nothing here writes it — this only checks whether it is set, and falls back to
+# the remote the repository belongs to when it is not.
+emulate -L zsh
+
+local value
+value=$(git config --get remote.pushDefault 2>/dev/null)
+if [[ -n $value ]] && git remote get-url "$value" >/dev/null 2>&1; then
+  print -r -- "$value"
+  return 0
+fi
+_git_alias_remote

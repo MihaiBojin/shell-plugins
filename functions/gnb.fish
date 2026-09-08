@@ -35,32 +35,30 @@ function gnb -d 'Branch from the default branch, brought up to date first'
 
     # A failed fetch is not fatal. An offline machine still gets a branch, off
     # whatever it last saw, and the line at the end names the commit it got.
+    # --all rather than the one remote the base comes from: a remote that fails
+    # is a repository to fix, not a reason to fetch less.
     git fetch --all
-    or _git_alias_say warn 'could not fetch — branching from what is already here'
+    or _git_alias_say warn 'some remotes could not be fetched — branching from what is already here'
 
-    set -l head (_git_alias_main_branch)
+    # Which remote, then that remote's own default branch. Neither is assumed:
+    # a repository with several remotes answers through git's own configuration,
+    # and each remote advertises a default of its own.
+    set -l remote (_git_alias_remote)
+    set -l head (_git_alias_main_branch $remote)
 
     # Full refs, never `origin/main`: git resolves a bare name as a tag first,
     # so a repository holding a tag of that name would branch from the tag.
-    # origin before upstream, and the remote copy before the local one, which
-    # is the order _git_alias_main_branch itself asks in.
     set -l base
     set -l pretty
-    for remote in origin upstream
-        if git show-ref --verify --quiet refs/remotes/$remote/$head
-            set base refs/remotes/$remote/$head
-            set pretty $remote/$head
-            break
-        end
-    end
-    if not set -q base[1]
-        if git show-ref --verify --quiet refs/heads/$head
-            set base refs/heads/$head
-            set pretty $head
-        else
-            _git_alias_say err "cannot tell which branch is the default — record it with: git remote set-head origin --auto"
-            return 1
-        end
+    if test -n "$remote"; and git show-ref --verify --quiet refs/remotes/$remote/$head
+        set base refs/remotes/$remote/$head
+        set pretty $remote/$head
+    else if git show-ref --verify --quiet refs/heads/$head
+        set base refs/heads/$head
+        set pretty $head
+    else
+        _git_alias_say err "cannot tell which branch is the default — record it with: git remote set-head "(test -n "$remote"; and echo $remote; or echo origin)" --auto"
+        return 1
     end
 
     # --no-track: a branch off origin/main would otherwise take the default

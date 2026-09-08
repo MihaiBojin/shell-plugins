@@ -32,7 +32,7 @@ in `config.fish`, because Fisher only copies `functions/`, `conf.d/`,
 | `gwr [PATH\|QUERY]` | zsh, fish | `git`, `gh`/`glab` (optional) | Remove a worktree whose branch is finished, and the branch with it |
 | `gwr --all [--yes]` | zsh, fish | `git`, `gh`/`glab` (optional) | The same, to every finished worktree at once |
 | `ga` `gaa` `gc` `gca` `gca!` `gcan!` `gco` `gcb` `gcm` `gst` `gd` `gdca` `gcp` `gcpc` `gcpa` `gp` `gpsup` `gmom` `gwip` `gunwip` `gpa!` `gcap` | zsh, fish | `git` | The short git commands |
-| `gnb NAME` | zsh, fish | `git` | Fetch every remote, then branch `NAME` off `<remote>/<default branch>` and check it out |
+| `gnb NAME` | zsh, fish | `git` | Fetch every remote, then branch `NAME` off the resolved remote's default branch and check it out |
 | `gb [QUERY]` | zsh, fish | `git`, `fzf` (optional) | Pick a branch and check it out. `gb --list` is plain `git branch` |
 | `gbd [QUERY]` | zsh, fish | `git`, `fzf` (optional) | Delete branches, having said first whether each one is merged, squash-merged, or held by another ref |
 | `gh-login` `gh-add-key` | zsh, fish | `gh` | Authenticate a new machine with GitHub over SSH |

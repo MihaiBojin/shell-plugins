@@ -1,0 +1,39 @@
+# The remote this repository belongs to.
+#
+# `origin` is a convention, not a fact: a repository may have one remote called
+# something else, or several with no obvious winner. Ask git's own configuration
+# rather than introduce a setting of this plugin's own — every rung below is a
+# key git already defines and most clones already set, so a repository answers
+# this without anybody typing anything.
+#
+# remote.pushDefault is deliberately absent. It names where commits go, not
+# where they come from, and the two differ in exactly the case that makes this
+# question worth asking: a fork you push to, an upstream you branch from.
+# _git_alias_push_remote reads it instead.
+#
+# The git-worktree commands climb a longer ladder with the same rungs in the
+# same order, plus a key of their own that gwa can write; see
+# zsh/plugins/git-worktree/README.md#which-remote.
+emulate -L zsh
+
+local value branch candidate
+local -a remotes stated
+
+remotes=( ${(f)"$(git remote 2>/dev/null)"} )
+(( $#remotes )) || return 1
+(( $#remotes == 1 )) && { print -r -- ${remotes[1]}; return 0 }
+
+# git's own knob for this exact ambiguity.
+value=$(git config --get checkout.defaultRemote 2>/dev/null) && stated+=( "$value" )
+# Where the current branch came from. Every clone sets it, which is why it comes
+# second: it answers a narrower question, but it still beats a guess.
+branch=$(git symbolic-ref --quiet --short HEAD 2>/dev/null) &&
+  value=$(git config --get "branch.$branch.remote" 2>/dev/null) && stated+=( "$value" )
+
+for candidate in $stated; do
+  [[ -n $candidate && $candidate != . ]] || continue
+  (( ${remotes[(Ie)$candidate]} )) && { print -r -- "$candidate"; return 0 }
+done
+
+(( ${remotes[(Ie)origin]} )) && { print -r -- origin; return 0 }
+print -r -- ${remotes[1]}

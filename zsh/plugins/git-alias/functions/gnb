@@ -40,30 +40,28 @@ if git show-ref --verify --quiet "refs/heads/$branch"; then
 fi
 
 # A failed fetch is not fatal. An offline machine still gets a branch, off
-# whatever it last saw, and the line at the end names the commit it got.
-git fetch --all || _git_alias_say warn "could not fetch — branching from what is already here"
+# whatever it last saw, and the line at the end names the commit it got. --all
+# rather than the one remote the base comes from: a remote that fails is a
+# repository to fix, not a reason to fetch less.
+git fetch --all || _git_alias_say warn "some remotes could not be fetched — branching from what is already here"
 
-head=$(_git_alias_main_branch)
+# Which remote, then that remote's own default branch. Neither is assumed: a
+# repository with several remotes answers through git's own configuration, and
+# each remote advertises a default of its own.
+remote=$(_git_alias_remote)
+head=$(_git_alias_main_branch "$remote")
 
 # Full refs, never `origin/main`: git resolves a bare name as a tag first, so a
-# repository holding a tag of that name would branch from the tag. origin
-# before upstream, and the remote copy before the local one, which is the order
-# _git_alias_main_branch itself asks in.
-for remote in origin upstream; do
-  if git show-ref --verify --quiet "refs/remotes/$remote/$head"; then
-    base="refs/remotes/$remote/$head"
-    pretty="$remote/$head"
-    break
-  fi
-done
-if [[ -z $base ]]; then
-  if git show-ref --verify --quiet "refs/heads/$head"; then
-    base="refs/heads/$head"
-    pretty="$head"
-  else
-    _git_alias_say err "cannot tell which branch is the default — record it with: git remote set-head origin --auto"
-    return 1
-  fi
+# repository holding a tag of that name would branch from the tag.
+if [[ -n $remote ]] && git show-ref --verify --quiet "refs/remotes/$remote/$head"; then
+  base="refs/remotes/$remote/$head"
+  pretty="$remote/$head"
+elif git show-ref --verify --quiet "refs/heads/$head"; then
+  base="refs/heads/$head"
+  pretty="$head"
+else
+  _git_alias_say err "cannot tell which branch is the default — record it with: git remote set-head ${remote:-origin} --auto"
+  return 1
 fi
 
 # --no-track: a branch off origin/main would otherwise take the default branch
