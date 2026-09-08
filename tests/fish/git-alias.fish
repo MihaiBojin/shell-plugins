@@ -429,6 +429,10 @@ eq 'branch.<current>.remote decides' fork (_git_alias_remote)
 git config remote.pushDefault upstream
 eq 'remote.pushDefault does not decide the base' fork (_git_alias_remote)
 eq 'but it does decide the push target' upstream (_git_alias_push_remote)
+# git's own precedence: branch.<name>.pushRemote wins over remote.pushDefault.
+git config branch.main.pushRemote fork
+eq 'branch.<current>.pushRemote overrides it, as git-config says' fork (_git_alias_push_remote)
+git config --unset branch.main.pushRemote
 git config --unset remote.pushDefault
 eq 'unset, the push target is the base remote' fork (_git_alias_push_remote)
 

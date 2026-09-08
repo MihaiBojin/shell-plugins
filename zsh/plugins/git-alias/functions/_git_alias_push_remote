@@ -1,15 +1,23 @@
 # The remote a push goes to.
 #
-# remote.pushDefault is git's answer to "where do my commits go", and it is the
-# whole reason a fork checkout works: branch from upstream, push to the fork.
-# Nothing here writes it — this only checks whether it is set, and falls back to
-# the remote the repository belongs to when it is not.
+# git's own precedence, from git-config(1): branch.<name>.pushRemote overrides
+# remote.pushDefault, which overrides branch.<name>.remote. This is not a policy
+# of this plugin's — it is the order git itself uses to pick a push target, and
+# it exists so that "pull from upstream, push to my fork" works. Nothing here
+# writes any of it.
+#
+# Falling through to _git_alias_remote covers the rest, single-remote
+# repositories included: with one remote, that is where a push goes.
 emulate -L zsh
 
-local value
-value=$(git config --get remote.pushDefault 2>/dev/null)
-if [[ -n $value ]] && git remote get-url "$value" >/dev/null 2>&1; then
-  print -r -- "$value"
-  return 0
-fi
+local branch key value
+branch=$(git symbolic-ref --quiet --short HEAD 2>/dev/null)
+
+for key in ${branch:+"branch.$branch.pushRemote"} remote.pushDefault; do
+  value=$(git config --get "$key" 2>/dev/null) || continue
+  if [[ -n $value ]] && git remote get-url "$value" >/dev/null 2>&1; then
+    print -r -- "$value"
+    return 0
+  fi
+done
 _git_alias_remote

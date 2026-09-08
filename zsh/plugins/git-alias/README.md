@@ -111,11 +111,19 @@ them, from git's own configuration. This feature adds no settings of its own.
 2. `branch.<current>.remote` — every clone sets it, so it usually answers
 3. `origin`, else the first remote
 
-One remote short-circuits all of it. `remote.pushDefault` is not a rung: it says
-where commits go, not where they come from, and those differ in exactly the case
-worth asking about — a fork you push to, an upstream you branch from. `gpsup`
-reads it instead (`_git_alias_push_remote`), falling back to the remote above
-when it is unset.
+One remote short-circuits all of it.
+
+**Where a push goes** (`_git_alias_push_remote`), used by `gpsup`, is a separate
+question with a separate answer, and git already defines the order
+(git-config(1)):
+
+1. `branch.<current>.pushRemote`
+2. `remote.pushDefault`
+3. the remote above, single-remote repositories included
+
+That order is git's, not this plugin's. It exists so "pull from upstream, push
+to my fork" works, which is also why neither key resolves the *base*: they say
+where commits go, not where they come from.
 
 **Which branch** (`_git_alias_main_branch`): that remote's own
 `refs/remotes/<remote>/HEAD`, which git records at clone time from what the
