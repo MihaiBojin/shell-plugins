@@ -24,8 +24,9 @@ fpath=( ${${(%):-%x}:A:h}/functions $fpath )
 unalias gwip 2>/dev/null
 unfunction gunwipall 2>/dev/null
 
-autoload -Uz gwip gunwipall gb gbd \
+autoload -Uz gwip gunwipall gb gbd gnb \
   _git_alias_current_branch _git_alias_main_branch \
+  _git_alias_remote _git_alias_push_remote \
   _git_alias_say _git_alias_branch_pick _git_alias_branch_state
 
 # Add, commit, amend
@@ -41,7 +42,9 @@ alias 'gcan!'='git commit --verbose --all --no-edit --amend'
 #
 # gb and gbd are not here: they open a picker, and there is nothing readable for
 # an alias to expand to. They are functions, autoloaded above. `gb --list` is
-# the plain `git branch` this used to be.
+# the plain `git branch` this used to be. Nor is gnb, which fetches before it
+# branches and puts the name in the middle of the command rather than at the
+# end.
 alias gco='git checkout'
 alias gcb='git checkout -b'
 alias gcm='git checkout $(_git_alias_main_branch)'
@@ -57,8 +60,11 @@ alias gcpc='git cherry-pick --continue'
 alias gcpa='git cherry-pick --abort'
 
 # Push. gpsup is the first push of a new branch; the rest is the usual one.
+# The remote is remote.pushDefault when it is set, which is what makes a fork
+# checkout work: branch from upstream, push to the fork. Unset, it falls back to
+# the remote the repository belongs to.
 alias gp='git push'
-alias gpsup='git push --set-upstream origin $(_git_alias_current_branch)'
+alias gpsup='git push --set-upstream $(_git_alias_push_remote) $(_git_alias_current_branch)'
 
 # Merge the default branch in, whatever it is called here
 alias gmom='git merge origin/$(_git_alias_main_branch)'

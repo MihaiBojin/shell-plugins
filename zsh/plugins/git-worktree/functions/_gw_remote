@@ -17,8 +17,11 @@ remotes=( ${(f)"$(git -C "$repo" remote 2>/dev/null)"} )
 (( $#remotes )) || return 1
 (( $#remotes == 1 )) && { print -r -- ${remotes[1]}; return 0 }
 
-# Deliberate settings first. branch.<name>.remote comes last because every
-# clone sets it automatically — it says where the current branch came from,
+# Deliberate settings first. remote.pushDefault is not among them: it names
+# where commits go, not where they come from, and the two differ in exactly the
+# case that makes this question worth asking — a fork you push to, an upstream
+# you branch from. branch.<name>.remote comes last because every clone sets it
+# automatically — it says where the current branch came from,
 # not which remote the repository belongs to — but it still beats a guess.
 local cand branch
 local -a stated
@@ -29,7 +32,6 @@ local -a stated
 zstyle -s ':git-worktree:' remote cand && stated+=( "$cand" )
 cand=$(git -C "$repo" config --get git-worktree-plugin.remote 2>/dev/null) && stated+=( "$cand" )
 cand=$(git -C "$repo" config --get checkout.defaultRemote 2>/dev/null) && stated+=( "$cand" )
-cand=$(git -C "$repo" config --get remote.pushDefault 2>/dev/null)     && stated+=( "$cand" )
 branch=$(git -C "$repo" symbolic-ref --quiet --short HEAD 2>/dev/null) &&
   cand=$(git -C "$repo" config --get "branch.$branch.remote" 2>/dev/null) && stated+=( "$cand" )
 

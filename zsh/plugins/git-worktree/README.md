@@ -262,12 +262,11 @@ asking the repository, in decreasing order of how deliberate the answer is:
 1. `zstyle ':git-worktree:' remote <name>`
 2. `git config git-worktree-plugin.remote` — per-repo, written by the prompt below
 3. `git config checkout.defaultRemote` — git's own knob for this exact ambiguity
-4. `git config remote.pushDefault`
-5. `branch.<current>.remote` — last, because every clone sets it automatically:
+4. `branch.<current>.remote` — last, because every clone sets it automatically:
    it says where the current branch came from, not which remote the repository
    belongs to
-6. **Exactly one remote** → that one, whatever it is named
-7. Otherwise `gwa` **asks**, and remembers the answer in `git-worktree-plugin.remote`:
+5. **Exactly one remote** → that one, whatever it is named
+6. Otherwise `gwa` **asks**, and remembers the answer in `git-worktree-plugin.remote`:
 
 ```
 gw: 3 remotes and nothing says which one — pick:
@@ -281,6 +280,17 @@ Read-only commands (`gwl`, `gwr`, and the listing) never prompt — they fall ba
 to `origin`, else the first remote, so a picker can't be interrupted by a
 question. The remote decides where branches come from, not where worktrees go —
 the path comes from the checkout's own location.
+
+`remote.pushDefault` is deliberately not a rung. It names where commits go, and
+the two answers differ in exactly the case that makes this question worth
+asking: a fork you push to, an upstream you branch from. Resolving the base
+from it would branch off the fork. It is read where it belongs instead —
+`gpsup` in the git-alias feature pushes to it when it is set, and falls back to
+the remote above when it is not.
+
+`gnb` climbs the same ladder, minus rungs 1, 2 and 6: no zstyle, no key of its
+own, and nothing interactive. In practice every rung that matters is one git
+already sets.
 
 ### Finding the default branch
 

@@ -8,6 +8,10 @@ function _gw_remote -a repo -d 'The remote this repository belongs to'
     # git-worktree-plugin.remote is the shared key: the Zsh plugin and the
     # companion `origin` plugin read the same one, so a repository answers this
     # once for all three.
+    #
+    # remote.pushDefault is not a rung. It names where commits go, not where
+    # they come from, and the two differ in exactly the case that makes this
+    # question worth asking: a fork you push to, an upstream you branch from.
     test -n "$repo"; or set repo $PWD
 
     set -l remotes (git -C $repo remote 2>/dev/null)
@@ -19,7 +23,7 @@ function _gw_remote -a repo -d 'The remote this repository belongs to'
 
     set -l stated
     set -q git_worktree_remote; and set -a stated $git_worktree_remote
-    for key in git-worktree-plugin.remote checkout.defaultRemote remote.pushDefault
+    for key in git-worktree-plugin.remote checkout.defaultRemote
         set -l value (git -C $repo config --get $key 2>/dev/null)
         test -n "$value"; and set -a stated $value
     end

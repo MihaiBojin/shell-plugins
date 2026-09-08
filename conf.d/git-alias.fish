@@ -17,7 +17,8 @@
 # Not here: gwip, gunwip and gunwipall. They are loops, so they are functions in
 # both shells, and Fish autoloads them from functions/. Nor gb and gbd, which
 # open a picker — an abbreviation expands to text you can read before it runs,
-# and there is nothing readable to expand a picker to.
+# and there is nothing readable to expand a picker to. Nor gnb, which fetches
+# before it branches and wants the name in the middle of the command.
 
 if status is-interactive
     # Add, commit, amend
@@ -45,8 +46,10 @@ if status is-interactive
     abbr --add gcpa -- 'git cherry-pick --abort'
 
     # Push. gpsup is the first push of a new branch; the rest is the usual one.
+    # Its remote is remote.pushDefault when set — what makes a fork checkout
+    # work: branch from upstream, push to the fork.
     abbr --add gp -- 'git push'
-    abbr --add gpsup -- 'git push --set-upstream origin (_git_alias_current_branch)'
+    abbr --add gpsup -- 'git push --set-upstream (_git_alias_push_remote) (_git_alias_current_branch)'
 
     # Merge the default branch in, whatever it is called here
     abbr --add gmom -- 'git merge origin/(_git_alias_main_branch)'

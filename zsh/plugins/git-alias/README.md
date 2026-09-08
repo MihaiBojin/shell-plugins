@@ -21,7 +21,7 @@ two `gh` ones.
 | `gcpc` | `git cherry-pick --continue` |
 | `gcpa` | `git cherry-pick --abort` |
 | `gp` | `git push` |
-| `gpsup` | `git push --set-upstream origin <current branch>` |
+| `gpsup` | `git push --set-upstream <push remote> <current branch>` |
 | `gmom` | `git merge origin/<default branch>` |
 | `gunwip` | Undo the last commit if it is a `--wip--` |
 | `gpa!` | `add -A`, commit as "save all", push, status |
@@ -102,22 +102,75 @@ ohmyzsh/ohmyzsh path:plugins/git
 `git`. `gwip` also uses `grep`, and `gunwip` uses `grep` and `git rev-list`.
 `gh-login` and `gh-add-key` need the GitHub CLI, at the moment you run them.
 
-`gpsup`, `gcm` and `gmom` resolve the branch they need at the moment you run
-them. `gcm` and `gmom` ask the repository what its default branch is —
-`<remote>/HEAD` first, which git records at clone time from what the server
-advertised, then `main`, `trunk`, `master` in that order.
+`gpsup`, `gcm`, `gmom` and `gnb` resolve what they need at the moment you run
+them, from git's own configuration. This feature adds no settings of its own.
+
+**Which remote** (`_git_alias_remote`), when a repository has more than one:
+
+1. `checkout.defaultRemote` — git's own knob for this exact ambiguity
+2. `branch.<current>.remote` — every clone sets it, so it usually answers
+3. `origin`, else the first remote
+
+One remote short-circuits all of it.
+
+**Where a push goes** (`_git_alias_push_remote`), used by `gpsup`, is a separate
+question with a separate answer, and git already defines the order
+(git-config(1)):
+
+1. `branch.<current>.pushRemote`
+2. `remote.pushDefault`
+3. the remote above, single-remote repositories included
+
+That order is git's, not this plugin's. It exists so "pull from upstream, push
+to my fork" works, which is also why neither key resolves the *base*: they say
+where commits go, not where they come from.
+
+**Which branch** (`_git_alias_main_branch`): that remote's own
+`refs/remotes/<remote>/HEAD`, which git records at clone time from what the
+server advertised, then any other remote's, then `main`, `trunk`, `master`.
+Every remote carries a default of its own, and they differ — a fork's `origin`
+can say `main` while its `upstream` says `develop`.
+
+The git-worktree commands climb a longer version of the same ladder, with a
+`zstyle` and a `git-worktree-plugin.remote` key that `gwa` can write: see
+[that README](../git-worktree/README.md#which-remote).
 
 ## Branch commands
 
-Two of these are not aliases. `gb` and `gbd` open a picker, and there is nothing
-readable for an alias to expand to, so they are functions in both shells.
+Three of these are not aliases, so they are functions in both shells. `gb` and
+`gbd` open a picker, and there is nothing readable for an alias to expand to.
+`gnb` runs two commands and wants its argument between them.
 
 | Command | What it does |
 |---|---|
+| `gnb NAME` | Fetch every remote, then branch `NAME` off `<remote>/<default branch>` and check it out |
 | `gb [QUERY]` | Fuzzy-pick one of this repository's branches and check it out. The list is newest-commit first, search covers the name, and the preview shows the branch's recent commits |
 | `gb --list [ARG…]` | Plain `git branch`, arguments passed straight through |
 | `gbd [QUERY]` | Pick branches to delete — Tab marks more than one, Ctrl-A marks all |
 | `gbd --force` | Skip the confirmation |
+
+`gnb` starts the branch from what the resolved remote has, not from the local
+copy of the default branch, which is usually behind:
+
+```
+$ gnb feat/oauth
+git-alias: feat/oauth from origin/main at 4f2a1c0d
+```
+
+Nothing is rebased afterwards, because there is nothing to replay: a branch
+created at `origin/main` is already on top of it. The base is a full ref
+(`refs/remotes/origin/main`) rather than `origin/main`, since git resolves a
+bare name as a tag first and a repository holding a tag called `origin/main`
+would otherwise branch from the tag. A repository with no remote copy of the
+branch falls back to the local one.
+
+The branch is created `--no-track`. Its upstream is deliberately not the
+default branch: with tracking, `git pull` on the new branch would merge `main`
+straight back into it.
+
+`git fetch --all` runs first. A remote that fails warns and does not stop the
+branch, so an offline machine still gets one — off whatever it last saw, and the
+line above names the commit.
 
 `gbd` reports every branch before it deletes anything, and says which of four
 things makes the deletion safe:

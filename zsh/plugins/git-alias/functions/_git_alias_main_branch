@@ -1,21 +1,33 @@
 # What this repository calls its default branch.
 #
-# Used by gcm and gmom. `main` and `master` are both common enough that
+# Used by gcm, gmom and gnb. `main` and `master` are both common enough that
 # guessing is wrong often enough to notice, so ask the repository first: git
 # records the answer in <remote>/HEAD at clone time, from what the server
 # advertised.
 #
-# Deliberately not shared with the git-worktree plugin's _gw_default_branch,
-# which does the same job more thoroughly and can go to the network. Each
-# plugin here works when it is the only one installed.
+# Every remote carries its own, and they differ — a fork's origin can say main
+# while the upstream it was forked from says develop. So the remote is resolved
+# rather than assumed, and a caller that already knows which one it means passes
+# it in.
+#
+# Deliberately not shared with the git-worktree commands' _gw_head_branch, which
+# does the same job more thoroughly and can go to the network. Each feature here
+# works when it is the only one installed.
 emulate -L zsh
 
-local ref remote branch
+local remote=${1:-} candidate ref branch
+
 git rev-parse --git-dir >/dev/null 2>&1 || return 1
 
-for remote in origin upstream; do
-  ref=$(git symbolic-ref --quiet --short "refs/remotes/$remote/HEAD" 2>/dev/null) || continue
-  print -r -- "${ref#$remote/}"
+[[ -n $remote ]] || remote=$(_git_alias_remote)
+
+# The resolved remote first, then any other, so a repository whose origin never
+# had its HEAD recorded still gets an advertised answer rather than a guess.
+for candidate in $remote ${(f)"$(git remote 2>/dev/null)"}; do
+  [[ -n $candidate ]] || continue
+  ref=$(git symbolic-ref --quiet --short "refs/remotes/$candidate/HEAD" 2>/dev/null) || continue
+  [[ -n $ref ]] || continue
+  print -r -- "${ref#$candidate/}"
   return 0
 done
 

@@ -143,6 +143,112 @@ else
   skip 'with a terminal it reaches for it (no python3 for a pty)'
 fi
 
+group 'gnb'
+
+# A server, a clone of it, and a commit pushed after the clone. Branching from
+# the local main would miss that commit; branching from origin/main does not,
+# which is the whole point of the command.
+local server=$(mktemp -d)/server.git
+SANDBOXES+=( ${server:h} )
+git init -q --bare --initial-branch=main $server
+local seed=$(mktemp -d)/seed
+SANDBOXES+=( ${seed:h} )
+git init -q --initial-branch=main $seed
+git -C $seed commit -q --allow-empty -m base
+git -C $seed remote add origin $server
+git -C $seed push -q origin main
+
+local clone=$(mktemp -d)/clone
+SANDBOXES+=( ${clone:h} )
+git clone -q $server $clone 2>/dev/null
+
+git -C $seed commit -q --allow-empty -m ahead
+git -C $seed push -q origin main
+local tip=$(git -C $seed rev-parse HEAD)
+
+cd $clone
+local stale=$(git rev-parse main)
+
+gnb >/dev/null 2>&1
+eq 'gnb with no name exits 2' 2 $?
+gnb one two >/dev/null 2>&1
+eq 'gnb with two names exits 2' 2 $?
+gnb 'not a branch' >/dev/null 2>&1
+eq 'gnb refuses an invalid branch name' 2 $?
+gnb main >/dev/null 2>&1
+eq 'gnb refuses a name that is already a branch' 1 $?
+eq 'and leaves you where you were' main "$(_git_alias_current_branch)"
+
+gnb feat/oauth >/dev/null 2>&1
+eq 'gnb exits 0' 0 $?
+eq 'and checks the new branch out' feat/oauth "$(_git_alias_current_branch)"
+eq 'starting at what the server has' $tip "$(git rev-parse HEAD)"
+eq 'not at the local copy of the default branch' $stale "$(git rev-parse main)"
+eq 'and tracking nothing, so git pull cannot reach for main' '' "$(git config --get branch.feat/oauth.merge)"
+
+has 'a name already taken says what checks it out' 'gb feat/oauth' "$(gnb feat/oauth 2>&1 >/dev/null)"
+
+cd ${clone:h}
+gnb anything >/dev/null 2>&1
+eq 'gnb outside a repository exits 1' 1 $?
+
+group 'which remote'
+
+local multi=$(mktemp -d)/multi
+SANDBOXES+=( ${multi:h} )
+git init -q --initial-branch=main $multi
+git -C $multi commit -q --allow-empty -m base
+local up=$(mktemp -d)/up.git
+SANDBOXES+=( ${up:h} )
+local fork=$(mktemp -d)/fork.git
+SANDBOXES+=( ${fork:h} )
+git init -q --bare --initial-branch=develop $up
+git init -q --bare --initial-branch=main $fork
+
+cd $multi
+git remote add upstream $up
+git push -q upstream main:develop
+eq 'one remote needs no configuration at all' upstream "$(_git_alias_remote)"
+
+git remote add fork $fork
+git push -q fork main
+git fetch -q --all
+git remote set-head upstream --auto >/dev/null 2>&1
+git remote set-head fork --auto >/dev/null 2>&1
+
+# Neither is called origin, and nothing has been configured yet.
+git config --unset branch.main.remote 2>/dev/null
+eq 'with two remotes and nothing said, the first is taken' "$(git remote | head -1)" "$(_git_alias_remote)"
+
+git config checkout.defaultRemote upstream
+eq 'checkout.defaultRemote decides' upstream "$(_git_alias_remote)"
+git config --unset checkout.defaultRemote
+
+git config branch.main.remote fork
+eq 'branch.<current>.remote decides' fork "$(_git_alias_remote)"
+
+# remote.pushDefault is the push target and must not move the base.
+git config remote.pushDefault upstream
+eq 'remote.pushDefault does not decide the base' fork "$(_git_alias_remote)"
+eq 'but it does decide the push target' upstream "$(_git_alias_push_remote)"
+# git's own precedence: branch.<name>.pushRemote wins over remote.pushDefault.
+git config branch.main.pushRemote fork
+eq 'branch.<current>.pushRemote overrides it, as git-config says' fork "$(_git_alias_push_remote)"
+git config --unset branch.main.pushRemote
+git config --unset remote.pushDefault
+eq 'unset, the push target is the base remote' fork "$(_git_alias_push_remote)"
+
+eq 'the default branch comes from that remote' main "$(_git_alias_main_branch)"
+eq 'and each remote advertises its own' develop "$(_git_alias_main_branch upstream)"
+
+gnb feat/from-fork >/dev/null 2>&1
+eq 'gnb branches off the resolved remote' "$(git rev-parse refs/remotes/fork/main)" "$(git rev-parse HEAD)"
+git checkout -q main
+
+git config branch.main.remote upstream
+gnb feat/from-upstream >/dev/null 2>&1
+eq 'and follows the configuration when it changes' "$(git rev-parse refs/remotes/upstream/develop)" "$(git rev-parse HEAD)"
+
 cd $ROOT
 print -r -- ""
 print -r -- "  $PASS passed, $FAIL failed"
