@@ -152,6 +152,45 @@ printf 'in the way\n' > "$WORK/occupied"
 eq "a file in the way is backed up, not overwritten" "1" \
    "$(find "$WORK" -name 'occupied.backup.*' | wc -l | tr -d ' ')"
 eq "and the link is made" "$WORK/target" "$(readlink "$WORK/occupied")"
+# clone-repo against a checkout whose branch was merged and deleted upstream.
+# `git pull` fails there with "no such ref was fetched"; a sync over many
+# repositories should not stop because one of them is parked on such a branch.
+if command -v git > /dev/null 2>&1; then
+    GIT_CONFIG_GLOBAL=/dev/null
+    GIT_CONFIG_SYSTEM=/dev/null
+    GIT_AUTHOR_NAME=t
+    GIT_AUTHOR_EMAIL=t@t
+    GIT_COMMITTER_NAME=t
+    GIT_COMMITTER_EMAIL=t@t
+    export GIT_CONFIG_GLOBAL GIT_CONFIG_SYSTEM GIT_AUTHOR_NAME GIT_AUTHOR_EMAIL \
+        GIT_COMMITTER_NAME GIT_COMMITTER_EMAIL
+
+    git init -q --bare --initial-branch=main "$WORK/server.git"
+    git init -q --initial-branch=main "$WORK/parent/repo"
+    git -C "$WORK/parent/repo" commit -q --allow-empty -m base
+    git -C "$WORK/parent/repo" remote add origin "$WORK/server.git"
+    git -C "$WORK/parent/repo" push -q -u origin main
+    git -C "$WORK/parent/repo" checkout -q -b gone
+    git -C "$WORK/parent/repo" push -q -u origin gone
+    # Merged and cleaned up on the forge, while this checkout stayed on it.
+    git -C "$WORK/server.git" update-ref -d refs/heads/gone
+
+    out=$("$ROOT/bin/macos" clone-repo repo "$WORK/parent" 2>&1) && rc=0 || rc=$?
+    eq "clone-repo survives a branch deleted on the remote" "0" "$rc"
+    has "and says the branch tracks nothing" "tracks nothing that is still on the remote" "$out"
+
+    git -C "$WORK/parent/repo" checkout -q main
+    "$ROOT/bin/macos" clone-repo repo "$WORK/parent" > /dev/null 2>&1 && rc=0 || rc=$?
+    eq "and still pulls a branch the remote does have" "0" "$rc"
+
+    git -C "$WORK/parent/repo" checkout -q --detach
+    out=$("$ROOT/bin/macos" clone-repo repo "$WORK/parent" 2>&1) && rc=0 || rc=$?
+    eq "a detached HEAD is fetched, not pulled" "0" "$rc"
+    has "and says so" "detached HEAD" "$out"
+else
+    printf '  skip  clone-repo against a deleted upstream (no git)\n'
+fi
+
 rm -rf "$WORK"
 
 printf '\n'
