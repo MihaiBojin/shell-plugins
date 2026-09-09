@@ -1,10 +1,10 @@
-function gbd -d 'Delete branches, having said first what each one would cost'
+function gbd! -d 'Delete branches, having said first what each one would cost'
     argparse h/help f/force -- $argv
     or return 2
 
     if set -q _flag_help
-        echo 'gbd [QUERY]       pick branches to delete — Tab marks more than one' >&2
-        echo 'gbd --force       delete without the confirmation prompt' >&2
+        echo 'gbd! [QUERY]       pick branches to delete — Tab marks more than one' >&2
+        echo 'gbd! --force       delete without the confirmation prompt' >&2
         echo '' >&2
         echo 'Every branch is reported before anything is deleted: merged, squash-' >&2
         echo 'merged, or held by another ref means the commits survive the deletion.' >&2
@@ -15,7 +15,7 @@ function gbd -d 'Delete branches, having said first what each one would cost'
     end
 
     if test (count $argv) -gt 1
-        _git_alias_say err 'too many arguments — usage: gbd [QUERY]'
+        _git_alias_say err 'too many arguments — usage: gbd! [QUERY]'
         return 2
     end
 
@@ -25,32 +25,43 @@ function gbd -d 'Delete branches, having said first what each one would cost'
     set -l current (_git_alias_current_branch)
     set -l head (_git_alias_main_branch)
     set -l doomed
+    set -l refused
+    set -l rows
     set -l risky 0
 
+    # The report is built before any of it is printed. When the two guards take
+    # every branch picked, that is the whole story, and it goes out as one line
+    # naming the branch rather than a skip followed by a refusal saying the same
+    # thing twice.
     for branch in $chosen
         if test "$branch" = "$current"
-            _git_alias_say warn "$branch is checked out here — skipping"
+            set -a refused "$branch is checked out here"
             continue
         end
         if test "$branch" = "$head"
-            _git_alias_say warn "$branch is this repository's default branch — skipping"
+            set -a refused "$branch is this repository's default branch"
             continue
         end
         set -l reason (_git_alias_branch_state $branch)
         set -l safe $status
         set -a doomed $branch
         if test $safe -eq 0
-            printf '  %-34s %s\n' $branch $reason
+            set -a rows (printf '  %-34s %s' $branch $reason)
         else
             set risky (math $risky + 1)
-            printf '  %-34s %s%s%s\n' $branch (set_color yellow) $reason (set_color normal)
+            set -a rows (printf '  %-34s %s%s%s' $branch (set_color yellow) $reason (set_color normal))
         end
     end
 
     if not set -q doomed[1]
-        _git_alias_say err 'nothing left to delete'
+        _git_alias_say err (string join '; ' $refused)" — nothing to delete"
         return 1
     end
+
+    for note in $refused
+        _git_alias_say warn "$note — skipping"
+    end
+    printf '%s\n' $rows
 
     if not set -q _flag_force
         set -l question "Delete "(count $doomed)" branches?"

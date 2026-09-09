@@ -93,26 +93,26 @@ _git_alias_branch_state squashed >/dev/null; eq 'squash-merged exits 0' 0 $?
 _git_alias_branch_state alone >/dev/null;    eq 'held by another ref exits 0' 0 $?
 _git_alias_branch_state nowhere >/dev/null;  eq 'unreferenced exits 1' 1 $?
 
-group 'gbd'
+group 'gbd!'
 
-gbd --force main 2>/dev/null
-eq 'gbd will not delete the default branch' 1 $?
+gbd! --force main 2>/dev/null
+eq 'gbd! will not delete the default branch' 1 $?
 has 'main survives' ' main' "$(git branch)"
 
 git checkout -q nowhere
-gbd --force nowhere 2>/dev/null
-eq 'gbd will not delete the branch you are on' 1 $?
+gbd! --force nowhere 2>/dev/null
+eq 'gbd! will not delete the branch you are on' 1 $?
 git checkout -q main
 
-gbd --force squashed >/dev/null
-eq 'gbd deletes a squash-merged branch' 0 $?
+gbd! --force squashed >/dev/null
+eq 'gbd! deletes a squash-merged branch' 0 $?
 eq 'and it is gone' '' "$(git branch --list squashed)"
 
 group 'gb'
 
-eq 'gb --list is git branch' "$(git branch)" "$(gb --list)"
-gb -h 2>/dev/null >/dev/null
-eq 'gb -h exits 0' 0 $?
+eq 'gb is git branch itself' "$(git branch)" "$(gb)"
+'gb!' -h 2>/dev/null >/dev/null
+eq 'gb! -h exits 0' 0 $?
 
 group 'the branch picker wants a terminal'
 
@@ -142,55 +142,6 @@ if have_tty_runner; then
 else
   skip 'with a terminal it reaches for it (no python3 for a pty)'
 fi
-
-group 'gnb'
-
-# A server, a clone of it, and a commit pushed after the clone. Branching from
-# the local main would miss that commit; branching from origin/main does not,
-# which is the whole point of the command.
-local server=$(mktemp -d)/server.git
-SANDBOXES+=( ${server:h} )
-git init -q --bare --initial-branch=main $server
-local seed=$(mktemp -d)/seed
-SANDBOXES+=( ${seed:h} )
-git init -q --initial-branch=main $seed
-git -C $seed commit -q --allow-empty -m base
-git -C $seed remote add origin $server
-git -C $seed push -q origin main
-
-local clone=$(mktemp -d)/clone
-SANDBOXES+=( ${clone:h} )
-git clone -q $server $clone 2>/dev/null
-
-git -C $seed commit -q --allow-empty -m ahead
-git -C $seed push -q origin main
-local tip=$(git -C $seed rev-parse HEAD)
-
-cd $clone
-local stale=$(git rev-parse main)
-
-gnb >/dev/null 2>&1
-eq 'gnb with no name exits 2' 2 $?
-gnb one two >/dev/null 2>&1
-eq 'gnb with two names exits 2' 2 $?
-gnb 'not a branch' >/dev/null 2>&1
-eq 'gnb refuses an invalid branch name' 2 $?
-gnb main >/dev/null 2>&1
-eq 'gnb refuses a name that is already a branch' 1 $?
-eq 'and leaves you where you were' main "$(_git_alias_current_branch)"
-
-gnb feat/oauth >/dev/null 2>&1
-eq 'gnb exits 0' 0 $?
-eq 'and checks the new branch out' feat/oauth "$(_git_alias_current_branch)"
-eq 'starting at what the server has' $tip "$(git rev-parse HEAD)"
-eq 'not at the local copy of the default branch' $stale "$(git rev-parse main)"
-eq 'and tracking nothing, so git pull cannot reach for main' '' "$(git config --get branch.feat/oauth.merge)"
-
-has 'a name already taken says what checks it out' 'gb feat/oauth' "$(gnb feat/oauth 2>&1 >/dev/null)"
-
-cd ${clone:h}
-gnb anything >/dev/null 2>&1
-eq 'gnb outside a repository exits 1' 1 $?
 
 group 'which remote'
 
@@ -241,13 +192,11 @@ eq 'unset, the push target is the base remote' fork "$(_git_alias_push_remote)"
 eq 'the default branch comes from that remote' main "$(_git_alias_main_branch)"
 eq 'and each remote advertises its own' develop "$(_git_alias_main_branch upstream)"
 
-gnb feat/from-fork >/dev/null 2>&1
-eq 'gnb branches off the resolved remote' "$(git rev-parse refs/remotes/fork/main)" "$(git rev-parse HEAD)"
-git checkout -q main
+# What gmom and grbom expand to, resolved here rather than assumed to be origin.
+eq 'the pair gmom and grbom name' fork/main "$(_git_alias_remote)/$(_git_alias_main_branch)"
 
 git config branch.main.remote upstream
-gnb feat/from-upstream >/dev/null 2>&1
-eq 'and follows the configuration when it changes' "$(git rev-parse refs/remotes/upstream/develop)" "$(git rev-parse HEAD)"
+eq 'and it follows the configuration when it changes' upstream/develop "$(_git_alias_remote)/$(_git_alias_main_branch)"
 
 cd $ROOT
 print -r -- ""

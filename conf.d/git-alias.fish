@@ -4,21 +4,21 @@
 # startup to exist: declared inside an autoloaded function file it only appears
 # once something else has caused that file to load, which is a rule nobody can
 # keep in their head. This is the one thing in this package that runs at every
-# Fish start, and it is twenty-two builtin calls: 0.19ms, measured, no forks.
+# Fish start, and it is twenty-nine builtin calls: 0.22ms, measured, no forks.
 #
 # Abbreviations rather than functions, because expansion is the point: what runs
 # is what you can see on the line before you press Return, and it lands in
 # history spelled out. That is also what makes `gca!` safe to have.
 #
-# The three that have to ask the repository something expand to a command
+# The four that have to ask the repository something expand to a command
 # substitution, so the question is asked when the line runs rather than when the
-# shell started.
+# shell started. gmom and grbom ask twice: which remote, then what that remote
+# calls its default branch.
 #
 # Not here: gwip, gunwip and gunwipall. They are loops, so they are functions in
-# both shells, and Fish autoloads them from functions/. Nor gb and gbd, which
+# both shells, and Fish autoloads them from functions/. Nor gb! and gbd!, which
 # open a picker — an abbreviation expands to text you can read before it runs,
-# and there is nothing readable to expand a picker to. Nor gnb, which fetches
-# before it branches and wants the name in the middle of the command.
+# and there is nothing readable to expand a picker to.
 
 if status is-interactive
     # Add, commit, amend
@@ -31,6 +31,7 @@ if status is-interactive
 
     # Move about. gcm goes to whatever this repository calls its default
     # branch, asked at the moment you run it rather than guessed.
+    abbr --add gb -- 'git branch'
     abbr --add gco -- 'git checkout'
     abbr --add gcb -- 'git checkout -b'
     abbr --add gcm -- 'git checkout (_git_alias_main_branch)'
@@ -51,8 +52,19 @@ if status is-interactive
     abbr --add gp -- 'git push'
     abbr --add gpsup -- 'git push --set-upstream (_git_alias_push_remote) (_git_alias_current_branch)'
 
-    # Merge the default branch in, whatever it is called here
-    abbr --add gmom -- 'git merge origin/(_git_alias_main_branch)'
+    # Fetch. --prune is explicit rather than left to fetch.prune, so the
+    # abbreviation means the same thing wherever it is typed.
+    abbr --add gfa -- 'git fetch --all --tags --prune --jobs=10'
+
+    # Catch this branch up with the default branch, whatever it is called here
+    # and wherever this repository's remote is: merge it in, or replay onto it.
+    # Either can stop on a conflict, so either has a --continue and an --abort.
+    abbr --add gmom -- 'git merge (_git_alias_remote)/(_git_alias_main_branch)'
+    abbr --add gmc -- 'git merge --continue'
+    abbr --add gma -- 'git merge --abort'
+    abbr --add grbom -- 'git rebase (_git_alias_remote)/(_git_alias_main_branch)'
+    abbr --add grbc -- 'git rebase --continue'
+    abbr --add grba -- 'git rebase --abort'
 
     # Everything, in one go, for a repository nobody else reads. gcap stops at
     # the first failure; gpa! does not, so a rejected commit still pushes.

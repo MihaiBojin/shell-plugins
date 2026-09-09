@@ -24,7 +24,7 @@ fpath=( ${${(%):-%x}:A:h}/functions $fpath )
 unalias gwip 2>/dev/null
 unfunction gunwipall 2>/dev/null
 
-autoload -Uz gwip gunwipall gb gbd gnb \
+autoload -Uz gwip gunwipall 'gb!' 'gbd!' \
   _git_alias_current_branch _git_alias_main_branch \
   _git_alias_remote _git_alias_push_remote \
   _git_alias_say _git_alias_branch_pick _git_alias_branch_state
@@ -40,11 +40,12 @@ alias 'gcan!'='git commit --verbose --all --no-edit --amend'
 # Move about. gcm goes to whatever this repository calls its default branch,
 # asked at the moment you run it rather than guessed.
 #
-# gb and gbd are not here: they open a picker, and there is nothing readable for
-# an alias to expand to. They are functions, autoloaded above. `gb --list` is
-# the plain `git branch` this used to be. Nor is gnb, which fetches before it
-# branches and puts the name in the middle of the command rather than at the
-# end.
+# gb is git branch itself, so `gb -d name`, `gb -a` and every other flag pass
+# through. The picker that fuzzy-finds a branch and checks it out is `gb!`,
+# following the convention the `!` names come from: the plain name is git's, the
+# banged one is ours. gbd! is a function too, autoloaded above: a picker has
+# nothing readable for an alias to expand to.
+alias gb='git branch'
 alias gco='git checkout'
 alias gcb='git checkout -b'
 alias gcm='git checkout $(_git_alias_main_branch)'
@@ -66,8 +67,21 @@ alias gcpa='git cherry-pick --abort'
 alias gp='git push'
 alias gpsup='git push --set-upstream $(_git_alias_push_remote) $(_git_alias_current_branch)'
 
-# Merge the default branch in, whatever it is called here
-alias gmom='git merge origin/$(_git_alias_main_branch)'
+# Fetch. --prune is explicit rather than left to fetch.prune, so the alias means
+# the same thing in a repository whose configuration says otherwise.
+alias gfa='git fetch --all --tags --prune --jobs=10'
+
+# Catch this branch up with the default branch, whatever it is called here and
+# wherever this repository's remote is: merge it in, or replay onto it. Either
+# can stop on a conflict, so either has a --continue and an --abort. The names
+# are ohmyzsh's, where the `om` is a literal origin; here it is the remote the
+# branch belongs to.
+alias gmom='git merge $(_git_alias_remote)/$(_git_alias_main_branch)'
+alias gmc='git merge --continue'
+alias gma='git merge --abort'
+alias grbom='git rebase $(_git_alias_remote)/$(_git_alias_main_branch)'
+alias grbc='git rebase --continue'
+alias grba='git rebase --abort'
 
 # Park work in a commit that says it is not finished, and take it back out.
 # gunwipall undoes a whole run of them; see functions/gunwipall.

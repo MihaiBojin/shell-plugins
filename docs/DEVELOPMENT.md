@@ -123,8 +123,8 @@ Where each is loaded instead:
   that never runs one never loads the module.
 - `zsh/datetime` — not at all. Nothing here needs a clock any more.
 
-On the Fish side the only startup cost is `conf.d/git-alias.fish`: twenty-two
-`abbr` calls, 0.19 ms, no forks.
+On the Fish side the only startup cost is `conf.d/git-alias.fish`: twenty-nine
+`abbr` calls, 0.22 ms, no forks.
 
 Keep it that way. If a change pushes the aggregate materially past its measured figure,
 something is being done at load time that belongs in a function.
