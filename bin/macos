@@ -176,11 +176,28 @@ link_if_different() {
 
 clone_repo() {
     (( $# >= 2 )) || die "usage: macos clone-repo REPO PARENT" 2
-    local dir=$2/${1##*/}
+    local dir=$2/${1##*/} branch
     if [[ -d $dir ]]; then
         printf "Repository '%s' exists in '%s'. Fetching updates.\n" "$1" "$dir" >&2
-        git -C "$dir" fetch --all
+        # --prune, so a branch deleted on the forge stops looking present here.
+        # Without it the stale remote-tracking ref outlives the branch and the
+        # guard below cannot tell the two apart.
+        git -C "$dir" fetch --all --prune
         git -C "$dir" status
+        # A checkout sitting on a merged-and-deleted branch has nothing to pull,
+        # and `git pull` fails on it: "no such ref was fetched". The fetch above
+        # is the part that matters to a sync, so report and succeed rather than
+        # failing the whole run over one checkout somebody left on a branch.
+        branch=$(git -C "$dir" symbolic-ref --quiet --short HEAD 2>/dev/null) || branch=''
+        if [[ -z $branch ]]; then
+            printf "  detached HEAD; fetched, not pulled.\n" >&2
+            return 0
+        fi
+        if ! git -C "$dir" rev-parse --verify --quiet '@{upstream}' >/dev/null 2>&1; then
+            printf "  '%s' tracks nothing that is still on the remote; fetched, not pulled.\n" \
+                "$branch" >&2
+            return 0
+        fi
         git -C "$dir" pull --autostash
         return
     fi
