@@ -2,7 +2,7 @@ function _git_alias_branch_pick -a prompt query multi -d 'Pick local branches, l
     # The answer goes in $_git_alias_reply rather than on stdout, so a caller
     # does not have to wrap this in a command substitution. Inside one, fish
     # hands `read` the terminal rather than whatever stdin the caller was
-    # given, so `gbd </dev/null` waits on a keyboard nobody is at instead of
+    # given, so `gbd! </dev/null` waits on a keyboard nobody is at instead of
     # failing. The Zsh half prints, because Zsh's $( ) has no such trouble.
     #
     # fzf when it is there, a numbered list when it is not. Fuzzy search covers

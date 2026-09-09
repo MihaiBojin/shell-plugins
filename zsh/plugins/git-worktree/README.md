@@ -285,9 +285,8 @@ from it would branch off the fork. It is read where it belongs instead —
 `gpsup` in the git-alias feature pushes to it when it is set, and falls back to
 the remote above when it is not.
 
-`gnb` in the git-alias feature climbs the same ladder minus the prompt. Both
-read only keys git itself defines: neither plugin has configuration of its
-own.
+The git-alias feature climbs the same ladder minus the prompt. Both read only
+keys git itself defines: neither plugin has configuration of its own.
 
 ### Finding the default branch
 

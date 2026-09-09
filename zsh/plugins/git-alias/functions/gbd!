@@ -2,14 +2,14 @@
 emulate -L zsh
 
 local force='' query='' branch reason current head question answer sha
-local -a chosen doomed
+local -a chosen doomed refused rows
 integer risky=0 safe failed=0
 
 while (( $# )); do
   case $1 in
     -h|--help)
-      print -ru2 -- 'gbd [QUERY]       pick branches to delete — Tab marks more than one'
-      print -ru2 -- 'gbd --force       delete without the confirmation prompt'
+      print -ru2 -- 'gbd! [QUERY]       pick branches to delete — Tab marks more than one'
+      print -ru2 -- 'gbd! --force       delete without the confirmation prompt'
       print -ru2 -- ''
       print -ru2 -- 'Every branch is reported before anything is deleted: merged, squash-'
       print -ru2 -- 'merged, or held by another ref means the commits survive the deletion.'
@@ -24,7 +24,7 @@ while (( $# )); do
 done
 
 if (( $# > 1 )); then
-  _git_alias_say err "too many arguments — usage: gbd [QUERY]"
+  _git_alias_say err "too many arguments — usage: gbd! [QUERY]"
   return 2
 fi
 query=${1:-}
@@ -35,30 +35,39 @@ chosen=( ${(f)"$(_git_alias_branch_pick 'delete>' "$query" multi)"} ) || return 
 current=$(_git_alias_current_branch)
 head=$(_git_alias_main_branch)
 
+# The report is built before any of it is printed. When the two guards take
+# every branch picked, that is the whole story, and it goes out as one line
+# naming the branch rather than a skip followed by a refusal saying the same
+# thing twice.
 for branch in "${chosen[@]}"; do
   if [[ $branch == $current ]]; then
-    _git_alias_say warn "$branch is checked out here — skipping"
+    refused+=( "$branch is checked out here" )
     continue
   fi
   if [[ $branch == $head ]]; then
-    _git_alias_say warn "$branch is this repository's default branch — skipping"
+    refused+=( "$branch is this repository's default branch" )
     continue
   fi
   reason=$(_git_alias_branch_state "$branch")
   safe=$?
   doomed+=( "$branch" )
   if (( safe == 0 )); then
-    printf '  %-34s %s\n' "$branch" "$reason"
+    rows+=( "$(printf '  %-34s %s' "$branch" "$reason")" )
   else
     (( risky++ ))
-    printf '  %-34s \e[33m%s\e[0m\n' "$branch" "$reason"
+    rows+=( "$(printf '  %-34s \e[33m%s\e[0m' "$branch" "$reason")" )
   fi
 done
 
 if (( ! $#doomed )); then
-  _git_alias_say err "nothing left to delete"
+  _git_alias_say err "${(j:; :)refused} — nothing to delete"
   return 1
 fi
+
+for reason in "${refused[@]}"; do
+  _git_alias_say warn "$reason — skipping"
+done
+print -rl -- "${rows[@]}"
 
 if [[ -z $force ]]; then
   question="Delete $#doomed branches?"

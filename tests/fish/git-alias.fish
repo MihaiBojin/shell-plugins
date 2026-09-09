@@ -92,12 +92,19 @@ end
 
 source $ROOT/conf.d/git-alias.fish
 
-eq 'every abbreviation is declared' 22 (abbr --list | count)
+eq 'every abbreviation is declared' 29 (abbr --list | count)
 eq 'ga adds' 'git add' (abbr --show | string match -r "abbr -a -- ga '(.*)'" | tail -1)
 has 'gst is git status' "abbr -a -- gst 'git status'" (abbr --show | string join ' ')
 has 'gca! amends' "gca! 'git commit --verbose --all --amend'" (abbr --show | string join ' ')
 has 'gcm asks the repository for its default branch' "gcm 'git checkout (_git_alias_main_branch)'" (abbr --show | string join ' ')
 has 'gpsup asks for the current branch' '_git_alias_current_branch' (abbr --show | string join ' ')
+has 'grbom asks for the remote and its default branch' "grbom 'git rebase (_git_alias_remote)/(_git_alias_main_branch)'" (abbr --show | string join ' ')
+has 'gmom asks the same two questions' "gmom 'git merge (_git_alias_remote)/(_git_alias_main_branch)'" (abbr --show | string join ' ')
+has 'gfa prunes whatever the configuration says' "gfa 'git fetch --all --tags --prune --jobs=10'" (abbr --show | string join ' ')
+has 'gmc continues a merge' "gmc 'git merge --continue'" (abbr --show | string join ' ')
+has 'gma aborts one' "gma 'git merge --abort'" (abbr --show | string join ' ')
+has 'grbc continues a rebase' "grbc 'git rebase --continue'" (abbr --show | string join ' ')
+has 'grba aborts one' "grba 'git rebase --abort'" (abbr --show | string join ' ')
 has 'gh-login carries the scopes a new machine needs' 'admin:public_key' (abbr --show | string join ' ')
 
 for name in gwip gunwip gunwipall
@@ -197,18 +204,18 @@ eq 'held by another ref exits 0' 0 $status
 _git_alias_branch_state nowhere >/dev/null
 eq 'unreferenced exits 1' 1 $status
 
-# gbd refuses the two branches it must never take.
-gbd --force main 2>/dev/null
-eq 'gbd will not delete the default branch' 1 $status
+# gbd! refuses the two branches it must never take.
+gbd! --force main 2>/dev/null
+eq 'gbd! will not delete the default branch' 1 $status
 has 'main survives' ' main' (git branch | string join ' ')
 
 git checkout -q nowhere
-gbd --force nowhere 2>/dev/null
-eq 'gbd will not delete the branch you are on' 1 $status
+gbd! --force nowhere 2>/dev/null
+eq 'gbd! will not delete the branch you are on' 1 $status
 git checkout -q main
 
-gbd --force squashed >/dev/null
-eq 'gbd deletes a squash-merged branch' 0 $status
+gbd! --force squashed >/dev/null
+eq 'gbd! deletes a squash-merged branch' 0 $status
 eq 'and it is gone' '' (git branch --list squashed | string trim)
 popd >/dev/null
 
@@ -299,7 +306,7 @@ echo 'picker at EOF'
 
 # Without fzf the picker reads a number. A failed read is not an empty answer:
 # falling through to the [1] default hands back the newest branch nobody chose,
-# and gbd --force deletes it.
+# and gbd! --force deletes it.
 set -l picked
 set -l rc 0
 begin
@@ -313,13 +320,13 @@ eq 'and it names no branch' 0 (count $picked)
 
 # The callers reach the picker without a command substitution, so a redirect on
 # them reaches its `read`. Through one, fish hands `read` the terminal instead
-# and gbd waits on a keyboard nobody is at.
+# and gbd! waits on a keyboard nobody is at.
 begin
     set -lx PATH /usr/bin /bin /usr/sbin /sbin
-    gbd </dev/null 2>/dev/null
-    eq 'gbd gives up on closed stdin rather than waiting' 1 $status
-    gb </dev/null 2>/dev/null
-    eq 'and so does gb' 1 $status
+    gbd! </dev/null 2>/dev/null
+    eq 'gbd! gives up on closed stdin rather than waiting' 1 $status
+    'gb!' </dev/null 2>/dev/null
+    eq 'and so does gb!' 1 $status
 end
 
 # The last field is the raw branch, hidden from the fzf view by --with-nth and
@@ -337,58 +344,6 @@ for line in (cat $bs/numbered)
     string match --quiet -- "*$tab*" $line; and set tabs (math $tabs + 1)
 end
 eq 'the numbered list drops the raw branch it used to repeat' 0 $tabs
-popd >/dev/null
-
-# --------------------------------------------------------------------- gnb
-echo
-echo 'gnb'
-
-# A server, a clone of it, and a commit pushed after the clone. Branching from
-# the local main would miss that commit; branching from origin/main does not,
-# which is the whole point of the command.
-set -l server (sandbox)/server.git
-git init -q --bare --initial-branch=main $server
-set -l seed (sandbox)/seed
-git init -q --initial-branch=main $seed
-git -C $seed commit -q --allow-empty -m base
-git -C $seed remote add origin $server
-git -C $seed push -q origin main
-
-set -l clone (sandbox)/clone
-git clone -q $server $clone 2>/dev/null
-
-git -C $seed commit -q --allow-empty -m ahead
-git -C $seed push -q origin main
-set -l tip (git -C $seed rev-parse HEAD)
-
-pushd $clone >/dev/null
-set -l stale (git rev-parse main)
-
-gnb >/dev/null 2>&1
-eq 'gnb with no name exits 2' 2 $status
-gnb one two >/dev/null 2>&1
-eq 'gnb with two names exits 2' 2 $status
-gnb 'not a branch' >/dev/null 2>&1
-eq 'gnb refuses an invalid branch name' 2 $status
-gnb main >/dev/null 2>&1
-eq 'gnb refuses a name that is already a branch' 1 $status
-eq 'and leaves you where you were' main (_git_alias_current_branch)
-
-gnb feat/oauth >/dev/null 2>&1
-eq 'gnb exits 0' 0 $status
-eq 'and checks the new branch out' feat/oauth (_git_alias_current_branch)
-eq 'starting at what the server has' $tip (git rev-parse HEAD)
-eq 'not at the local copy of the default branch' $stale (git rev-parse main)
-eq 'and tracking nothing, so git pull cannot reach for main' '' (git config --get branch.feat/oauth.merge)
-
-set -l out (gnb feat/oauth 2>&1 >/dev/null | string collect)
-has 'a name already taken says what checks it out' 'gb feat/oauth' "$out"
-popd >/dev/null
-
-set -l elsewhere (sandbox)
-pushd $elsewhere >/dev/null
-gnb anything >/dev/null 2>&1
-eq 'gnb outside a repository exits 1' 1 $status
 popd >/dev/null
 
 # ------------------------------------------------------------ remote choice
@@ -439,13 +394,11 @@ eq 'unset, the push target is the base remote' fork (_git_alias_push_remote)
 eq 'the default branch comes from that remote' main (_git_alias_main_branch)
 eq 'and each remote advertises its own' develop (_git_alias_main_branch upstream)
 
-gnb feat/from-fork >/dev/null 2>&1
-eq 'gnb branches off the resolved remote' (git rev-parse refs/remotes/fork/main) (git rev-parse HEAD)
-git checkout -q main
+# What gmom and grbom expand to, resolved here rather than assumed to be origin.
+eq 'the pair gmom and grbom name' fork/main (_git_alias_remote)/(_git_alias_main_branch)
 
 git config branch.main.remote upstream
-gnb feat/from-upstream >/dev/null 2>&1
-eq 'and follows the configuration when it changes' (git rev-parse refs/remotes/upstream/develop) (git rev-parse HEAD)
+eq 'and it follows the configuration when it changes' upstream/develop (_git_alias_remote)/(_git_alias_main_branch)
 popd >/dev/null
 
 cleanup

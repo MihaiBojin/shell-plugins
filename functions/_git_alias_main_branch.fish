@@ -1,5 +1,5 @@
 function _git_alias_main_branch -a remote -d 'What this repository calls its default branch'
-    # Used by gcm, gmom and gnb. `main` and `master` are both common enough that
+    # Used by gcm, gmom, grbom and gbd!. `main` and `master` are both common enough that
     # guessing is wrong often enough to notice, so ask the repository first: git
     # records the answer in <remote>/HEAD at clone time, from what the server
     # advertised.

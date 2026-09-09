@@ -11,6 +11,7 @@ two `gh` ones.
 | `gca` | `git commit --verbose --all` |
 | `gca!` | `git commit --verbose --all --amend` |
 | `gcan!` | `git commit --verbose --all --no-edit --amend` |
+| `gb` | `git branch` |
 | `gco` | `git checkout` |
 | `gcb` | `git checkout -b` |
 | `gcm` | `git checkout <default branch>` |
@@ -20,9 +21,15 @@ two `gh` ones.
 | `gcp` | `git cherry-pick` |
 | `gcpc` | `git cherry-pick --continue` |
 | `gcpa` | `git cherry-pick --abort` |
+| `gfa` | `git fetch --all --tags --prune --jobs=10` |
 | `gp` | `git push` |
 | `gpsup` | `git push --set-upstream <push remote> <current branch>` |
-| `gmom` | `git merge origin/<default branch>` |
+| `gmom` | `git merge <remote>/<default branch>` |
+| `gmc` | `git merge --continue` |
+| `gma` | `git merge --abort` |
+| `grbom` | `git rebase <remote>/<default branch>` |
+| `grbc` | `git rebase --continue` |
+| `grba` | `git rebase --abort` |
 | `gunwip` | Undo the last commit if it is a `--wip--` |
 | `gpa!` | `add -A`, commit as "save all", push, status |
 | `gcap` | The same, as `&&` rather than `;`, committed as "CommitAndPush" |
@@ -37,12 +44,13 @@ that is what makes `gca!` reasonable to have on two keys.
 It has to be `conf.d/`, not `functions/`: an abbreviation only exists once
 something has declared it, and a declaration inside an autoloaded function file
 runs only when something else has already loaded that file. So this is the one
-part of the package that runs at every Fish start — twenty-two builtin calls,
-0.19ms, no forks.
+part of the package that runs at every Fish start — twenty-nine builtin
+calls, 0.22ms, no forks.
 
-`gcm`, `gmom` and `gpsup` expand to a command substitution
+`gcm`, `gmom`, `grbom` and `gpsup` expand to a command substitution
 (`git checkout (_git_alias_main_branch)`), so the repository is asked when the
-line runs rather than when the shell started. The two helpers behind them are
+line runs rather than when the shell started. `gmom` and `grbom` expand to two,
+one for the remote and one for its default branch. The helpers behind them are
 autoloaded functions, same names as the Zsh ones.
 
 `gwip` and `gunwipall` are functions rather than aliases, being loops:
@@ -72,7 +80,7 @@ startup.
 The aliases are Zsh only, but the names are not. The Fish equivalent of an
 alias worth having is an abbreviation, and an abbreviation has to be declared at
 startup — which means `conf.d/git-alias.fish`, the one file in the package that
-is not autoloaded, at 0.19ms a shell.
+is not autoloaded, at 0.22ms a shell.
 
 ## Where the rest of them are
 
@@ -102,7 +110,8 @@ ohmyzsh/ohmyzsh path:plugins/git
 `git`. `gwip` also uses `grep`, and `gunwip` uses `grep` and `git rev-list`.
 `gh-login` and `gh-add-key` need the GitHub CLI, at the moment you run them.
 
-`gpsup`, `gcm`, `gmom` and `gnb` resolve what they need at the moment you run
+`gpsup`, `gcm`, `gmom` and `grbom` resolve what they need at the moment you
+run
 them, from git's own configuration. This feature adds no settings of its own.
 
 **Which remote** (`_git_alias_remote`), when a repository has more than one:
@@ -131,48 +140,30 @@ server advertised, then any other remote's, then `main`, `trunk`, `master`.
 Every remote carries a default of its own, and they differ — a fork's `origin`
 can say `main` while its `upstream` says `develop`.
 
+`gmom` and `grbom` name that remote rather than a literal `origin`, so a fork
+checkout replays onto the remote it belongs to. The names are ohmyzsh's, where
+the `om` is `origin` and nothing else.
+
 The git-worktree commands climb the same ladder, and `gwa` can write
 `checkout.defaultRemote` when it has to ask: see
 [that README](../git-worktree/README.md#which-remote).
 
 ## Branch commands
 
-Three of these are not aliases, so they are functions in both shells. `gb` and
-`gbd` open a picker, and there is nothing readable for an alias to expand to.
-`gnb` runs two commands and wants its argument between them.
+Neither of these is an alias, so both are functions in both shells: a picker
+has nothing readable for an alias to expand to.
+
+`gb` itself is `git branch`, so `gb -d name`, `gb -a` and every other flag reach
+git untouched. The picker is `gb!`, which is the convention the `!` names follow
+here: the plain name is git's, the banged one is ours.
 
 | Command | What it does |
 |---|---|
-| `gnb NAME` | Fetch every remote, then branch `NAME` off `<remote>/<default branch>` and check it out |
-| `gb [QUERY]` | Fuzzy-pick one of this repository's branches and check it out. The list is newest-commit first, search covers the name, and the preview shows the branch's recent commits |
-| `gb --list [ARG…]` | Plain `git branch`, arguments passed straight through |
-| `gbd [QUERY]` | Pick branches to delete — Tab marks more than one, Ctrl-A marks all |
-| `gbd --force` | Skip the confirmation |
+| `gb! [QUERY]` | Fuzzy-pick one of this repository's branches and check it out. The list is newest-commit first, search covers the name, and the preview shows the branch's recent commits |
+| `gbd! [QUERY]` | Pick branches to delete — Tab marks more than one, Ctrl-A marks all |
+| `gbd! --force` | Skip the confirmation |
 
-`gnb` starts the branch from what the resolved remote has, not from the local
-copy of the default branch, which is usually behind:
-
-```
-$ gnb feat/oauth
-git-alias: feat/oauth from origin/main at 4f2a1c0d
-```
-
-Nothing is rebased afterwards, because there is nothing to replay: a branch
-created at `origin/main` is already on top of it. The base is a full ref
-(`refs/remotes/origin/main`) rather than `origin/main`, since git resolves a
-bare name as a tag first and a repository holding a tag called `origin/main`
-would otherwise branch from the tag. A repository with no remote copy of the
-branch falls back to the local one.
-
-The branch is created `--no-track`. Its upstream is deliberately not the
-default branch: with tracking, `git pull` on the new branch would merge `main`
-straight back into it.
-
-`git fetch --all` runs first. A remote that fails warns and does not stop the
-branch, so an offline machine still gets one — off whatever it last saw, and the
-line above names the commit.
-
-`gbd` reports every branch before it deletes anything, and says which of four
+`gbd!` reports every branch before it deletes anything, and says which of four
 things makes the deletion safe:
 
 | Verdict | Meaning |
