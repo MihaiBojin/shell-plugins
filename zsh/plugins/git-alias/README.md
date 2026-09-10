@@ -30,7 +30,6 @@ two `gh` ones.
 | `grbom` | `git rebase <remote>/<default branch>` |
 | `grbc` | `git rebase --continue` |
 | `grba` | `git rebase --abort` |
-| `gunwip` | Undo the last commit if it is a `--wip--` |
 | `gpa!` | `add -A`, commit as "save all", push, status |
 | `gcap` | The same, as `&&` rather than `;`, committed as "CommitAndPush" |
 | `gh-login` | `gh auth login` over SSH, with the scopes a new machine needs |
@@ -53,13 +52,6 @@ line runs rather than when the shell started. `gmom` and `grbom` expand to two,
 one for the remote and one for its default branch. The helpers behind them are
 autoloaded functions, same names as the Zsh ones.
 
-`gwip` and `gunwipall` are functions rather than aliases, being loops:
-
-| Command | What it does |
-|---|---|
-| `gwip` | Stage everything, deletions included, and commit it as `--wip-- [skip ci]` |
-| `gunwipall` | Reset onto the newest commit whose **subject** is not a `--wip--`, dropping a whole run of them at once |
-
 `gpa!` and `gcap` are the same idea twice. `gpa!` keeps going when a step
 fails, which is ohmyzsh's behaviour and the reason the name is theirs; `gcap`
 stops, so a rejected commit is not followed by a push.
@@ -68,14 +60,7 @@ stops, so a rejected commit is not followed by a push.
 before git can talk to GitHub, and they are two lines, so they live here rather
 than in a plugin of their own.
 
-`!` means amend, following the convention the names come from. `gwip` and
-`gunwip` park work in a commit that says it is unfinished; `gunwipall` takes
-back every one of them rather than the last.
-
-`gwip`, `gunwip` and `gunwipall` exist for Fish too, as
-`functions/{gwip,gunwip,gunwipall}.fish` in this repository's Fish package —
-they are functions, so Fish autoloads them and neither shell pays anything at
-startup.
+`!` means amend, following the convention the names come from.
 
 The aliases are Zsh only, but the names are not. The Fish equivalent of an
 alias worth having is an abbreviation, and an abbreviation has to be declared at
@@ -89,15 +74,9 @@ These names are ohmyzsh's, and there are about three hundred more:
 **<https://github.com/ohmyzsh/ohmyzsh/tree/master/plugins/git>**
 
 That page is the reference for anything not listed above — `grbi`, `gsta`,
-`glog`, and the rest. Loading both is safe, and this one wins the names it
-defines whichever loaded first.
-
-That takes two lines of work rather than none, so it is worth saying why. Zsh
-resolves a command as alias, then function, then builtin, then binary. ohmyzsh
-defines `gwip` as an *alias*, which would hide our function even if we loaded
-second; and `gunwipall` as a *function*, which `autoload` silently declines to
-replace. Neither is a clash zsh reports. So the plugin clears both names before
-claiming them, and `tests/zsh/smoke.zsh` holds a case for each.
+`glog`, and the rest. Loading both is safe. Every name this plugin defines is an
+alias or an autoloaded function, and ohmyzsh's plugin defines the overlapping
+ones as aliases too, so whichever loads second wins them.
 
 To have all of them instead, load ohmyzsh's plugin and drop this one:
 
@@ -107,8 +86,8 @@ ohmyzsh/ohmyzsh path:plugins/git
 
 ## Requirements
 
-`git`. `gwip` also uses `grep`, and `gunwip` uses `grep` and `git rev-list`.
-`gh-login` and `gh-add-key` need the GitHub CLI, at the moment you run them.
+`git`. `gh-login` and `gh-add-key` need the GitHub CLI, at the moment you run
+them.
 
 `gpsup`, `gcm`, `gmom` and `grbom` resolve what they need at the moment you
 run

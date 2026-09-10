@@ -107,14 +107,6 @@ has 'grbc continues a rebase' "grbc 'git rebase --continue'" (abbr --show | stri
 has 'grba aborts one' "grba 'git rebase --abort'" (abbr --show | string join ' ')
 has 'gh-login carries the scopes a new machine needs' 'admin:public_key' (abbr --show | string join ' ')
 
-for name in gwip gunwip gunwipall
-    if contains -- $name (abbr --list)
-        bad "$name is a function, not an abbreviation"
-    else
-        ok "$name is left to the function that already exists"
-    end
-end
-
 # ------------------------------------------------------------------ helpers
 echo
 echo 'helpers'
