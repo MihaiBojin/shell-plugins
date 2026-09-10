@@ -6,25 +6,11 @@
 # that earn their keep, defined here so the collection can stand on its own.
 # Two `gh` aliases ride along at the bottom, for the same reason.
 #
-# Aliases, plus gwip and gunwipall, which are loops rather than lines.
+# Aliases, plus the gb! and gbd! pickers, which are functions.
 #
 fpath=( ${${(%):-%x}:A:h}/functions $fpath )
 
-# Claim the two names something else may already hold, so that loading this
-# after ohmyzsh's git plugin means what it looks like it means.
-#
-# Zsh resolves a command as alias, then function, then builtin, then binary. So
-# ohmyzsh's `alias gwip` hides our function no matter which loaded last, and
-# `autoload -Uz` is a no-op on a name that is already a defined function, which
-# leaves its `gunwipall` in place. Neither is a clash zsh reports; both are
-# silent, and both were live in a configuration that loaded the two plugins.
-#
-# 2>/dev/null because unalias and unfunction fail loudly on a name that was
-# never there, which is the normal case.
-unalias gwip 2>/dev/null
-unfunction gunwipall 2>/dev/null
-
-autoload -Uz gwip gunwipall 'gb!' 'gbd!' \
+autoload -Uz 'gb!' 'gbd!' \
   _git_alias_current_branch _git_alias_main_branch \
   _git_alias_remote _git_alias_push_remote \
   _git_alias_say _git_alias_branch_pick _git_alias_branch_state
@@ -82,10 +68,6 @@ alias gma='git merge --abort'
 alias grbom='git rebase $(_git_alias_remote)/$(_git_alias_main_branch)'
 alias grbc='git rebase --continue'
 alias grba='git rebase --abort'
-
-# Park work in a commit that says it is not finished, and take it back out.
-# gunwipall undoes a whole run of them; see functions/gunwipall.
-alias gunwip='git rev-list --max-count=1 --format="%s" HEAD | grep -q "\--wip--" && git reset HEAD~1'
 
 # Everything, in one go, for a repository nobody else reads. gcap stops at the
 # first failure; gpa! does not, so a rejected commit still pushes.

@@ -6,7 +6,7 @@ install; the plugins are the feature boundaries inside it.
 | Feature | Zsh | Fish | Purpose |
 |---|---|---|---|
 | prompt | `zsh/plugins/prompt` | `functions/fish_prompt.fish` | Minimal two-line Pure-like prompt |
-| git-alias | `zsh/plugins/git-alias` | `conf.d/git-alias.fish`, `functions/{gb!,gbd!,gwip,gunwip,gunwipall}.fish` | The short git and `gh` commands, the two pickers, and the three wip ones |
+| git-alias | `zsh/plugins/git-alias` | `conf.d/git-alias.fish`, `functions/{gb!,gbd!}.fish` | The short git and `gh` commands, and the two pickers |
 | git-worktree | `zsh/plugins/git-worktree` | `functions/gw{,h,l,a,r}.fish` | `gw`/`gwl`/`gwa`/`gwr` worktree helpers |
 | dns | `zsh/plugins/dns` | `functions/dns_records.fish` | `dns_records` — dump a domain's common records |
 | eternal-terminal | `zsh/plugins/eternal-terminal` | `functions/et.fish` | `et` wrapper that unsticks the terminal after a drop |
@@ -31,13 +31,10 @@ in `config.fish`, because Fisher only copies `functions/`, `conf.d/`,
 | `gwa NAME [BASE]` | zsh, fish | `git` | Create a worktree on branch `NAME` and `cd` into it |
 | `gwr [PATH\|QUERY]` | zsh, fish | `git`, `gh`/`glab` (optional) | Remove a worktree whose branch is finished, and the branch with it |
 | `gwr --all [--yes]` | zsh, fish | `git`, `gh`/`glab` (optional) | The same, to every finished worktree at once |
-| `ga` `gaa` `gc` `gca` `gca!` `gcan!` `gb` `gco` `gcb` `gcm` `gst` `gd` `gdca` `gcp` `gcpc` `gcpa` `gfa` `gp` `gpsup` `gmom` `gmc` `gma` `grbom` `grbc` `grba` `gwip` `gunwip` `gpa!` `gcap` | zsh, fish | `git` | The short git commands |
+| `ga` `gaa` `gc` `gca` `gca!` `gcan!` `gb` `gco` `gcb` `gcm` `gst` `gd` `gdca` `gcp` `gcpc` `gcpa` `gfa` `gp` `gpsup` `gmom` `gmc` `gma` `grbom` `grbc` `grba` `gpa!` `gcap` | zsh, fish | `git` | The short git commands |
 | `gb! [QUERY]` | zsh, fish | `git`, `fzf` (optional) | Pick a branch and check it out. `gb` itself is plain `git branch` |
 | `gbd! [QUERY]` | zsh, fish | `git`, `fzf` (optional) | Delete branches, having said first whether each one is merged, squash-merged, or held by another ref |
 | `gh-login` `gh-add-key` | zsh, fish | `gh` | Authenticate a new machine with GitHub over SSH |
-| `gwip` | zsh, fish | `git` | Commit everything as `--wip-- [skip ci]`, unsigned and unverified |
-| `gunwip` | zsh, fish | `git`, `grep` (zsh only) | Undo the last commit if it is a `--wip--` |
-| `gunwipall` | zsh, fish | `git` | Reset onto the newest non-`--wip--` commit |
 | `macos install-pkg` `install-dmg-pkg` `install-dmg` `install-app-zip` | `$PATH` | macOS, `curl`, `sudo` | Install something from a URL |
 | `macos backup-if-exists` `link-if-different` | `$PATH` | — | Symlink a file, keeping whatever was there |
 | `macos clone-repo` | `$PATH` | `git`, `gh` | Clone a repository, or bring it up to date |
@@ -61,14 +58,11 @@ models differ enough that a common layer costs more than it saves.
 
 Every feature is in both shells. Two commands sidestep the question entirely:
 
-- **git-alias** — both shells. `gwip` and `gunwipall` are functions in both, and
-  so are the `gb!` and `gbd!` pickers. `gunwip` is a function in Fish and an alias in
-  Zsh, which is why it is the one name here that wants `grep` on Zsh and
-  nothing but `git` on Fish. The rest are Zsh aliases and Fish
-  abbreviations, which is the closer equivalent anyway: an abbreviation expands
-  where you can see it. Declaring one means `conf.d/`, which is why that
-  directory is not empty — 0.22ms at every Fish start, and the only thing in the
-  package that is not autoloaded.
+- **git-alias** — both shells. The `gb!` and `gbd!` pickers are functions in
+  both. The rest are Zsh aliases and Fish abbreviations, which is the closer
+  equivalent anyway: an abbreviation expands where you can see it. Declaring one
+  means `conf.d/`, which is why that directory is not empty — 0.22ms at every
+  Fish start, and the only thing in the package that is not autoloaded.
 - **git-worktree** — both shells. The Fish commands are a reimplementation
   rather than a translation, and a little smaller: 1832 lines against 2090.
   Same commands, same layout, same predicate for what counts as finished, same

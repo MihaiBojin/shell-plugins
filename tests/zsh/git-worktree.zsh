@@ -677,27 +677,6 @@ out=$(in_repo $repo 'git remote set-url origin '"$sb"'/origin/demo.git
   _gw_forge_load github origin; print -r -- "rc=$?"')
 eq "and the forge check fails closed rather than asking about \$PWD" "rc=1" "$out"
 
-# A wip commit can itself be a merge. A plain log walk crosses into the
-# merged-in branch and resets this one onto a commit that was never on it.
-sb=$(fixture) || exit 1; repo=$sb/parent/demo
-# The dates are pinned, and the side commit is the newer one. Commits made in
-# the same second tie-break by parent order, which hands a plain walk the right
-# answer by luck and leaves the fix untested.
-out=$(in_repo $repo 'source '"$ROOT"'/zsh/plugins/git-alias/git-alias.plugin.zsh
-  at() { GIT_AUTHOR_DATE="@$1 +0000" GIT_COMMITTER_DATE="@$1 +0000" git commit -q --allow-empty -m "$2" }
-  git checkout -q -b side main
-  git checkout -q main
-  at 2000 "the commit gunwipall must stop at"
-  git checkout -q side
-  at 3000 "work on the side branch"
-  git checkout -q main
-  GIT_AUTHOR_DATE="@4000 +0000" GIT_COMMITTER_DATE="@4000 +0000" \
-    git merge -q --no-ff side -m "--wip-- [skip ci]" >/dev/null 2>&1
-  gunwipall >/dev/null 2>&1
-  git log --max-count=1 --format=%s')
-eq "gunwipall stops on this branch, not inside a merged-in one" \
-   "the commit gunwipall must stop at" "$out"
-
 #
 # 4d. --force where there is nothing to fall back on.
 #

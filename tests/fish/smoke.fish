@@ -105,7 +105,7 @@ or ok "the sandbox has no config.fish at all"
 set -l isolated env XDG_CONFIG_HOME=$sandbox/config XDG_DATA_HOME=$sandbox/data HOME=$sandbox/home $FISH
 
 set -l out ($isolated --command '
-    for f in fish_prompt dns_records gwip gunwip gunwipall et _shell_terminal_reset
+    for f in fish_prompt dns_records et _shell_terminal_reset
         functions --query $f; or echo "not discoverable: $f"
     end' 2>/dev/null | string collect)
 eq "every packaged function is discoverable without sourcing anything" "" "$out"
@@ -165,13 +165,6 @@ eq "et resets the terminal before and after" \
    '^[[?1049l^[[?1047l^[[?47l^[[?1l^[[?1000l^[[?1002l^[[?1003l^[[?1006l^[[?1007l^[[?1049l^[[?1047l^[[?47l^[[?1l^[[?1000l^[[?1002l^[[?1003l^[[?1006l^[[?1007l' \
    "$out"
 rm -rf $fakebin
-
-set -l norepo (mktemp -d)
-$isolated --command "cd $norepo; gunwipall" >/dev/null 2>&1
-eq "gunwipall outside a repository exits 1" "1" "$status"
-set out ($isolated --command "cd $norepo; gunwipall" 2>&1 >/dev/null | string collect)
-has "gunwipall says why" "not inside a git repository" "$out"
-rm -rf $norepo
 
 rm -rf $sandbox
 
