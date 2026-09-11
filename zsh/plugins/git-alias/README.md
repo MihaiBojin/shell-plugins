@@ -42,8 +42,8 @@ that is what makes `gca!` reasonable to have on two keys.
 It has to be `conf.d/`, not `functions/`: an abbreviation only exists once
 something has declared it, and a declaration inside an autoloaded function file
 runs only when something else has already loaded that file. So this is the one
-part of the package that runs at every Fish start — twenty-eight builtin
-calls, 0.21ms, no forks.
+part of the package that runs at every Fish start — a run of `abbr` calls
+and nothing else, about 0.2ms, no forks.
 
 `gmom`, `grbom` and `gpsup` expand to a command substitution
 (`git merge (_git_alias_remote)/(_git_alias_main_branch)`), so the repository is

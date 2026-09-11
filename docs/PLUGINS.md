@@ -60,8 +60,8 @@ Every feature is in both shells. Two commands sidestep the question entirely:
   to run because the default branch in it is not known early enough to expand.
   The rest are Zsh aliases and Fish abbreviations, which is the closer
   equivalent anyway: an abbreviation expands where you can see it. Declaring one
-  means `conf.d/`, which is why that directory is not empty — 0.21ms at every
-  Fish start, and the only thing in the package that is not autoloaded.
+  means `conf.d/`, which is why that directory is not empty — about 0.2ms at
+  every Fish start, and the only thing in the package that is not autoloaded.
 - **The worktree commands** — neither shell, and not here. They live in
   [MihaiBojin/worktrees](https://github.com/MihaiBojin/worktrees): one Python
   package, `git-worktrees` on PyPI, shipping the four commands that `cd` their

@@ -6,7 +6,7 @@
 # that earn their keep, defined here so the collection can stand on its own.
 # Two `gh` aliases ride along at the bottom, for the same reason.
 #
-# Aliases, plus five functions: the gb! and gbd! pickers, and gcm, gcm! and gup,
+# Aliases, plus functions: the gb! and gbd! pickers, and gcm, gcm! and gup,
 # which print the command they are about to run.
 #
 fpath=( ${${(%):-%x}:A:h}/functions $fpath )

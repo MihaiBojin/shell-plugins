@@ -58,15 +58,17 @@ Beyond "does it work", they hold the contract in place:
 
 ## What it costs to load
 
-One `source` per fresh `zsh -f`, warm cache, median of 25, in a shell with
-nothing loaded but the clock the measurement needs.
+One `source` per fresh `zsh -f`, warm cache, median of 125, in a shell with
+nothing loaded but the clock the measurement needs. 125 rather than a couple of
+dozen because at this scale a run of 25 swings by more than the figures differ
+from each other: two blocks of 125 agree to 0.02 ms, two blocks of 25 do not.
 
 | | Load |
 |---|---|
-| **aggregate, all five** | **0.74 ms** |
-| prompt | 0.10 ms |
-| bin | 0.24 ms |
-| dns | 0.19 ms |
+| **aggregate** | **0.68 ms** |
+| prompt | 0.09 ms |
+| bin | 0.26 ms |
+| dns | 0.20 ms |
 | eternal-terminal | 0.20 ms |
 | git-alias | 0.32 ms |
 
@@ -78,9 +80,9 @@ print -f "%.4f ms\n" $(( ($EPOCHREALTIME - t0) * 1000 ))
 ```
 
 The per-plugin figures do not add up to the aggregate, and that is not an
-error. Each one measured alone pays about 0.15 ms of once-per-shell setup — the
+error. Each one measured alone pays about 0.10 ms of once-per-shell setup — the
 first prompt expansion, the first `fpath` write, the `source` machinery — which
-five plugins in one shell pay once between them. The aggregate is the number
+the plugins in one shell pay once between them. The aggregate is the number
 that describes a real startup.
 
 Most of a plugin's figure is the first `${(%):-%x}` in the shell, around
