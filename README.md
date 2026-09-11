@@ -36,7 +36,6 @@ Or name the features you want, and control the order yourself:
 ```text
 MihaiBojin/shell-plugins path:zsh/plugins/prompt
 MihaiBojin/shell-plugins path:zsh/plugins/git-alias
-MihaiBojin/shell-plugins path:zsh/plugins/git-worktree
 MihaiBojin/shell-plugins path:zsh/plugins/dns
 MihaiBojin/shell-plugins path:zsh/plugins/eternal-terminal
 MihaiBojin/shell-plugins path:zsh/plugins/bin
@@ -62,10 +61,6 @@ These plugins register their `functions/` and `completions/` directories on
 # … load plugins …
 autoload -Uz compinit && compinit
 ```
-
-(If your configuration already runs `compinit` before loading plugins,
-`git-worktree` notices and registers its completions directly, so it works
-either way.)
 
 Everything else that is not reusable shell behaviour — history, shell options,
 tool initialization, the plugin manager itself — stays in your configuration
@@ -144,7 +139,7 @@ Git, plus Zsh with Antidote or Fish with Fisher. Nothing here assumes macOS,
 Homebrew, Nix, a particular terminal, a username, or a home directory.
 
 Individual commands use external tools on purpose, and say so when they are
-missing: `git` (and optionally `fzf`) for the worktree helpers, `dig` for
+missing: `git` (and optionally `fzf`) for the branch pickers, `dig` for
 `dns_records`, `et` for the Eternal Terminal wrapper, `pmset` or Linux sysfs for
 `battery`, and bash 3.2 or newer for `battery` and `macos`.
 

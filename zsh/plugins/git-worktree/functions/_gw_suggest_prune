@@ -1,9 +1,0 @@
-# Tell the user about stale worktree metadata, if `git worktree prune` sees any.
-local repo=$1 out l
-# `worktree prune --verbose` reports on stderr, so fold it into stdout — and
-# only trust the output when git itself succeeded.
-out=$(git -C "$repo" worktree prune --dry-run --verbose 2>&1) || return 0
-[[ -n $out ]] || return 0
-_gw_warn "\`git worktree prune\` would still clean up:"
-for l in ${(f)out}; do print -ru2 -- "  ${_GW_DIM}${l}${_GW_RESET}"; done
-_gw_warn "run: git -C ${(q)repo} worktree prune"

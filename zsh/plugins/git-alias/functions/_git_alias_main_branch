@@ -10,9 +10,8 @@
 # rather than assumed, and a caller that already knows which one it means passes
 # it in.
 #
-# Deliberately not shared with the git-worktree commands' _gw_head_branch, which
-# does the same job more thoroughly and can go to the network. Each feature here
-# works when it is the only one installed.
+# Each feature here works when it is the only one installed, so this answers
+# from local refs alone and never goes to the network.
 emulate -L zsh
 
 local remote=${1:-} candidate ref branch

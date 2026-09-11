@@ -9,9 +9,8 @@ function _git_alias_main_branch -a remote -d 'What this repository calls its def
     # resolved rather than assumed, and a caller that already knows which one it
     # means passes it in.
     #
-    # Deliberately not shared with the git-worktree commands' _gw_head_branch,
-    # which does the same job more thoroughly and can go to the network. Each
-    # feature here works when it is the only one installed.
+    # Each feature here works when it is the only one installed, so this
+    # answers from local refs alone and never goes to the network.
     git rev-parse --git-dir >/dev/null 2>&1; or return 1
 
     test -n "$remote"; or set remote (_git_alias_remote)

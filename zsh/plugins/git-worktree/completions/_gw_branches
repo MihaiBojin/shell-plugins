@@ -1,5 +1,0 @@
-#autoload
-# Local and remote-tracking branches of the repository being completed in.
-local -a refs
-refs=( ${(f)"$(git for-each-ref --format='%(refname:short)' refs/heads refs/remotes 2>/dev/null)"} )
-_describe -t branches branch refs

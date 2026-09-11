@@ -1,9 +1,0 @@
-# Sleep $1 hundredths of a second. zselect does it without forking, which
-# matters at ~12 frames a second; sleep(1) is the fallback.
-if (( $+builtins[zselect] )); then
-  zselect -t $1 2>/dev/null
-else
-  local -F secs=$(( $1 / 100.0 ))
-  sleep $secs 2>/dev/null
-fi
-return 0

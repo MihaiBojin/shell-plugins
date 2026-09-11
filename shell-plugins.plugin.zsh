@@ -12,7 +12,7 @@
 # this file:
 #
 #     MihaiBojin/shell-plugins path:zsh/plugins/prompt
-#     MihaiBojin/shell-plugins path:zsh/plugins/git-worktree
+#     MihaiBojin/shell-plugins path:zsh/plugins/git-alias
 #
 # Both modes are supported and always will be.
 #
@@ -31,6 +31,5 @@
   source $_sp_plugins/dns/dns.plugin.zsh
   source $_sp_plugins/eternal-terminal/eternal-terminal.plugin.zsh
   source $_sp_plugins/git-alias/git-alias.plugin.zsh
-  source $_sp_plugins/git-worktree/git-worktree.plugin.zsh
   source $_sp_plugins/prompt/prompt.plugin.zsh
 }

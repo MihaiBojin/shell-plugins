@@ -123,10 +123,6 @@ can say `main` while its `upstream` says `develop`.
 checkout replays onto the remote it belongs to. The names are ohmyzsh's, where
 the `om` is `origin` and nothing else.
 
-The git-worktree commands climb the same ladder, and `gwa` can write
-`checkout.defaultRemote` when it has to ask: see
-[that README](../git-worktree/README.md#which-remote).
-
 ## Branch commands
 
 Neither of these is an alias, so both are functions in both shells: a picker

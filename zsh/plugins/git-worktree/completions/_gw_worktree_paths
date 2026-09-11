@@ -1,8 +1,0 @@
-#autoload
-# This repository's worktrees. An explicit path from elsewhere still works,
-# which is why the fallback is a plain file completion.
-local -a paths expl
-paths=( ${(f)"$(_gw_list 2>/dev/null)"} )
-paths=( ${paths##*$'\t'} )
-(( $#paths )) || return 1
-_wanted worktrees expl worktree compadd -f -a paths

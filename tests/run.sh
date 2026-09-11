@@ -81,20 +81,6 @@ else
     skip "zsh is not installed"
 fi
 
-step "git-worktree behaviour, zsh (real repositories)"
-if command -v zsh >/dev/null 2>&1 && command -v git >/dev/null 2>&1; then
-    zsh -f tests/zsh/git-worktree.zsh || RC=1
-else
-    skip "zsh or git is not installed"
-fi
-
-step "git-worktree behaviour, fish (real repositories)"
-if command -v fish >/dev/null 2>&1 && command -v git >/dev/null 2>&1; then
-    fish --no-config tests/fish/git-worktree.fish || RC=1
-else
-    skip "fish or git is not installed"
-fi
-
 step "git-alias behaviour, zsh (real repositories)"
 if command -v zsh >/dev/null 2>&1 && command -v git >/dev/null 2>&1; then
     zsh -f tests/zsh/git-alias.zsh || RC=1

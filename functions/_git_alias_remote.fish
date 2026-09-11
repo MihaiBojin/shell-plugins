@@ -10,9 +10,6 @@ function _git_alias_remote -d 'The remote this repository belongs to'
     # this question worth asking: a fork you push to, an upstream you branch
     # from. _git_alias_push_remote reads it instead.
     #
-    # The git-worktree commands climb a longer ladder with the same rungs in
-    # the same order, plus a key of their own that gwa can write; see
-    # zsh/plugins/git-worktree/README.md#which-remote.
     set -l remotes (git remote 2>/dev/null)
     set -q remotes[1]; or return 1
     if test (count $remotes) -eq 1

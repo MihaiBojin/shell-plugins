@@ -11,9 +11,6 @@
 # question worth asking: a fork you push to, an upstream you branch from.
 # _git_alias_push_remote reads it instead.
 #
-# The git-worktree commands climb a longer ladder with the same rungs in the
-# same order, plus a key of their own that gwa can write; see
-# zsh/plugins/git-worktree/README.md#which-remote.
 emulate -L zsh
 
 local value branch candidate
