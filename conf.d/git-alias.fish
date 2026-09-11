@@ -13,8 +13,9 @@
 #
 # gpsup, gmom and grbom have to ask the repository something, so each expands to
 # a command substitution and the question is asked when the line runs rather
-# than when the shell started. gmom and grbom ask twice: which remote, then what
-# that remote calls its default branch.
+# than when the shell started. gmom and grbom ask twice which remote and twice
+# what that remote calls its default branch, once for the fetch and once for the
+# merge or the rebase.
 #
 # Not here, in functions/ instead: gb! and gbd!, which open a picker, and gcm,
 # gcm! and gup. An abbreviation expands to text you can read before it runs,
@@ -61,10 +62,13 @@ if status is-interactive
     # Catch this branch up with the default branch, whatever it is called here
     # and wherever this repository's remote is: merge it in, or replay onto it.
     # Either can stop on a conflict, so either has a --continue and an --abort.
-    abbr --add gmom -- 'git merge (_git_alias_remote)/(_git_alias_main_branch)'
+    #
+    # Both fetch that one branch first, so the branch is caught up with the
+    # tip the remote has now rather than whatever a local ref still says.
+    abbr --add gmom -- 'git fetch (_git_alias_remote) (_git_alias_main_branch) && git merge (_git_alias_remote)/(_git_alias_main_branch)'
     abbr --add gmc -- 'git merge --continue'
     abbr --add gma -- 'git merge --abort'
-    abbr --add grbom -- 'git rebase (_git_alias_remote)/(_git_alias_main_branch)'
+    abbr --add grbom -- 'git fetch (_git_alias_remote) (_git_alias_main_branch) && git rebase (_git_alias_remote)/(_git_alias_main_branch)'
     abbr --add grbc -- 'git rebase --continue'
     abbr --add grba -- 'git rebase --abort'
 

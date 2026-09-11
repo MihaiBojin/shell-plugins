@@ -23,10 +23,10 @@ two `gh` ones.
 | `gfa` | `git fetch --all --tags --prune --jobs=10` |
 | `gp` | `git push` |
 | `gpsup` | `git push --set-upstream <push remote> <current branch>` |
-| `gmom` | `git merge <remote>/<default branch>` |
+| `gmom` | `git fetch <remote> <default branch>`, then `git merge <remote>/<default branch>` |
 | `gmc` | `git merge --continue` |
 | `gma` | `git merge --abort` |
-| `grbom` | `git rebase <remote>/<default branch>` |
+| `grbom` | `git fetch <remote> <default branch>`, then `git rebase <remote>/<default branch>` |
 | `grbc` | `git rebase --continue` |
 | `grba` | `git rebase --abort` |
 | `gpa!` | `add -A`, commit as "save all", push, status |
@@ -45,11 +45,11 @@ runs only when something else has already loaded that file. So this is the one
 part of the package that runs at every Fish start — a run of `abbr` calls
 and nothing else, about 0.2ms, no forks.
 
-`gmom`, `grbom` and `gpsup` expand to a command substitution
-(`git merge (_git_alias_remote)/(_git_alias_main_branch)`), so the repository is
-asked when the line runs rather than when the shell started. `gmom` and `grbom`
-expand to two, one for the remote and one for its default branch. The helpers
-behind them are autoloaded functions, same names as the Zsh ones.
+`gmom`, `grbom` and `gpsup` expand to a command substitution, so the repository
+is asked when the line runs rather than when the shell started. `gmom` and
+`grbom` carry four of them: a remote and a default branch for the fetch, the
+same pair for the merge or the rebase. The helpers behind them are autoloaded
+functions, same names as the Zsh ones.
 
 `gpa!` and `gcap` are the same idea twice. `gpa!` keeps going when a step
 fails, which is ohmyzsh's behaviour and the reason the name is theirs; `gcap`
@@ -119,7 +119,8 @@ Every remote carries a default of its own, and they differ — a fork's `origin`
 can say `main` while its `upstream` says `develop`.
 
 `gmom` and `grbom` name that remote rather than a literal `origin`, so a fork
-checkout replays onto the remote it belongs to. The names are ohmyzsh's, where
+checkout replays onto the remote it belongs to. Both fetch that one branch
+first, so the base is the tip the remote has now. The names are ohmyzsh's, where
 the `om` is `origin` and nothing else.
 
 ## Commands that say what they are about to run
