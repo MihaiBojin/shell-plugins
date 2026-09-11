@@ -1,8 +1,0 @@
-# <remote>/HEAD in the repository at $2 (default: $PWD), but only when it
-# still points at a branch that exists — a
-# symref left dangling by a server-side rename is worse than no answer.
-local ref repo=${2:-$PWD}
-ref=$(git -C "$repo" symbolic-ref --quiet --short "refs/remotes/$1/HEAD" 2>/dev/null) || return 1
-[[ -n $ref ]] || return 1
-git -C "$repo" show-ref --verify --quiet "refs/remotes/$ref" 2>/dev/null || return 1
-print -r -- "$ref"

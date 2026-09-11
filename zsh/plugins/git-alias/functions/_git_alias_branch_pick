@@ -35,8 +35,7 @@ done
 
 local -a chosen
 # Installed and a terminal on stdin both: fzf with a redirected stdin draws its
-# full-screen UI over the terminal and waits for a key that cannot arrive. The
-# worktree pickers and _gw_choose ask the same question.
+# full-screen UI over the terminal and waits for a key that cannot arrive.
 if (( $+commands[fzf] )) && [[ -t 0 ]]; then
   local -a opts
   opts=(

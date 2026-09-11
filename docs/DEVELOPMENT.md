@@ -63,13 +63,12 @@ nothing loaded but the clock the measurement needs.
 
 | | Load |
 |---|---|
-| **aggregate, all six** | **0.87 ms** |
-| prompt | 0.09 ms |
-| bin | 0.23 ms |
+| **aggregate, all five** | **0.74 ms** |
+| prompt | 0.10 ms |
+| bin | 0.24 ms |
 | dns | 0.19 ms |
-| eternal-terminal | 0.21 ms |
-| git-alias | 0.36 ms |
-| git-worktree | 0.29 ms |
+| eternal-terminal | 0.20 ms |
+| git-alias | 0.32 ms |
 
 ```zsh
 zmodload zsh/datetime
@@ -81,22 +80,14 @@ print -f "%.4f ms\n" $(( ($EPOCHREALTIME - t0) * 1000 ))
 The per-plugin figures do not add up to the aggregate, and that is not an
 error. Each one measured alone pays about 0.15 ms of once-per-shell setup — the
 first prompt expansion, the first `fpath` write, the `source` machinery — which
-six plugins in one shell pay once between them. The aggregate is the number that
-describes a real startup.
+five plugins in one shell pay once between them. The aggregate is the number
+that describes a real startup.
 
-Where git-worktree's 0.29 ms goes:
-
-| | |
-|---|---|
-| the first `${(%):-%x}` in the shell | 0.10 ms, once however many plugins ask |
-| `source` machinery, and parsing 60 lines | 0.09 ms |
-| `fpath=( … $fpath )` | 0.03 ms |
-| `autoload -Uz` × 40 | 0.03 ms |
-| seven `typeset -g` | 0.01 ms |
-
-Forty autoload declarations are the cheapest thing in it. `autoload` writes a
-stub and reads nothing; the file behind each name is opened the first time that
-command is typed.
+Most of a plugin's figure is the first `${(%):-%x}` in the shell, around
+0.10 ms paid once however many plugins ask, plus the `source` machinery and the
+parse. The autoload declarations are the cheapest part: `autoload` writes a stub
+and reads nothing, so the file behind each name is opened the first time that
+command is typed, not at startup.
 
 ### Dynamic modules
 
@@ -115,12 +106,10 @@ and for the aggregate, by counting `zmodload` output before and after.
 
 Where each is loaded instead:
 
-- `zsh/zselect`, inside `_gw_run` on first use.
+- `zsh/zselect` — not at all. Nothing here calls `zselect`.
 - `zsh/parameter` — not at all at load time. The "has compinit run" test reads
   `$_comps`, the array compinit builds, rather than `$functions`.
-- `zsh/zutil` — not at all at load time. The `zstyle` calls that read
-  git-worktree's settings are inside the functions that need them, so a shell
-  that never runs one never loads the module.
+- `zsh/zutil` — not at all. No plugin here reads a `zstyle`.
 - `zsh/datetime` — not at all. Nothing here needs a clock any more.
 
 On the Fish side the only startup cost is `conf.d/git-alias.fish`: twenty-nine

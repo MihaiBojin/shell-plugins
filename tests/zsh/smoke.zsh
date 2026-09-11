@@ -19,7 +19,7 @@ typeset -g PASS=0 FAIL=0
 typeset -g ZSH=${commands[zsh]:-/bin/zsh}
 
 # Every logical plugin, in the order the aggregate loads them.
-typeset -ga LOGICAL=( bin dns eternal-terminal git-alias git-worktree prompt )
+typeset -ga LOGICAL=( bin dns eternal-terminal git-alias prompt )
 
 ok()   { (( PASS++ )); print -r  -- "  ok    $1" }
 bad()  { (( FAIL++ )); print -ru2 -- "  FAIL  $1"; [[ -n ${2-} ]] && print -ru2 -- "        $2" }
@@ -54,17 +54,17 @@ group "aggregate entry point"
 out=$(isolated "source $AGG")
 eq "shell-plugins.plugin.zsh loads without printing anything" "" "$out"
 
-typeset -g PUBLIC='gw gwl gwa gwr dns_records et'
+typeset -g PUBLIC='dns_records et'
 
 out=$(isolated "source $AGG
 for f in $PUBLIC; do
   whence -w \$f >/dev/null || print -r -- \"missing: \$f\"
 done
-alias gwh >/dev/null || print -r -- 'missing alias: gwh'")
+alias ga >/dev/null || print -r -- 'missing alias: ga'")
 eq "every public function and alias is defined" "" "$out"
 
-out=$(isolated "source $AGG; print -r -- \${\${(M)\$(whence -w gwa)}}")
-has "gwa is a function" "function" "$out"
+out=$(isolated "source $AGG; print -r -- \${\${(M)\$(whence -w 'gb!')}}")
+has "gb! is a function" "function" "$out"
 
 #
 # 3. Loading is autoload-only: no function body is read at startup.
@@ -72,10 +72,10 @@ has "gwa is a function" "function" "$out"
 group "autoloading"
 # An autoload-pending function has a stub body; the real one is only read on
 # first call. That is the whole point of the layout.
-out=$(isolated "source $AGG; functions gwa")
-has "gwa is still undefined right after loading" "undefined" "$out"
-out=$(isolated "source $AGG; gw >/dev/null; functions gwa")
-has "gwa is still undefined after an unrelated command ran" "undefined" "$out"
+out=$(isolated "source $AGG; functions 'gb!'")
+has "gb! is still undefined right after loading" "undefined" "$out"
+out=$(isolated "source $AGG; dns_records >/dev/null 2>&1; functions 'gb!'")
+has "gb! is still undefined after an unrelated command ran" "undefined" "$out"
 
 #
 # 4. Nothing forks during initialization.
@@ -114,23 +114,6 @@ unfunction compdef
 source $AGG")
 eq "no plugin calls compinit" "" "$out"
 
-# With compinit already run (the legacy ordering), git-worktree registers its
-# completions by hand rather than leaving them unreachable.
-# "compinit has already run" means $_comps exists — that is the array it
-# builds. A stubbed compdef is not the same claim, and must not trigger this.
-out=$(isolated "typeset -gA _comps=()
-typeset -ga REG=()
-compdef() { REG+=( \"\$1:\$2\" ) }
-source $PLUGINS/git-worktree/git-worktree.plugin.zsh
-print -r -- \${(j:,:)REG}")
-eq "git-worktree wires up compdef when compinit already ran" "_gwa:gwa,_gwl:gwl,_gwm:gwm,_gwr:gwr" "$out"
-
-out=$(isolated "typeset -ga REG=()
-compdef() { REG+=( \"\$1:\$2\" ) }
-source $PLUGINS/git-worktree/git-worktree.plugin.zsh
-print -r -- \"[\${(j:,:)REG}]\"")
-eq "a compdef stubbed before compinit does not" "[]" "$out"
-
 # Dynamic modules are the only thing at this scale that costs real time:
 # zsh/zutil is around 3.5ms, zsh/parameter 0.3ms, and each is paid once per
 # shell whether or not the feature that wanted one is ever used. So nothing
@@ -149,13 +132,6 @@ after=\$(zmodload | wc -l)
 print -r -- \$(( after - before ))")
   eq "$p loads no dynamic module" "0" "$out"
 done
-
-# With the documented ordering, compinit finds the #compdef files on fpath.
-out=$(isolated "source $AGG
-autoload -Uz compinit
-compinit -u -D
-print -r -- \"gwa=\$_comps[gwa] gwl=\$_comps[gwl] gwr=\$_comps[gwr]\"")
-eq "compinit picks up the completions from fpath" "gwa=_gwa gwl=_gwl gwr=_gwr" "$out"
 
 #
 # 6. The prompt.
@@ -202,9 +178,6 @@ eq "sourcing twice puts bin on \$PATH once" "1" "$out"
 # 8. The commands behave outside a repository / without their tools.
 #
 group "command behaviour"
-out=$(cd / && isolated "source $AGG; gw" | head -1 | cat -v)
-has "gw prints its help on stdout" "git worktree helpers" "$out"
-
 out=$(isolated "source $AGG; dns_records >/dev/null 2>&1; print -r -- \$?")
 eq "dns_records without an argument exits 2" "2" "$out"
 
@@ -226,8 +199,8 @@ eq "et resets the terminal before and after" \
 rm -rf $fakebin
 
 local norepo=$(mktemp -d)
-out=$(cd $norepo && isolated "source $AGG; gwl 2>&1 >/dev/null; print -r -- \$?" | tail -1)
-eq "gwl outside a repository exits 1" "1" "$out"
+out=$(cd $norepo && isolated "source $AGG; 'gb!' 2>&1 >/dev/null; print -r -- \$?" | tail -1)
+eq "gb! outside a repository exits 1" "1" "$out"
 rm -rf $norepo
 
 #

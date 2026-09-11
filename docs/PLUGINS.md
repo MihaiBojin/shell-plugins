@@ -7,7 +7,6 @@ install; the plugins are the feature boundaries inside it.
 |---|---|---|---|
 | prompt | `zsh/plugins/prompt` | `functions/fish_prompt.fish` | Minimal two-line Pure-like prompt |
 | git-alias | `zsh/plugins/git-alias` | `conf.d/git-alias.fish`, `functions/{gb!,gbd!}.fish` | The short git and `gh` commands, and the two pickers |
-| git-worktree | `zsh/plugins/git-worktree` | `functions/gw{,h,l,a,r}.fish` | `gw`/`gwl`/`gwa`/`gwr` worktree helpers |
 | dns | `zsh/plugins/dns` | `functions/dns_records.fish` | `dns_records` — dump a domain's common records |
 | eternal-terminal | `zsh/plugins/eternal-terminal` | `functions/et.fish` | `et` wrapper that unsticks the terminal after a drop |
 | bin | `zsh/plugins/bin` | one `fish_add_path` line | Puts `bin/` on `$PATH`, for the commands that are not shell code |
@@ -26,11 +25,6 @@ in `config.fish`, because Fisher only copies `functions/`, `conf.d/`,
 
 | Command | Shells | Requires | What it does |
 |---|---|---|---|
-| `gw`, `gwh` | zsh, fish | — | Print the git-worktree help |
-| `gwl [QUERY]` | zsh, fish | `git`, `fzf` (optional) | Pick a worktree and `cd` into it |
-| `gwa NAME [BASE]` | zsh, fish | `git` | Create a worktree on branch `NAME` and `cd` into it |
-| `gwr [PATH\|QUERY]` | zsh, fish | `git`, `gh`/`glab` (optional) | Remove a worktree whose branch is finished, and the branch with it |
-| `gwr --all [--yes]` | zsh, fish | `git`, `gh`/`glab` (optional) | The same, to every finished worktree at once |
 | `ga` `gaa` `gc` `gca` `gca!` `gcan!` `gb` `gco` `gcb` `gcm` `gst` `gd` `gdca` `gcp` `gcpc` `gcpa` `gfa` `gp` `gpsup` `gmom` `gmc` `gma` `grbom` `grbc` `grba` `gpa!` `gcap` | zsh, fish | `git` | The short git commands |
 | `gb! [QUERY]` | zsh, fish | `git`, `fzf` (optional) | Pick a branch and check it out. `gb` itself is plain `git branch` |
 | `gbd! [QUERY]` | zsh, fish | `git`, `fzf` (optional) | Delete branches, having said first whether each one is merged, squash-merged, or held by another ref |
@@ -63,17 +57,11 @@ Every feature is in both shells. Two commands sidestep the question entirely:
   equivalent anyway: an abbreviation expands where you can see it. Declaring one
   means `conf.d/`, which is why that directory is not empty — 0.22ms at every
   Fish start, and the only thing in the package that is not autoloaded.
-- **git-worktree** — both shells. The Fish commands are a reimplementation
-  rather than a translation, and a little smaller: 1832 lines against 2090.
-  Same commands, same layout, same predicate for what counts as finished, same
-  refusals. What is left out is deliberate and listed in
-  [the plugin's README](../zsh/plugins/git-worktree/README.md#the-fish-commands):
-  nothing interactive beyond the picker and the one `gwr` confirmation. Where
-  Zsh stops to offer a list — which remote, which head branch — Fish decides
-  for itself: it prefers `origin`, climbs the same head-branch ladder, and
-  warns when the answer it reached was a guess. Only when that ladder runs out
-  does it give up, and then it names `git remote set-head`, which records the
-  answer for both shells.
+- **The worktree commands** — neither shell, and not here. They live in
+  [MihaiBojin/worktrees](https://github.com/MihaiBojin/worktrees): one Python
+  package, `git-worktrees` on PyPI, shipping the four commands that `cd` their
+  caller as shell functions beside the binaries. One implementation serves both
+  shells, where this package carried two.
 - **`battery` and `macos`** — neither shell, which is the point. They print and
   exit without touching the shell, so they are bash scripts in `bin/` and there
   is only one copy of each. The cost is the `$PATH` line Fish needs, and that
@@ -119,7 +107,6 @@ plugin repository → register functions/ and completions/ on $fpath
 
 Fish completions live in the repository-root `completions/`, checked in rather
 than generated at startup, and Fish autoloads one the first time you press Tab
-on that command rather than at login. `gwl`, `gwa`, `gwm`, `gwr`, `gb!` and `gbd!`
-all have one, offering what their Zsh counterparts offer: branch names where a
-branch is wanted, this repository's worktree paths for `gwr`, and nothing where
-the argument is a name that does not exist yet.
+on that command rather than at login. `gb!` and `gbd!` have one each, offering
+branch names: every branch for `gb!`, only the local ones for `gbd!`, since
+only those can be deleted.
