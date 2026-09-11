@@ -65,10 +65,13 @@ alias gfa='git fetch --all --tags --prune --jobs=10'
 # can stop on a conflict, so either has a --continue and an --abort. The names
 # are ohmyzsh's, where the `om` is a literal origin; here it is the remote the
 # branch belongs to.
-alias gmom='git merge $(_git_alias_remote)/$(_git_alias_main_branch)'
+#
+# Both fetch that one branch first, so the branch is caught up with the tip the
+# remote has now rather than whatever a local ref still says.
+alias gmom='git fetch $(_git_alias_remote) $(_git_alias_main_branch) && git merge $(_git_alias_remote)/$(_git_alias_main_branch)'
 alias gmc='git merge --continue'
 alias gma='git merge --abort'
-alias grbom='git rebase $(_git_alias_remote)/$(_git_alias_main_branch)'
+alias grbom='git fetch $(_git_alias_remote) $(_git_alias_main_branch) && git rebase $(_git_alias_remote)/$(_git_alias_main_branch)'
 alias grbc='git rebase --continue'
 alias grba='git rebase --abort'
 
