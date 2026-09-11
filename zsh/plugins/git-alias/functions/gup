@@ -1,0 +1,16 @@
+# Fetch everything, prune what the remote dropped, then rebase onto it.
+emulate -L zsh
+
+if [[ $1 == -h || $1 == --help ]]; then
+  print -ru2 -- 'gup [ARGS...]      fetch all remotes, prune, then pull --rebase'
+  print -ru2 -- ''
+  print -ru2 -- 'The fetch has to succeed before the pull runs. Any arguments go to the'
+  print -ru2 -- 'pull, as they did when this was an abbreviation.'
+  return 0
+fi
+
+local -a fetch=(git fetch --all --tags --prune --jobs=10)
+local -a pull=(git pull --rebase "$@")
+
+_git_alias_announce "${(j: :)fetch} && ${(j: :)pull}"
+"${fetch[@]}" && "${pull[@]}"

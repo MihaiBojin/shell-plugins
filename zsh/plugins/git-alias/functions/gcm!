@@ -1,0 +1,31 @@
+# Go to the default branch and bring it up to date, in one command.
+#
+# The git commands are written out here rather than called through gcm and gup:
+# what this runs is what the line printed first says, and reading one file
+# answers what it does.
+emulate -L zsh
+
+if [[ $1 == -h || $1 == --help ]]; then
+  print -ru2 -- 'gcm!               check out the default branch, then fetch and rebase onto it'
+  print -ru2 -- ''
+  print -ru2 -- 'gcm followed by gup, as one command. Each step has to succeed before'
+  print -ru2 -- 'the next one runs. Takes no arguments.'
+  return 0
+fi
+
+if (( $# )); then
+  _git_alias_say err "gcm! takes no arguments — usage: gcm!"
+  return 2
+fi
+
+local branch
+branch=$(_git_alias_main_branch)
+if [[ -z $branch ]]; then
+  _git_alias_say err 'not a git repository'
+  return 1
+fi
+
+_git_alias_announce "git checkout $branch && git fetch --all --tags --prune --jobs=10 && git pull --rebase"
+git checkout $branch &&
+  git fetch --all --tags --prune --jobs=10 &&
+  git pull --rebase

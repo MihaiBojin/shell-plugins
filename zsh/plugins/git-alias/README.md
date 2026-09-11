@@ -14,7 +14,6 @@ two `gh` ones.
 | `gb` | `git branch` |
 | `gco` | `git checkout` |
 | `gcb` | `git checkout -b` |
-| `gcm` | `git checkout <default branch>` |
 | `gst` | `git status` |
 | `gd` | `git diff` |
 | `gdca` | `git diff --cached` |
@@ -43,14 +42,14 @@ that is what makes `gca!` reasonable to have on two keys.
 It has to be `conf.d/`, not `functions/`: an abbreviation only exists once
 something has declared it, and a declaration inside an autoloaded function file
 runs only when something else has already loaded that file. So this is the one
-part of the package that runs at every Fish start — twenty-nine builtin
-calls, 0.22ms, no forks.
+part of the package that runs at every Fish start — twenty-eight builtin
+calls, 0.21ms, no forks.
 
-`gcm`, `gmom`, `grbom` and `gpsup` expand to a command substitution
-(`git checkout (_git_alias_main_branch)`), so the repository is asked when the
-line runs rather than when the shell started. `gmom` and `grbom` expand to two,
-one for the remote and one for its default branch. The helpers behind them are
-autoloaded functions, same names as the Zsh ones.
+`gmom`, `grbom` and `gpsup` expand to a command substitution
+(`git merge (_git_alias_remote)/(_git_alias_main_branch)`), so the repository is
+asked when the line runs rather than when the shell started. `gmom` and `grbom`
+expand to two, one for the remote and one for its default branch. The helpers
+behind them are autoloaded functions, same names as the Zsh ones.
 
 `gpa!` and `gcap` are the same idea twice. `gpa!` keeps going when a step
 fails, which is ohmyzsh's behaviour and the reason the name is theirs; `gcap`
@@ -89,9 +88,9 @@ ohmyzsh/ohmyzsh path:plugins/git
 `git`. `gh-login` and `gh-add-key` need the GitHub CLI, at the moment you run
 them.
 
-`gpsup`, `gcm`, `gmom` and `grbom` resolve what they need at the moment you
-run
-them, from git's own configuration. This feature adds no settings of its own.
+`gpsup`, `gcm`, `gcm!`, `gmom` and `grbom` resolve what they need at the moment
+you run them, from git's own configuration. This feature adds no settings of its
+own.
 
 **Which remote** (`_git_alias_remote`), when a repository has more than one:
 
@@ -122,6 +121,26 @@ can say `main` while its `upstream` says `develop`.
 `gmom` and `grbom` name that remote rather than a literal `origin`, so a fork
 checkout replays onto the remote it belongs to. The names are ohmyzsh's, where
 the `om` is `origin` and nothing else.
+
+## Commands that say what they are about to run
+
+`gcm`, `gcm!` and `gup` are functions in both shells rather than an alias and an
+abbreviation. Both of those expand to a fixed string, and the default branch is
+not one: `git checkout (_git_alias_main_branch)` is what you could read before
+pressing Return, and the branch it reached was only visible afterwards.
+
+Each prints the command it is about to run on stderr first, with the branch
+filled in, dimmed when stderr is a terminal and plain when it is redirected.
+stderr keeps them pipeable.
+
+| Command | What it does |
+|---|---|
+| `gcm [ARGS...]` | Check out the default branch. Arguments follow the branch name |
+| `gup [ARGS...]` | `git fetch --all --tags --prune --jobs=10`, then `git pull --rebase`. Arguments go to the pull |
+| `gcm!` | Both, in order, stopping at the first failure. Takes no arguments |
+
+`gcm!` writes the git commands out rather than calling `gcm` and `gup`, so the
+line it prints is exactly what runs and one file answers what it does.
 
 ## Branch commands
 

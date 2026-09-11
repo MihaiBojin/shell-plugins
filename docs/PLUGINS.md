@@ -6,7 +6,7 @@ install; the plugins are the feature boundaries inside it.
 | Feature | Zsh | Fish | Purpose |
 |---|---|---|---|
 | prompt | `zsh/plugins/prompt` | `functions/fish_prompt.fish` | Minimal two-line Pure-like prompt |
-| git-alias | `zsh/plugins/git-alias` | `conf.d/git-alias.fish`, `functions/{gb!,gbd!}.fish` | The short git and `gh` commands, and the two pickers |
+| git-alias | `zsh/plugins/git-alias` | `conf.d/git-alias.fish`, `functions/{gb!,gbd!,gcm,gcm!,gup}.fish` | The short git and `gh` commands, the two pickers, and the three that announce |
 | dns | `zsh/plugins/dns` | `functions/dns_records.fish` | `dns_records` — dump a domain's common records |
 | eternal-terminal | `zsh/plugins/eternal-terminal` | `functions/et.fish` | `et` wrapper that unsticks the terminal after a drop |
 | bin | `zsh/plugins/bin` | one `fish_add_path` line | Puts `bin/` on `$PATH`, for the commands that are not shell code |
@@ -25,7 +25,10 @@ in `config.fish`, because Fisher only copies `functions/`, `conf.d/`,
 
 | Command | Shells | Requires | What it does |
 |---|---|---|---|
-| `ga` `gaa` `gc` `gca` `gca!` `gcan!` `gb` `gco` `gcb` `gcm` `gst` `gd` `gdca` `gcp` `gcpc` `gcpa` `gfa` `gp` `gpsup` `gmom` `gmc` `gma` `grbom` `grbc` `grba` `gpa!` `gcap` | zsh, fish | `git` | The short git commands |
+| `ga` `gaa` `gc` `gca` `gca!` `gcan!` `gb` `gco` `gcb` `gst` `gd` `gdca` `gcp` `gcpc` `gcpa` `gfa` `gp` `gpsup` `gmom` `gmc` `gma` `grbom` `grbc` `grba` `gpa!` `gcap` | zsh, fish | `git` | The short git commands |
+| `gcm [ARGS...]` | zsh, fish | `git` | Check out the default branch, naming it first |
+| `gup [ARGS...]` | zsh, fish | `git` | Fetch every remote and prune, then `git pull --rebase` |
+| `gcm!` | zsh, fish | `git` | `gcm` then `gup`, stopping at the first failure |
 | `gb! [QUERY]` | zsh, fish | `git`, `fzf` (optional) | Pick a branch and check it out. `gb` itself is plain `git branch` |
 | `gbd! [QUERY]` | zsh, fish | `git`, `fzf` (optional) | Delete branches, having said first whether each one is merged, squash-merged, or held by another ref |
 | `gh-login` `gh-add-key` | zsh, fish | `gh` | Authenticate a new machine with GitHub over SSH |
@@ -52,10 +55,12 @@ models differ enough that a common layer costs more than it saves.
 
 Every feature is in both shells. Two commands sidestep the question entirely:
 
-- **git-alias** — both shells. The `gb!` and `gbd!` pickers are functions in
-  both. The rest are Zsh aliases and Fish abbreviations, which is the closer
+- **git-alias** — both shells. Five are functions in both: the `gb!` and `gbd!`
+  pickers, and `gcm`, `gcm!` and `gup`, which print the command they are about
+  to run because the default branch in it is not known early enough to expand.
+  The rest are Zsh aliases and Fish abbreviations, which is the closer
   equivalent anyway: an abbreviation expands where you can see it. Declaring one
-  means `conf.d/`, which is why that directory is not empty — 0.22ms at every
+  means `conf.d/`, which is why that directory is not empty — 0.21ms at every
   Fish start, and the only thing in the package that is not autoloaded.
 - **The worktree commands** — neither shell, and not here. They live in
   [MihaiBojin/worktrees](https://github.com/MihaiBojin/worktrees): one Python
