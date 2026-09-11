@@ -4,20 +4,21 @@
 # startup to exist: declared inside an autoloaded function file it only appears
 # once something else has caused that file to load, which is a rule nobody can
 # keep in their head. This is the one thing in this package that runs at every
-# Fish start, and it is twenty-nine builtin calls: 0.22ms, measured, no forks.
+# Fish start, and it is twenty-eight builtin calls: 0.21ms, measured, no forks.
 #
 # Abbreviations rather than functions, because expansion is the point: what runs
 # is what you can see on the line before you press Return, and it lands in
 # history spelled out. That is also what makes `gca!` safe to have.
 #
-# The four that have to ask the repository something expand to a command
+# The three that have to ask the repository something expand to a command
 # substitution, so the question is asked when the line runs rather than when the
 # shell started. gmom and grbom ask twice: which remote, then what that remote
 # calls its default branch.
 #
-# Not here: gb! and gbd!, which open a picker — an abbreviation expands to text
-# you can read before it runs, and there is nothing readable to expand a picker
-# to.
+# Not here, all five in functions/: gb! and gbd!, which open a picker, and gcm,
+# gcm! and gup. An abbreviation expands to text you can read before it runs,
+# and neither a picker nor a resolved default branch is known that early. Those
+# five print what they are about to run instead.
 
 if status is-interactive
     # Add, commit, amend
@@ -28,12 +29,13 @@ if status is-interactive
     abbr --add 'gca!' -- 'git commit --verbose --all --amend'
     abbr --add 'gcan!' -- 'git commit --verbose --all --no-edit --amend'
 
-    # Move about. gcm goes to whatever this repository calls its default
-    # branch, asked at the moment you run it rather than guessed.
+    # Move about. Not here: gcm, gcm! and gup, which are functions in
+    # functions/. An abbreviation expands to a fixed string, so the default
+    # branch gcm reached could only be read after the checkout; the functions
+    # print the resolved command first instead.
     abbr --add gb -- 'git branch'
     abbr --add gco -- 'git checkout'
     abbr --add gcb -- 'git checkout -b'
-    abbr --add gcm -- 'git checkout (_git_alias_main_branch)'
     abbr --add gst -- 'git status'
 
     # Look

@@ -60,6 +60,23 @@ pty.spawn([sys.argv[1], "--no-config", "-c", sys.argv[2]], rd)
 $argv[1]" >/dev/null 2>&1
 end
 
+# The same, keeping what the pty printed. with_tty sends it to /dev/null, and
+# redirecting to a file inside the pty defeats the point: the thing under test
+# asks whether stderr is a terminal.
+function tty_capture -d 'Run a fish snippet under a real pty and keep its output'
+    python3 -c '
+import pty, sys, os
+fh = open(sys.argv[3], "wb")
+def rd(fd):
+    data = os.read(fd, 1024)
+    fh.write(data); fh.flush()
+    return data
+pty.spawn([sys.argv[1], "--no-config", "-c", sys.argv[2]], rd)
+fh.close()
+' (status fish-path) "set -p fish_function_path $ROOT/functions
+$argv[1]" $argv[2] >/dev/null 2>&1
+end
+
 function skip
     echo "  skip  $argv[1]"
 end
@@ -92,11 +109,12 @@ end
 
 source $ROOT/conf.d/git-alias.fish
 
-eq 'every abbreviation is declared' 29 (abbr --list | count)
+eq 'every abbreviation is declared' 28 (abbr --list | count)
 eq 'ga adds' 'git add' (abbr --show | string match -r "abbr -a -- ga '(.*)'" | tail -1)
 has 'gst is git status' "abbr -a -- gst 'git status'" (abbr --show | string join ' ')
 has 'gca! amends' "gca! 'git commit --verbose --all --amend'" (abbr --show | string join ' ')
-has 'gcm asks the repository for its default branch' "gcm 'git checkout (_git_alias_main_branch)'" (abbr --show | string join ' ')
+eq 'gcm is a function, not an abbreviation' 0 (abbr --list | string match -r '^gcm$' | count)
+eq 'and so are gcm! and gup' 0 (abbr --list | string match -r '^(gcm!|gup)$' | count)
 has 'gpsup asks for the current branch' '_git_alias_current_branch' (abbr --show | string join ' ')
 has 'grbom asks for the remote and its default branch' "grbom 'git rebase (_git_alias_remote)/(_git_alias_main_branch)'" (abbr --show | string join ' ')
 has 'gmom asks the same two questions' "gmom 'git merge (_git_alias_remote)/(_git_alias_main_branch)'" (abbr --show | string join ' ')
@@ -391,6 +409,63 @@ eq 'the pair gmom and grbom name' fork/main (_git_alias_remote)/(_git_alias_main
 
 git config branch.main.remote upstream
 eq 'and it follows the configuration when it changes' upstream/develop (_git_alias_remote)/(_git_alias_main_branch)
+popd >/dev/null
+
+#
+# gcm, gcm! and gup: the three that announce before they run.
+#
+echo
+echo 'gcm, gcm! and gup'
+
+set -l clones (mktemp -d)
+set -g SANDBOXES $SANDBOXES $clones
+git init -q --initial-branch=main $clones/up
+pushd $clones/up >/dev/null
+echo a >f
+git add f; and git commit -qm init
+popd >/dev/null
+git clone -q $clones/up $clones/work
+pushd $clones/work >/dev/null
+git checkout -q -b feature
+
+set -l out (gcm 2>&1)
+has 'gcm names the branch it resolved' 'git checkout main' (string join ' ' -- $out)
+eq 'and checks it out' main (git branch --show-current)
+
+# Not a terminal here, so the line is the command and nothing else. git's own
+# report follows it on stderr, hence the first line rather than all of them.
+set out (gcm 2>&1 >/dev/null)
+eq 'the announcement carries no escapes off a terminal' 'git checkout main' $out[1]
+
+if have_tty_runner
+    set -l marker $clones/tty.out
+    git checkout -q -b feature-tty
+    tty_capture "cd $clones/work; gcm" $marker
+    has 'and dims it on one' \e\[2m (cat $marker | string join ' ')
+else
+    skip 'the announcement is dimmed on a terminal (needs python3)'
+end
+
+git checkout -q -b feature2
+set out (gcm! 2>&1)
+has 'gcm! writes out every command it runs' \
+    'git checkout main && git fetch --all --tags --prune --jobs=10 && git pull --rebase' \
+    (string join ' ' -- $out)
+eq 'and ends on the default branch' main (git branch --show-current)
+
+gcm! --oops >/dev/null 2>&1
+eq 'gcm! refuses an argument' 2 $status
+
+set out (gup 2>&1)
+has 'gup writes out the fetch and the pull' \
+    'git fetch --all --tags --prune --jobs=10 && git pull --rebase' (string join ' ' -- $out)
+
+popd >/dev/null
+pushd $clones >/dev/null
+set out (gcm 2>&1)
+has 'gcm outside a repository says so' 'not a git repository' (string join ' ' -- $out)
+gcm >/dev/null 2>&1
+eq 'and exits 1' 1 $status
 popd >/dev/null
 
 cleanup

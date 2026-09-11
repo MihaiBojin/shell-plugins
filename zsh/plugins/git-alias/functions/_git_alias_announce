@@ -1,0 +1,15 @@
+# Print the command a git-alias function is about to run, on stderr.
+#
+# These three replaced aliases, and an alias showed you what it expanded to
+# before it ran. The line is what you get instead, with the parts an alias
+# could not resolve -- the default branch -- already filled in.
+#
+# stderr so the commands stay pipeable, and dim only when stderr is a terminal:
+# a redirected line is read by something that wants text, not escapes.
+emulate -L zsh
+
+if [[ -t 2 ]]; then
+  print -ru2 -- $'\e[2m'"$*"$'\e[0m'
+else
+  print -ru2 -- "$*"
+fi

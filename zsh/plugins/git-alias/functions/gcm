@@ -1,0 +1,24 @@
+# Check out whatever this repository calls its default branch.
+emulate -L zsh
+
+if [[ $1 == -h || $1 == --help ]]; then
+  print -ru2 -- 'gcm [ARGS...]      check out the default branch'
+  print -ru2 -- ''
+  print -ru2 -- 'The branch is asked for at the moment you run this, not guessed, and'
+  print -ru2 -- 'the line printed first names the one it reached. Any arguments follow'
+  print -ru2 -- 'the branch name, as they did when this was an alias.'
+  return 0
+fi
+
+local branch
+# A non-zero status here means the answer is a guess rather than an advertised
+# head, which is git's to refuse: the alias this replaced ran it either way.
+branch=$(_git_alias_main_branch)
+if [[ -z $branch ]]; then
+  _git_alias_say err 'not a git repository'
+  return 1
+fi
+
+local -a cmd=(git checkout $branch "$@")
+_git_alias_announce ${(j: :)cmd}
+"${cmd[@]}"

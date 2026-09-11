@@ -45,6 +45,25 @@ cd ${(q)dir} || exit 1
 $body" >/dev/null 2>&1
 }
 
+# The same, keeping what the pty printed. with_tty sends it to /dev/null, and
+# redirecting to a file inside the pty defeats the point: the thing under test
+# asks whether stderr is a terminal.
+tty_capture() {
+  local dir=$1 body=$2 out=$3
+  python3 -c '
+import pty, sys, os
+fh = open(sys.argv[3], "wb")
+def rd(fd):
+    data = os.read(fd, 1024)
+    fh.write(data); fh.flush()
+    return data
+pty.spawn([sys.argv[1], "-f", "-c", sys.argv[2]], rd)
+fh.close()
+' zsh "source ${(q)ROOT}/zsh/plugins/git-alias/git-alias.plugin.zsh
+cd ${(q)dir} || exit 1
+$body" "$out" >/dev/null 2>&1
+}
+
 cleanup() { local s; for s in $SANDBOXES; do rm -rf $s; done }
 trap cleanup EXIT
 
@@ -197,6 +216,58 @@ eq 'the pair gmom and grbom name' fork/main "$(_git_alias_remote)/$(_git_alias_m
 
 git config branch.main.remote upstream
 eq 'and it follows the configuration when it changes' upstream/develop "$(_git_alias_remote)/$(_git_alias_main_branch)"
+
+#
+# gcm, gcm! and gup: the three that announce before they run.
+#
+group "gcm, gcm! and gup"
+
+local clones=$(mktemp -d)
+SANDBOXES+=( $clones )
+git init -q --initial-branch=main $clones/up
+cd $clones/up
+print -r -- a > f
+git add f && git commit -qm init
+git clone -q $clones/up $clones/work
+cd $clones/work
+git checkout -q -b feature
+
+local out
+out=$(gcm 2>&1)
+has 'gcm names the branch it resolved' 'git checkout main' "$out"
+eq 'and checks it out' main "$(git branch --show-current)"
+
+# Not a terminal here, so the line is the command and nothing else. git's own
+# report follows it on stderr, hence the first line rather than all of them.
+out=$(gcm 2>&1 >/dev/null | head -1)
+eq 'the announcement carries no escapes off a terminal' 'git checkout main' "$out"
+
+if have_tty_runner; then
+  local marker=$clones/tty.out
+  git checkout -q -b feature-tty
+  tty_capture $clones/work gcm $marker
+  has 'and dims it on one' $'\e[2m' "$(<$marker)"
+else
+  skip 'the announcement is dimmed on a terminal (needs python3)'
+fi
+
+git checkout -q -b feature2
+out=$(gcm! 2>&1)
+has 'gcm! writes out every command it runs' \
+    'git checkout main && git fetch --all --tags --prune --jobs=10 && git pull --rebase' "$out"
+eq 'and ends on the default branch' main "$(git branch --show-current)"
+
+gcm! --oops >/dev/null 2>&1
+eq 'gcm! refuses an argument' 2 $?
+
+out=$(gup 2>&1)
+has 'gup writes out the fetch and the pull' \
+    'git fetch --all --tags --prune --jobs=10 && git pull --rebase' "$out"
+
+out=$(cd $clones && gcm 2>&1)
+has 'gcm outside a repository says so' 'not a git repository' "$out"
+(cd $clones && gcm >/dev/null 2>&1)
+eq 'and exits 1' 1 $?
 
 cd $ROOT
 print -r -- ""

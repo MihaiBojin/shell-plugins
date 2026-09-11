@@ -6,14 +6,16 @@
 # that earn their keep, defined here so the collection can stand on its own.
 # Two `gh` aliases ride along at the bottom, for the same reason.
 #
-# Aliases, plus the gb! and gbd! pickers, which are functions.
+# Aliases, plus five functions: the gb! and gbd! pickers, and gcm, gcm! and gup,
+# which print the command they are about to run.
 #
 fpath=( ${${(%):-%x}:A:h}/functions $fpath )
 
-autoload -Uz 'gb!' 'gbd!' \
+autoload -Uz 'gb!' 'gbd!' gcm 'gcm!' gup \
   _git_alias_current_branch _git_alias_main_branch \
   _git_alias_remote _git_alias_push_remote \
-  _git_alias_say _git_alias_branch_pick _git_alias_branch_state
+  _git_alias_say _git_alias_announce \
+  _git_alias_branch_pick _git_alias_branch_state
 
 # Add, commit, amend
 alias ga='git add'
@@ -24,7 +26,9 @@ alias 'gca!'='git commit --verbose --all --amend'
 alias 'gcan!'='git commit --verbose --all --no-edit --amend'
 
 # Move about. gcm goes to whatever this repository calls its default branch,
-# asked at the moment you run it rather than guessed.
+# asked at the moment you run it rather than guessed, and is a function
+# autoloaded above: an alias expands to a fixed string, so the branch it reached
+# could only be read after the checkout. gcm! is gcm and gup in one command.
 #
 # gb is git branch itself, so `gb -d name`, `gb -a` and every other flag pass
 # through. The picker that fuzzy-finds a branch and checks it out is `gb!`,
@@ -34,7 +38,6 @@ alias 'gcan!'='git commit --verbose --all --no-edit --amend'
 alias gb='git branch'
 alias gco='git checkout'
 alias gcb='git checkout -b'
-alias gcm='git checkout $(_git_alias_main_branch)'
 alias gst='git status'
 
 # Look
