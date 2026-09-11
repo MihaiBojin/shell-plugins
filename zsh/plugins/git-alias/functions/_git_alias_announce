@@ -4,11 +4,11 @@
 # before it ran. The line is what you get instead, with the parts an alias
 # could not resolve -- the default branch -- already filled in.
 #
-# stderr so the commands stay pipeable, and dim only when stderr is a terminal:
-# a redirected line is read by something that wants text, not escapes.
+# stderr so the commands stay pipeable, and dim only when _git_alias_colour
+# says stderr takes colour.
 emulate -L zsh
 
-if [[ -t 2 ]]; then
+if _git_alias_colour; then
   print -ru2 -- $'\e[2m'"$*"$'\e[0m'
 else
   print -ru2 -- "$*"

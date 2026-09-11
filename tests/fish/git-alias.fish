@@ -466,6 +466,18 @@ set out (gcm 2>&1)
 has 'gcm outside a repository says so' 'not a git repository' (string join ' ' -- $out)
 gcm >/dev/null 2>&1
 eq 'and exits 1' 1 $status
+
+# _git_alias_say carries the same rule as the announcement: colour on a
+# terminal, text in a pipe. Every message in the package goes through it.
+eq 'a redirected err carries no escapes' 'git-alias: not a git repository' (gcm 2>&1 >/dev/null)
+
+if have_tty_runner
+    set -l says $clones/say.out
+    tty_capture "cd $clones; gcm" $says
+    has 'and it is red on a terminal' \e\[31m (cat $says | string join ' ')
+else
+    skip 'an err is red on a terminal (needs python3)'
+end
 popd >/dev/null
 
 cleanup

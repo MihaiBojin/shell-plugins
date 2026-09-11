@@ -14,7 +14,7 @@ fpath=( ${${(%):-%x}:A:h}/functions $fpath )
 autoload -Uz 'gb!' 'gbd!' gcm 'gcm!' gup \
   _git_alias_current_branch _git_alias_main_branch \
   _git_alias_remote _git_alias_push_remote \
-  _git_alias_say _git_alias_announce \
+  _git_alias_say _git_alias_announce _git_alias_colour \
   _git_alias_branch_pick _git_alias_branch_state
 
 # Add, commit, amend
