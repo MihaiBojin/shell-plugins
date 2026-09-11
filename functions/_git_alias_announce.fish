@@ -4,11 +4,10 @@ function _git_alias_announce -d 'Print the command a git-alias function is about
     # parts an abbreviation could not resolve -- the default branch -- already
     # filled in.
     #
-    # stderr so the commands stay pipeable, and dim only when stderr is a
-    # terminal: a redirected line is read by something that wants text, not
-    # escapes.
+    # stderr so the commands stay pipeable, and dim only when
+    # _git_alias_colour says stderr takes colour.
     set -l line (string join ' ' -- $argv)
-    if isatty stderr
+    if _git_alias_colour
         echo (set_color --dim)$line(set_color normal) >&2
     else
         echo $line >&2

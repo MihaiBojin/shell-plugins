@@ -1,13 +1,16 @@
 # Print a git-alias message on stderr.
 #
 # One place decides what these messages look like, and they all go to stderr so
-# `gb` and the pickers stay pipeable.
+# `gb` and the pickers stay pipeable. Colour only when _git_alias_colour says
+# stderr takes it: an err or warn caught in a pipe is read as text.
 emulate -L zsh
 
-local level=$1 colour=''
-case $level in
-  err)  colour=$'\e[31m' ;;
-  warn) colour=$'\e[33m' ;;
-esac
+local level=$1 colour='' reset=''
+if _git_alias_colour; then
+  case $level in
+    err)  colour=$'\e[31m'; reset=$'\e[0m' ;;
+    warn) colour=$'\e[33m'; reset=$'\e[0m' ;;
+  esac
+fi
 shift
-print -ru2 -- "${colour}git-alias:"$'\e[0m'" $*"
+print -ru2 -- "${colour}git-alias:${reset} $*"
