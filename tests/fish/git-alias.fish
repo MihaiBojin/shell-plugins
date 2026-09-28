@@ -249,10 +249,14 @@ chmod +x $fake/fzf
 
 pushd $bs >/dev/null
 set -l seen (sandbox)/lines
-begin
-    set -lx PATH $fake $PATH
-    set -lx FAKE_FZF_LINES $seen
-    _git_alias_branch_pick 'branch>' '' >/dev/null
+if have_tty_runner
+    with_tty "set -gx PATH $fake \$PATH
+        set -gx FAKE_FZF_LINES $seen
+        cd $bs
+        _git_alias_branch_pick 'branch>' ''"
+else
+    skip 'the picker preview assertions (no python3 for a pty)'
+    printf '' >$seen
 end
 
 set -l last_fields
@@ -260,6 +264,7 @@ for line in (cat $seen)
     set -a last_fields (string split \t -- $line)[-1]
 end
 
+have_tty_runner; and eq 'fzf was handed more than one branch' 1 (test (count (cat $seen)) -gt 1; and echo 1; or echo 0)
 eq 'every line carries a last field' (count (cat $seen)) (count $last_fields)
 
 set -l bad 0
