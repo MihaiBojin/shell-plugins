@@ -8,7 +8,7 @@ install; the plugins are the feature boundaries inside it.
 | prompt | `zsh/plugins/prompt` | `functions/fish_prompt.fish` | Minimal two-line Pure-like prompt |
 | git-alias | `zsh/plugins/git-alias` | `conf.d/git-alias.fish`, `functions/{gb!,gbd!,gcm,gcm!,gup,gupf}.fish` | The short git and `gh` commands, the two pickers, and the three that announce |
 | kubectl | `zsh/plugins/kubectl` | `conf.d/kubectl.fish` | `k`, `kube` and `kes` |
-| coreutils | `zsh/plugins/coreutils` | `conf.d/coreutils.fish`, `functions/{diff,gls,grep}.fish` | Colour for `ls`, `gls`, `grep` and `diff` on a terminal, and `ll`, `lla` |
+| coreutils | `zsh/plugins/coreutils` | `conf.d/coreutils.fish`, `functions/{diff,gls,grep}.fish` | Colour for `ls`, `gls`, `grep` and `diff` on a terminal, and `ll` |
 | help | `zsh/plugins/help` | `functions/shell-plugins-help.fish` | `shell-plugins-help` lists every shortcut from `functions/shell-plugins-help.tsv` |
 | dns | `zsh/plugins/dns` | `functions/dns_records.fish` | `dns_records` — dump a domain's common records |
 | eternal-terminal | `zsh/plugins/eternal-terminal` | `functions/et.fish` | `et` wrapper that unsticks the terminal after a drop |
@@ -35,7 +35,7 @@ in `config.fish`, because Fisher only copies `functions/`, `conf.d/`,
 | `gcm!` | zsh, fish | `git` | `gcm` then `gup`, stopping at the first failure |
 | `k` `kube` | zsh, fish | `kubectl` | `kubectl` |
 | `kes POD` | zsh, fish | `kubectl` | The events for one pod, oldest first. Fish's abbreviation leaves the cursor on the pod name |
-| `ll` `lla` | zsh, fish | — | `ls -alh --color=auto` and `ls -alh` |
+| `ll` | zsh, fish | — | `ls -alh --color=auto` |
 | `ls` `gls` `grep` `diff` | zsh, fish | — | `--color=auto`; `diff` only where it takes the flag, and Fish's own `ls` already colours |
 | `shell-plugins-help` | zsh, fish | — | Every shortcut, one a line, with what it does |
 | `gb! [QUERY]` | zsh, fish | `git`, `fzf` (optional) | Pick a branch and check it out. `gb` itself is plain `git branch` |
