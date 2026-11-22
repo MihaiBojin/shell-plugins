@@ -465,6 +465,10 @@ set out (gup 2>&1)
 has 'gup writes out the fetch and the pull' \
     'git fetch --all --tags --prune --jobs=10 && git pull --ff-only' (string join ' ' -- $out)
 
+set out (gupf 2>&1)
+has 'gupf forces the tag fetch' \
+    'git fetch --all --tags --prune --jobs=10 --force && git pull --ff-only' (string join ' ' -- $out)
+
 popd >/dev/null
 pushd $clones >/dev/null
 set out (gcm 2>&1)

@@ -1,0 +1,16 @@
+# gup, with tags the remote moved updated here too: the fetch takes --force.
+emulate -L zsh
+
+if [[ $1 == -h || $1 == --help ]]; then
+  print -ru2 -- 'gupf [ARGS...]     gup, with tags the remote moved updated here too'
+  print -ru2 -- ''
+  print -ru2 -- 'The fetch has to succeed before the pull runs. Any arguments go to the'
+  print -ru2 -- 'pull, as they did when this was an abbreviation.'
+  return 0
+fi
+
+local -a fetch=(git fetch --all --tags --prune --jobs=10 --force)
+local -a pull=(git pull --ff-only "$@")
+
+_git_alias_announce "${(j: :)fetch} && ${(j: :)pull}"
+"${fetch[@]}" && "${pull[@]}"

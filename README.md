@@ -39,6 +39,9 @@ MihaiBojin/shell-plugins path:zsh/plugins/git-alias
 MihaiBojin/shell-plugins path:zsh/plugins/dns
 MihaiBojin/shell-plugins path:zsh/plugins/eternal-terminal
 MihaiBojin/shell-plugins path:zsh/plugins/bin
+MihaiBojin/shell-plugins path:zsh/plugins/coreutils
+MihaiBojin/shell-plugins path:zsh/plugins/kubectl
+MihaiBojin/shell-plugins path:zsh/plugins/help
 ```
 
 Both forms are supported and will stay supported. Every plugin also works when
@@ -86,11 +89,17 @@ jorgebucaran/fisher
 MihaiBojin/shell-plugins
 ```
 
-`conf.d/` holds one file, `git-alias.fish`, and holding it to one is
-deliberate: everything in that directory runs at every interactive Fish start.
-An abbreviation has to be declared there or it does not exist, which is why
-that one is allowed. Everything else in the package is autoloaded and costs
-nothing until you type its name.
+`conf.d/` holds the abbreviations, `coreutils.fish`, `git-alias.fish` and
+`kubectl.fish`, and nothing else: everything in that directory runs at every
+interactive Fish start, and an abbreviation has to be declared there or it does
+not exist. Everything else in the package is autoloaded and costs nothing until
+you type its name.
+
+## Listing the shortcuts
+
+`shell-plugins-help` prints every shortcut, one a line, with what it does. Both
+shells read `functions/shell-plugins-help.tsv`, and the tests fail when a
+shortcut is defined without a row there or a row names nothing.
 
 ## Commands on `$PATH`
 

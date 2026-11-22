@@ -1,0 +1,14 @@
+# The events for one pod, across every namespace, oldest first.
+#
+#   kes POD
+#
+# A function in Zsh, where Fish has an abbreviation that leaves the cursor on
+# the pod name: an alias cannot put an argument in the middle of a line.
+emulate -L zsh
+
+if [[ $# -ne 1 ]]; then
+  print -ru2 -- 'usage: kes POD'
+  return 2
+fi
+
+kubectl get events -A --sort-by=.lastTimestamp --field-selector "involvedObject.name=$1"

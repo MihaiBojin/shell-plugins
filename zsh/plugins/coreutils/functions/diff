@@ -1,0 +1,12 @@
+# diff with --color=auto where diff has it.
+#
+# An older BSD diff has no --color, and asking costs a fork, so this asks on
+# first use, replaces itself with an alias or with nothing, and runs the diff
+# it was called for.
+unfunction diff
+if command diff --color /dev/null /dev/null &> /dev/null; then
+  alias diff='diff --color=auto'
+  command diff --color=auto "$@"
+else
+  command diff "$@"
+fi
