@@ -19,7 +19,7 @@ typeset -g PASS=0 FAIL=0
 typeset -g ZSH=${commands[zsh]:-/bin/zsh}
 
 # Every logical plugin, in the order the aggregate loads them.
-typeset -ga LOGICAL=( bin dns eternal-terminal git-alias prompt )
+typeset -ga LOGICAL=( bin coreutils dns eternal-terminal git-alias help kubectl prompt )
 
 ok()   { (( PASS++ )); print -r  -- "  ok    $1" }
 bad()  { (( FAIL++ )); print -ru2 -- "  FAIL  $1"; [[ -n ${2-} ]] && print -ru2 -- "        $2" }
@@ -274,6 +274,23 @@ if (( $#offenders )); then
 else
   ok "no function shadows a zsh special parameter"
 fi
+
+#
+# 10. shell-plugins-help lists every shortcut, and only those.
+#
+group "shell-plugins-help"
+local -a listed defined only_listed only_defined
+listed=( ${(f)"$(cut -f1 $ROOT/functions/shell-plugins-help.tsv)"} )
+defined=( ${(f)"$(isolated "source $AGG; print -l \${(k)aliases} \${(k)functions}")"} )
+# What zsh -f defines itself, the commands that are not shortcuts, and helpers.
+defined=( ${defined:#(_*|run-help|which-command|dns_records|et|shell-plugins-help)} )
+only_listed=( ${listed:|defined} )
+only_defined=( ${defined:|listed} )
+eq "every listed shortcut is defined" "" "${(j: :)only_listed}"
+eq "every shortcut is listed" "" "${(j: :)only_defined}"
+out=$(isolated "source $AGG; shell-plugins-help")
+has "shell-plugins-help prints a shortcut and what it does" "gupf  " "$out"
+eq "and one line a shortcut" $#listed ${#${(f)out}}
 
 print -r -- ""
 print -r -- "zsh: $PASS passed, $FAIL failed"

@@ -72,10 +72,12 @@ or ok "there is no fish/ directory to confuse Fisher"
 # enumerated: the abbreviations, which cannot exist any other way. A second file
 # has to be added here before it is allowed.
 set -l confd (path basename $ROOT/conf.d/*.fish)
-eq "conf.d/ holds only what must run at startup" "git-alias.fish" (string join ' ' $confd)
+eq "conf.d/ holds only what must run at startup" "coreutils.fish git-alias.fish kubectl.fish" (string join ' ' $confd)
 
-set -l offenders (string match --regex --invert '^\s*(#|$|if status is-interactive|end|abbr --add )' <$ROOT/conf.d/git-alias.fish)
-eq "conf.d/git-alias.fish only declares abbreviations" "" (string join ' ' $offenders)
+for f in $confd
+    set -l offenders (string match --regex --invert '^\s*(#|$|if status is-interactive|end|abbr --add )' <$ROOT/conf.d/$f)
+    eq "conf.d/$f only declares abbreviations" "" (string join ' ' $offenders)
+end
 
 # One public function per file, named after the file.
 for file in $ROOT/functions/*.fish
@@ -165,6 +167,30 @@ eq "et resets the terminal before and after" \
    '^[[?1049l^[[?1047l^[[?47l^[[?1l^[[?1000l^[[?1002l^[[?1003l^[[?1006l^[[?1007l^[[?1049l^[[?1047l^[[?47l^[[?1l^[[?1000l^[[?1002l^[[?1003l^[[?1006l^[[?1007l' \
    "$out"
 rm -rf $fakebin
+
+#
+# shell-plugins-help lists every shortcut, and only those.
+#
+group "shell-plugins-help"
+set -l listed (string replace --regex -- '\t.*' '' <$ROOT/functions/shell-plugins-help.tsv)
+set -l defined (cat $ROOT/conf.d/*.fish | string replace --regex --filter -- "^\s*abbr --add '?([^' ]+)'? .*" '$1')
+# ls is Fish's own function, which already colours a terminal.
+set -a defined ls (path basename $ROOT/functions/*.fish | string replace --regex -- '\.fish$' '' \
+    | string match --regex --invert -- '^(_.*|dns_records|et|fish_prompt|shell-plugins-help)$')
+set -l only_listed
+for n in $listed
+    contains -- $n $defined; or set -a only_listed $n
+end
+set -l only_defined
+for n in $defined
+    contains -- $n $listed; or set -a only_defined $n
+end
+eq "every listed shortcut is defined" "" (string join ' ' $only_listed)
+eq "every shortcut is listed" "" (string join ' ' $only_defined)
+set -l out (env XDG_CONFIG_HOME=$sandbox/config XDG_DATA_HOME=$sandbox/data HOME=$sandbox/home \
+    $FISH --command shell-plugins-help)
+has "shell-plugins-help prints a shortcut and what it does" "gupf  " (string join ' ' -- $out)
+eq "and one line a shortcut" (count $listed) (count $out)
 
 rm -rf $sandbox
 

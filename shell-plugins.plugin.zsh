@@ -28,8 +28,11 @@
   local _sp_plugins=${${(%):-%x}:A:h}/zsh/plugins
 
   source $_sp_plugins/bin/bin.plugin.zsh
+  source $_sp_plugins/coreutils/coreutils.plugin.zsh
   source $_sp_plugins/dns/dns.plugin.zsh
   source $_sp_plugins/eternal-terminal/eternal-terminal.plugin.zsh
   source $_sp_plugins/git-alias/git-alias.plugin.zsh
+  source $_sp_plugins/help/help.plugin.zsh
+  source $_sp_plugins/kubectl/kubectl.plugin.zsh
   source $_sp_plugins/prompt/prompt.plugin.zsh
 }

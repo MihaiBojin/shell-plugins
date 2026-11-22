@@ -1,0 +1,18 @@
+# Print every shortcut shell-plugins defines, from the list both shells read.
+emulate -L zsh
+zmodload -F zsh/parameter p:functions_source
+
+local file=${functions_source[shell-plugins-help]:A:h:h:h:h:h}/functions/shell-plugins-help.tsv
+if [[ ! -r $file ]]; then
+  print -ru2 -- "shell-plugins-help: cannot read $file"
+  return 1
+fi
+
+local -a rows=( ${(f)"$(<$file)"} )
+local row width=0
+for row in $rows; do
+  (( ${#row%%$'\t'*} > width )) && width=${#row%%$'\t'*}
+done
+for row in $rows; do
+  printf '%-*s  %s\n' $width "${row%%$'\t'*}" "${row#*$'\t'}"
+done

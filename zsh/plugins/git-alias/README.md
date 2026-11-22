@@ -125,7 +125,7 @@ the `om` is `origin` and nothing else.
 
 ## Commands that say what they are about to run
 
-`gcm`, `gcm!` and `gup` are functions in both shells rather than an alias and an
+`gcm`, `gcm!`, `gup` and `gupf` are functions in both shells rather than an alias and an
 abbreviation. Both of those expand to a fixed string, and the default branch is
 not one: `git checkout (_git_alias_main_branch)` is what you could read before
 pressing Return, and the branch it reached was only visible afterwards.
@@ -138,7 +138,8 @@ stderr keeps them pipeable.
 |---|---|
 | `gcm [ARGS...]` | Check out the default branch. Arguments follow the branch name |
 | `gup [ARGS...]` | `git fetch --all --tags --prune --jobs=10`, then `git pull --ff-only`. Arguments go to the pull |
-| `gcm!` | Both, in order, stopping at the first failure. Takes no arguments |
+| `gupf [ARGS...]` | `gup`, with `--force` on the fetch so tags the remote moved are updated here too |
+| `gcm!` | `gcm` and `gup`, in order, stopping at the first failure. Takes no arguments |
 
 `gcm!` writes the git commands out rather than calling `gcm` and `gup`, so the
 line it prints is exactly what runs and one file answers what it does.

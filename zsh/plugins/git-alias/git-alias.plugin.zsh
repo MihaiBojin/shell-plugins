@@ -6,12 +6,12 @@
 # that earn their keep, defined here so the collection can stand on its own.
 # Two `gh` aliases ride along at the bottom, for the same reason.
 #
-# Aliases, plus functions: the gb! and gbd! pickers, and gcm, gcm! and gup,
-# which print the command they are about to run.
+# Aliases, plus functions: the gb! and gbd! pickers, and gcm, gcm!, gup
+# and gupf, which print the command they are about to run.
 #
 fpath=( ${${(%):-%x}:A:h}/functions $fpath )
 
-autoload -Uz 'gb!' 'gbd!' gcm 'gcm!' gup \
+autoload -Uz 'gb!' 'gbd!' gcm 'gcm!' gup gupf \
   _git_alias_current_branch _git_alias_main_branch \
   _git_alias_remote _git_alias_push_remote \
   _git_alias_say _git_alias_announce _git_alias_colour \

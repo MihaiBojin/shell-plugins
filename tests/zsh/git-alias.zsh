@@ -264,6 +264,10 @@ out=$(gup 2>&1)
 has 'gup writes out the fetch and the pull' \
     'git fetch --all --tags --prune --jobs=10 && git pull --ff-only' "$out"
 
+out=$(gupf 2>&1)
+has 'gupf forces the tag fetch' \
+    'git fetch --all --tags --prune --jobs=10 --force && git pull --ff-only' "$out"
+
 out=$(cd $clones && gcm 2>&1)
 has 'gcm outside a repository says so' 'not a git repository' "$out"
 (cd $clones && gcm >/dev/null 2>&1)

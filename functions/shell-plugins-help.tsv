@@ -1,0 +1,43 @@
+ga	git add
+gaa	git add --all
+gc	git commit --verbose
+gca	git commit --verbose --all
+gca!	git commit --verbose --all --amend
+gcan!	git commit --verbose --all --no-edit --amend
+gb	git branch
+gb!	Pick a branch and check it out
+gbd!	Pick branches to delete, saying first whether each is merged
+gco	git checkout
+gcb	git checkout -b
+gcm	Check out the default branch
+gcm!	gcm, then gup
+gst	git status
+gd	git diff
+gdca	git diff --cached
+gcp	git cherry-pick
+gcpc	git cherry-pick --continue
+gcpa	git cherry-pick --abort
+gp	git push
+gpsup	git push --set-upstream to the push remote, for a new branch
+gfa	git fetch --all --tags --prune --jobs=10
+gup	Fetch every remote and prune, then git pull --ff-only
+gupf	gup, with tags the remote moved updated here too
+gmom	Fetch the default branch and merge it in
+gmc	git merge --continue
+gma	git merge --abort
+grbom	Fetch the default branch and rebase onto it
+grbc	git rebase --continue
+grba	git rebase --abort
+gpa!	Add everything, commit "save all", push, even after a failure
+gcap	Add everything, commit and push, stopping at the first failure
+gh-login	gh auth login over SSH
+gh-add-key	Add ~/.ssh/id_ed25519.pub to GitHub
+k	kubectl
+kube	kubectl
+kes	The events for one pod, oldest first
+ls	ls, coloured on a terminal
+gls	GNU ls, coloured on a terminal
+ll	ls -lh
+lla	ls -alh
+grep	grep, coloured on a terminal
+diff	diff, coloured on a terminal where diff can
