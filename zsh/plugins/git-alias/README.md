@@ -137,7 +137,7 @@ stderr keeps them pipeable.
 | Command | What it does |
 |---|---|
 | `gcm [ARGS...]` | Check out the default branch. Arguments follow the branch name |
-| `gup [ARGS...]` | `git fetch --all --tags --prune --jobs=10`, then `git pull --rebase`. Arguments go to the pull |
+| `gup [ARGS...]` | `git fetch --all --tags --prune --jobs=10`, then `git pull --ff-only`. Arguments go to the pull |
 | `gcm!` | Both, in order, stopping at the first failure. Takes no arguments |
 
 `gcm!` writes the git commands out rather than calling `gcm` and `gup`, so the

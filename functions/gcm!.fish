@@ -3,7 +3,7 @@ function gcm! -d 'Go to the default branch and bring it up to date, in one comma
     # gup: what this runs is what the line printed first says, and reading one
     # file answers what it does.
     if test "$argv[1]" = -h -o "$argv[1]" = --help
-        echo 'gcm!               check out the default branch, then fetch and rebase onto it' >&2
+        echo 'gcm!               check out the default branch, then fetch and fast-forward it' >&2
         echo '' >&2
         echo 'gcm followed by gup, as one command. Each step has to succeed before' >&2
         echo 'the next one runs. Takes no arguments.' >&2
@@ -21,8 +21,8 @@ function gcm! -d 'Go to the default branch and bring it up to date, in one comma
         return 1
     end
 
-    _git_alias_announce "git checkout $branch && git fetch --all --tags --prune --jobs=10 && git pull --rebase"
+    _git_alias_announce "git checkout $branch && git fetch --all --tags --prune --jobs=10 && git pull --ff-only"
     git checkout $branch
     and git fetch --all --tags --prune --jobs=10
-    and git pull --rebase
+    and git pull --ff-only
 end
