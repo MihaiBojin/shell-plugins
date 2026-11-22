@@ -4,6 +4,6 @@
 # --color=auto from functions/ instead.
 
 if status is-interactive
-    abbr --add ll -- 'ls -lh'
+    abbr --add ll -- 'ls -alh --color=auto'
     abbr --add lla -- 'ls -alh'
 end
