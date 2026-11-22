@@ -35,7 +35,7 @@ in `config.fish`, because Fisher only copies `functions/`, `conf.d/`,
 | `gcm!` | zsh, fish | `git` | `gcm` then `gup`, stopping at the first failure |
 | `k` `kube` | zsh, fish | `kubectl` | `kubectl` |
 | `kes POD` | zsh, fish | `kubectl` | The events for one pod, oldest first. Fish's abbreviation leaves the cursor on the pod name |
-| `ll` `lla` | zsh, fish | — | `ls -lh` and `ls -alh` |
+| `ll` `lla` | zsh, fish | — | `ls -alh --color=auto` and `ls -alh` |
 | `ls` `gls` `grep` `diff` | zsh, fish | — | `--color=auto`; `diff` only where it takes the flag, and Fish's own `ls` already colours |
 | `shell-plugins-help` | zsh, fish | — | Every shortcut, one a line, with what it does |
 | `gb! [QUERY]` | zsh, fish | `git`, `fzf` (optional) | Pick a branch and check it out. `gb` itself is plain `git branch` |
