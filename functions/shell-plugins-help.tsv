@@ -38,6 +38,5 @@ kes	The events for one pod, oldest first
 ls	ls, coloured on a terminal
 gls	GNU ls, coloured on a terminal
 ll	ls -alh --color=auto
-lla	ls -alh
 grep	grep, coloured on a terminal
 diff	diff, coloured on a terminal where diff can
