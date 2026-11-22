@@ -27,7 +27,7 @@ in `config.fish`, because Fisher only copies `functions/`, `conf.d/`,
 |---|---|---|---|
 | `ga` `gaa` `gc` `gca` `gca!` `gcan!` `gb` `gco` `gcb` `gst` `gd` `gdca` `gcp` `gcpc` `gcpa` `gfa` `gp` `gpsup` `gmom` `gmc` `gma` `grbom` `grbc` `grba` `gpa!` `gcap` | zsh, fish | `git` | The short git commands |
 | `gcm [ARGS...]` | zsh, fish | `git` | Check out the default branch, naming it first |
-| `gup [ARGS...]` | zsh, fish | `git` | Fetch every remote and prune, then `git pull --rebase` |
+| `gup [ARGS...]` | zsh, fish | `git` | Fetch every remote and prune, then `git pull --ff-only` |
 | `gcm!` | zsh, fish | `git` | `gcm` then `gup`, stopping at the first failure |
 | `gb! [QUERY]` | zsh, fish | `git`, `fzf` (optional) | Pick a branch and check it out. `gb` itself is plain `git branch` |
 | `gbd! [QUERY]` | zsh, fish | `git`, `fzf` (optional) | Delete branches, having said first whether each one is merged, squash-merged, or held by another ref |

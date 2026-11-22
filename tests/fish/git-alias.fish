@@ -454,7 +454,7 @@ end
 git checkout -q -b feature2
 set out (gcm! 2>&1)
 has 'gcm! writes out every command it runs' \
-    'git checkout main && git fetch --all --tags --prune --jobs=10 && git pull --rebase' \
+    'git checkout main && git fetch --all --tags --prune --jobs=10 && git pull --ff-only' \
     (string join ' ' -- $out)
 eq 'and ends on the default branch' main (git branch --show-current)
 
@@ -463,7 +463,7 @@ eq 'gcm! refuses an argument' 2 $status
 
 set out (gup 2>&1)
 has 'gup writes out the fetch and the pull' \
-    'git fetch --all --tags --prune --jobs=10 && git pull --rebase' (string join ' ' -- $out)
+    'git fetch --all --tags --prune --jobs=10 && git pull --ff-only' (string join ' ' -- $out)
 
 popd >/dev/null
 pushd $clones >/dev/null

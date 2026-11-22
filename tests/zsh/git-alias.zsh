@@ -254,7 +254,7 @@ fi
 git checkout -q -b feature2
 out=$(gcm! 2>&1)
 has 'gcm! writes out every command it runs' \
-    'git checkout main && git fetch --all --tags --prune --jobs=10 && git pull --rebase' "$out"
+    'git checkout main && git fetch --all --tags --prune --jobs=10 && git pull --ff-only' "$out"
 eq 'and ends on the default branch' main "$(git branch --show-current)"
 
 gcm! --oops >/dev/null 2>&1
@@ -262,7 +262,7 @@ eq 'gcm! refuses an argument' 2 $?
 
 out=$(gup 2>&1)
 has 'gup writes out the fetch and the pull' \
-    'git fetch --all --tags --prune --jobs=10 && git pull --rebase' "$out"
+    'git fetch --all --tags --prune --jobs=10 && git pull --ff-only' "$out"
 
 out=$(cd $clones && gcm 2>&1)
 has 'gcm outside a repository says so' 'not a git repository' "$out"

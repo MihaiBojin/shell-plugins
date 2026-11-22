@@ -1,8 +1,8 @@
-# Fetch everything, prune what the remote dropped, then rebase onto it.
+# Fetch everything, prune what the remote dropped, then fast-forward to it.
 emulate -L zsh
 
 if [[ $1 == -h || $1 == --help ]]; then
-  print -ru2 -- 'gup [ARGS...]      fetch all remotes, prune, then pull --rebase'
+  print -ru2 -- 'gup [ARGS...]      fetch all remotes, prune, then pull --ff-only'
   print -ru2 -- ''
   print -ru2 -- 'The fetch has to succeed before the pull runs. Any arguments go to the'
   print -ru2 -- 'pull, as they did when this was an abbreviation.'
@@ -10,7 +10,7 @@ if [[ $1 == -h || $1 == --help ]]; then
 fi
 
 local -a fetch=(git fetch --all --tags --prune --jobs=10)
-local -a pull=(git pull --rebase "$@")
+local -a pull=(git pull --ff-only "$@")
 
 _git_alias_announce "${(j: :)fetch} && ${(j: :)pull}"
 "${fetch[@]}" && "${pull[@]}"
